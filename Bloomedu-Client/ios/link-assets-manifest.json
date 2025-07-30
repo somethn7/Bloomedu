@@ -1,0 +1,13 @@
+{
+  "migIndex": 1,
+  "data": [
+    {
+      "path": "screens/assets/fonts/Baloo 2.ttf",
+      "sha1": "178f4c9e630ed8707fdc6acf3db52e91f10308aa"
+    },
+    {
+      "path": "screens/assets/fonts/Quicksand.ttf",
+      "sha1": "4ee75a4e8cdc8d7cb73c9d37859d5e96da254ecb"
+    }
+  ]
+}
