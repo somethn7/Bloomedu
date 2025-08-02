@@ -6,8 +6,8 @@ const sendStudentCredentials = async (toEmail, studentCode, studentPassword) => 
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: "gozdeertas21080@gmail.com",         // <-- kendi gmail adresini yaz
-        pass: "teeybucjxubhdiuw",              // <-- Google'dan aldığın 16 karakterlik uygulama şifresi
+        user: "bloomedu.app@gmail.com",         // <-- kendi gmail adresini yaz
+        pass: "hswehknbnjxnzkej",              // <-- Google'dan aldığın 16 karakterlik uygulama şifresi
       },
     });
 

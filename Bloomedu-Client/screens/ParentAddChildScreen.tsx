@@ -1,4 +1,4 @@
-import React, { useState, useLayoutEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -10,70 +10,85 @@ import {
   Image,
   TouchableOpacity,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-function AddChildScreen({ navigation }: any) {
+function ParentAddChildScreen({ navigation }: any) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [studentCode, setStudentCode] = useState('');
   const [password, setPassword] = useState('');
 
-  // Simüle edilmiş öğretmen veri tabanı
-  const teacherChildList = [
-    {
-      firstName: 'Ahmet',
-      lastName: 'Yılmaz',
-      studentCode: 'A1234',
-      password: 'abc123',
-    },
-    {
-      firstName: 'Zeynep',
-      lastName: 'Kara',
-      studentCode: 'Z5678',
-      password: 'zey789',
-    },
-  ];
+  // ✅ BURADA TEMİZLİYORUZ
+  useEffect(() => {
+   // AsyncStorage.removeItem('parentData');
+  // console.log('🧹 AsyncStorage temizlendi.');
+  }, []);
 
   useLayoutEffect(() => {
     navigation.setOptions({
       headerTitle: 'Add Child',
       headerTitleStyle: {
-        color: '#888888', // Gri renk
+        color: '#888888',
         fontWeight: 'bold',
         fontSize: 18,
       },
     });
   }, [navigation]);
 
-  const validateAndProceed = () => {
+  const validateAndProceed = async () => {
     if (!firstName || !lastName || !studentCode || !password) {
       Alert.alert('Missing Information', 'Please fill in all the fields.');
       return;
     }
 
-    const matchedChild = teacherChildList.find(
-      (child) =>
-        child.firstName.toLowerCase() === firstName.toLowerCase() &&
-        child.lastName.toLowerCase() === lastName.toLowerCase() &&
-        child.studentCode === studentCode &&
-        child.password === password
-    );
+    try {
+      const parentIdString = await AsyncStorage.getItem('parent_id');
+      
+      if (!parentIdString) {
+        Alert.alert('Error', 'Parent not logged in.');
+        return;
+      }
 
-    if (matchedChild) {
-      Alert.alert('Success', 'Child matched. Redirecting to the survey screen.');
-      navigation.navigate('Survey', { child: matchedChild });
-    } else {
-      Alert.alert('Error', 'Information did not match. Please check again.');
+      const parentData = JSON.parse(parentIdString);
+
+      const parentId = typeof parentData === 'object' && parentData.id ? parentData.id : parentData;
+      if (!parentId) {
+        Alert.alert('Error', 'Invalid parent data.');
+        return;
+      }
+
+      const response = await fetch('http://10.0.2.2:3000/parent/verify-child', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          firstName,
+          lastName,
+          studentCode,
+          studentPassword: password,
+          parentId,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        Alert.alert('Success', 'Child matched. Redirecting to the survey screen.');
+        navigation.navigate('Survey', { child: data.child });
+      } else {
+        Alert.alert('Error', data.message || 'Information did not match.');
+      }
+    } catch (error) {
+      Alert.alert('Network Error', 'Could not connect to server.');
+      console.error('Fetch error:', error);
     }
   };
 
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={styles.container}>
-
-        {/* İkon ve Child Verification yazısı ekran içinde */}
         <View style={styles.iconTitleWrapper}>
           <Image
-            source={require('./assets/child.png')} // ikon dosyanı buraya koy
+            source={require('./assets/child.png')}
             style={styles.icon}
           />
           <Text style={styles.title}>Child Verification</Text>
@@ -121,7 +136,7 @@ function AddChildScreen({ navigation }: any) {
   );
 }
 
-export default AddChildScreen;
+export default ParentAddChildScreen;
 
 const styles = StyleSheet.create({
   container: {
@@ -143,7 +158,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     textAlign: 'center',
-    color: '#73c0ff', // Açık mavi başlık rengi
+    color: '#73c0ff',
   },
   info: {
     fontSize: 16,
@@ -153,7 +168,7 @@ const styles = StyleSheet.create({
   },
   input: {
     borderWidth: 1,
-    borderColor: '#999',  // Daha belirgin sınır
+    borderColor: '#999',
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,
@@ -163,15 +178,15 @@ const styles = StyleSheet.create({
   customButton: {
     marginTop: 16,
     borderWidth: 2,
-    borderColor: '#2a6dfcb9',  // Mavi border
+    borderColor: '#2a6dfcb9',
     borderRadius: 8,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#2a6dfcd8',  // Mavi arka plan
+    backgroundColor: '#2a6dfcd8',
     alignItems: 'center',
   },
   customButtonText: {
-    color: '#fff',  // Beyaz yazı
+    color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },

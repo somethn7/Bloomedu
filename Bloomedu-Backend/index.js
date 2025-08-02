@@ -7,9 +7,16 @@ const cors = require('cors');
 const pool = require('./db');
 const sendVerificationCode = require('./utils/sendVerificationCode');
 const sendStudentCredentials = require('./utils/sendMail');
+// Not: sendPasswordResetMail kullandıysan utils klasöründe hazır olmalı
 
 app.use(cors());
 app.use(express.json());
+
+// Tüm gelen isteklerin method, url ve body'sini konsola yazdıran middleware
+app.use((req, res, next) => {
+  console.log(`👉 ${req.method} ${req.url} - Body:`, req.body);
+  next();
+});
 
 // Basit e-posta formatı doğrulama fonksiyonu
 function isValidEmail(email) {
@@ -17,8 +24,11 @@ function isValidEmail(email) {
   return re.test(email);
 }
 
-// Öğretmen login
+// === TEACHER LOGIN ===
 app.post('/teacher/login', async (req, res) => {
+  console.log('🎯 Teacher login endpoint called');
+  console.log('📥 Request body:', req.body);
+
   const { email, password } = req.body;
   try {
     const teacher = await pool.query(
@@ -26,9 +36,10 @@ app.post('/teacher/login', async (req, res) => {
       [email, password]
     );
     if (teacher.rows.length > 0) {
-      // teacherId döndür
+      console.log(`✅ Teacher found: ID ${teacher.rows[0].id}`);
       res.json({ success: true, teacherId: teacher.rows[0].id });
     } else {
+      console.log('❌ Invalid credentials');
       res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
   } catch (err) {
@@ -37,7 +48,7 @@ app.post('/teacher/login', async (req, res) => {
   }
 });
 
-// Çocuk ekleme - mail gönderme eklenmiş
+// === ADD CHILD (ÖĞRETMEN ÇOCUK EKLEME) ===
 app.post('/add-child', async (req, res) => {
   const {
     name,
@@ -53,6 +64,10 @@ app.post('/add-child', async (req, res) => {
     student_password,
     parent_email,
   } = req.body;
+
+  if (!teacher_id) {
+    return res.status(400).json({ success: false, message: 'Teacher ID is required.' });
+  }
 
   if (!parent_email) {
     return res.status(400).json({ success: false, message: 'Parent email is required to send student credentials.' });
@@ -88,7 +103,7 @@ app.post('/add-child', async (req, res) => {
   }
 });
 
-// Öğretmenin çocuklarını listeleme
+// === GET CHILDREN BY TEACHER ===
 app.get('/children/:teacherId', async (req, res) => {
   const { teacherId } = req.params;
   try {
@@ -103,7 +118,7 @@ app.get('/children/:teacherId', async (req, res) => {
   }
 });
 
-// 1) Signup endpoint: sadece doğrulama kodu gönderir, kullanıcı oluşturmaz
+// === PARENT SIGNUP (Mail doğrulama kodu gönderilir) ===
 app.post('/parent/signup', async (req, res) => {
   const { name, email, password } = req.body;
 
@@ -111,27 +126,23 @@ app.post('/parent/signup', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Name, email and password are required.' });
   }
 
-  // Mail format kontrolü
   if (!isValidEmail(email)) {
     return res.status(400).json({ success: false, message: 'Invalid email format' });
   }
 
   try {
-    // Email daha önce kayıtlı mı kontrol et
     const existing = await pool.query('SELECT * FROM parents WHERE email = $1', [email]);
 
     if (existing.rows.length > 0) {
       return res.status(400).json({ success: false, message: 'Email already registered.' });
     }
 
-    // Doğrulama kodu oluştur
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Mail gönder
     await sendVerificationCode(email, verificationCode);
     console.log(`Verification code sent to ${email}: ${verificationCode}`);
 
-    // Doğrulama kodunu frontend'e dön (frontend saklamalı)
+    // Burada kodu geçici tut, frontend ile paylaş, veya DB'de sakla (şimdilik frontend'te tutuyorsan döndürülebilir)
     res.json({ success: true, message: 'Verification code sent to email.', verificationCode });
   } catch (err) {
     console.error('Error sending verification code:', err);
@@ -139,7 +150,7 @@ app.post('/parent/signup', async (req, res) => {
   }
 });
 
-// 2) Verify code endpoint: kod doğruysa kullanıcıyı veritabanına ekle
+// === PARENT VERIFY CODE & REGISTER ===
 app.post('/parent/verify-code', async (req, res) => {
   const { name, email, password, inputCode, originalCode } = req.body;
 
@@ -152,13 +163,11 @@ app.post('/parent/verify-code', async (req, res) => {
   }
 
   try {
-    // Kayıtlı mı kontrol et (bu sefer kayıt yapılmamış olacak)
     const existing = await pool.query('SELECT * FROM parents WHERE email = $1', [email]);
     if (existing.rows.length > 0) {
       return res.status(400).json({ success: false, message: 'Email already registered.' });
     }
 
-    // Kullanıcıyı oluştur ve doğrulanmış olarak işaretle
     const result = await pool.query(
       `INSERT INTO parents (name, email, password, is_verified)
        VALUES ($1, $2, $3, $4) RETURNING *`,
@@ -172,7 +181,7 @@ app.post('/parent/verify-code', async (req, res) => {
   }
 });
 
-// Veli giriş (mail doğrulama zorunlu)
+// === PARENT LOGIN ===
 app.post('/parent/login', async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -195,6 +204,122 @@ app.post('/parent/login', async (req, res) => {
   }
 });
 
+// === PARENT FORGOT PASSWORD - REQUEST RESET CODE ===
+app.post('/parent/request-reset', async (req, res) => {
+  const { email } = req.body;
+
+  if (!email || !isValidEmail(email)) {
+    return res.status(400).json({ success: false, message: 'Valid email required' });
+  }
+
+  try {
+    const existing = await pool.query('SELECT * FROM parents WHERE email = $1', [email]);
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Email not found' });
+    }
+
+    const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+    await pool.query(
+      'UPDATE parents SET verification_code = $1 WHERE email = $2',
+      [resetCode, email]
+    );
+
+    await sendVerificationCode(email, resetCode);
+
+    res.json({ success: true, message: 'Reset code sent to email.' });
+  } catch (err) {
+    console.error('Error in /parent/request-reset:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// === PARENT RESET PASSWORD ===
+app.post('/parent/reset-password', async (req, res) => {
+  const { email, code, newPassword } = req.body;
+
+  if (!email || !code || !newPassword) {
+    return res.status(400).json({ success: false, message: 'All fields required' });
+  }
+
+  try {
+    const result = await pool.query('SELECT * FROM parents WHERE email = $1', [email]);
+    const user = result.rows[0];
+
+    if (!user || user.verification_code !== code) {
+      return res.status(400).json({ success: false, message: 'Invalid code or email' });
+    }
+
+    await pool.query(
+      'UPDATE parents SET password = $1, verification_code = NULL WHERE email = $2',
+      [newPassword, email]
+    );
+
+    res.json({ success: true, message: 'Password updated' });
+  } catch (err) {
+    console.error('Error in /parent/reset-password:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// === PARENT VERIFY CHILD (VELİ ÇOCUK EKLEME) ===
+// === PARENT VERIFY CHILD (VELİ ÇOCUK EKLEME) ===
+app.post('/parent/verify-child', async (req, res) => {
+  const { firstName, lastName, studentCode, studentPassword, parentId } = req.body;
+
+  if (!firstName || !lastName || !studentCode || !studentPassword || !parentId) {
+    return res.status(400).json({ success: false, message: 'All fields are required.' });
+  }
+
+  const normalizedFirst = firstName.trim().toLowerCase();
+  const normalizedLast = lastName.trim().toLowerCase();
+
+  try {
+    const result = await pool.query(
+      `SELECT * FROM children WHERE 
+        LOWER(TRIM(name)) = $1 AND 
+        LOWER(TRIM(surname)) = $2 AND 
+        student_code = $3 AND 
+        student_password = $4`,
+      [normalizedFirst, normalizedLast, studentCode, studentPassword]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(400).json({ success: false, message: 'Information did not match.' });
+    }
+
+    const child = result.rows[0];
+
+    if (!child.parent_id || child.parent_id !== parentId) {
+      await pool.query(
+        `UPDATE children SET parent_id = $1 WHERE id = $2`,
+        [parentId, child.id]
+      );
+    }
+
+    res.json({ success: true, child });
+  } catch (error) {
+    console.error('DB Error (POST /parent/verify-child):', error);
+    res.status(500).json({ success: false, message: 'Server error', error: error.message });
+  }
+});
+
+
+// === GET CHILDREN BY PARENT ===
+app.get('/children-by-parent/:parentId', async (req, res) => {
+  const { parentId } = req.params;
+  try {
+    const children = await pool.query(
+      'SELECT * FROM children WHERE parent_id = $1',
+      [parentId]
+    );
+    res.json({ success: true, children: children.rows });
+  } catch (err) {
+    console.error('DB Error (GET /children-by-parent/:parentId):', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// === START SERVER ===
 app.listen(port, () => {
   console.log(`✅ Backend is running on http://localhost:${port}`);
 });

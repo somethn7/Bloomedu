@@ -19,7 +19,7 @@ interface Student {
   favoriteGames?: string[];
 }
 
-const TeacherStudentsScreen = ({ navigation }: any) => {
+const TeacherDashboardScreen = ({ navigation }: any) => {
   const [showProgress, setShowProgress] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(false);
@@ -122,7 +122,7 @@ const TeacherStudentsScreen = ({ navigation }: any) => {
   );
 };
 
-export default TeacherStudentsScreen;
+export default TeacherDashboardScreen;
 
 const styles = StyleSheet.create({
   container: {

@@ -4,11 +4,12 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import SplashScreen from './screens/SplashScreen';
 import HomeScreen from './screens/HomeScreen';
-import LoginScreen from './screens/LoginScreen';
+import ParentLoginScreen from './screens/ParentLoginScreen';
 import ParentSignUpScreen from './screens/ParentSignUpScreen';
 import ParentVerifyCodeScreen from './screens/ParentVerifyCodeScreen';
-import DashboardScreen from './screens/DashboardScreen';
-import AddChildScreen from './screens/AddChildScreen';
+import ParentDashboardScreen from './screens/ParentDashboardScreen';
+import ParentAddChildScreen from './screens/ParentAddChildScreen';
+import ParentForgotPasswordScreen from './screens/ParentForgotPasswordScreen'; // ✅ Doğru olan ekran
 import ChildInfoScreen from './screens/ChildInfoScreen';
 import SurveyScreen from './screens/SurveyScreen';
 import ResultScreen from './screens/ResultScreen';
@@ -16,8 +17,8 @@ import EducationScreen from './screens/EducationScreen';
 import ColorsGameScreen from './screens/ColorsGameScreen';
 import ColorsMatchingGameScreen from './screens/ColorsMatchingGameScreen';
 
-import TeacherScreen from './screens/TeacherScreen';
-import TeacherStudentsScreen from './screens/TeacherStudentsScreen';
+import TeacherLoginScreen from './screens/TeacherLoginScreen';
+import TeacherDashboardScreen from './screens/TeacherDashboardScreen';
 import TeacherAddChildScreen from './screens/TeacherAddChildScreen';
 
 import SettingsScreen from './screens/SettingsScreen';
@@ -40,11 +41,11 @@ export default function App() {
             options={{ headerShown: false }}
           />
           <Stack.Screen name="Home" component={HomeScreen} />
-          <Stack.Screen name="Login" component={LoginScreen} />
+          <Stack.Screen name="Login" component={ParentLoginScreen} />
           <Stack.Screen name="Signup" component={ParentSignUpScreen} />
           <Stack.Screen name="ParentVerifyCode" component={ParentVerifyCodeScreen} />
-          <Stack.Screen name="Dashboard" component={DashboardScreen} />
-          <Stack.Screen name="AddChild" component={AddChildScreen} />
+          <Stack.Screen name="Dashboard" component={ParentDashboardScreen} />
+          <Stack.Screen name="AddChild" component={ParentAddChildScreen} />
           <Stack.Screen name="ChildInfo" component={ChildInfoScreen} />
           <Stack.Screen name="Survey" component={SurveyScreen} />
           <Stack.Screen name="Result" component={ResultScreen} />
@@ -53,12 +54,12 @@ export default function App() {
           <Stack.Screen name="ColorsMatchingGame" component={ColorsMatchingGameScreen} />
           <Stack.Screen
             name="Teacher"
-            component={TeacherScreen}
+            component={TeacherLoginScreen}
             options={{ title: 'Teacher Login', headerTintColor: '#7a8a91' }}
           />
           <Stack.Screen
             name="TeacherStudents"
-            component={TeacherStudentsScreen}
+            component={TeacherDashboardScreen}
             options={{ title: 'Students', headerTintColor: 'grey' }}
           />
           <Stack.Screen
@@ -67,6 +68,13 @@ export default function App() {
             options={{ title: 'Add Student', headerTintColor: 'grey' }}
           />
           <Stack.Screen name="Settings" component={SettingsScreen} />
+
+          {/* ✅ Parent Forgot Password ekranı */}
+          <Stack.Screen
+            name="ParentForgotPassword"
+            component={ParentForgotPasswordScreen}
+            options={{ title: 'Reset Password', headerTintColor: '#7a8a91' }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
     </FeedbackProvider>
