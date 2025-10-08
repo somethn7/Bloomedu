@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Alert, BackHandler } from 'react-native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 
 const questions = [
   "If you point at something across the room, does your child look at it?",
@@ -24,12 +25,24 @@ const questions = [
   "Does your child like movement activities?"
 ];
 
-const SurveyScreen = ({ navigation }: any) => {
+const SurveyScreen = () => {
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const child = route.params?.child;
+
   const [currentPage, setCurrentPage] = useState(0);
   const [answers, setAnswers] = useState<(string | null)[]>(Array(questions.length).fill(null));
 
   const questionsPerPage = 5;
   const totalPages = Math.ceil(questions.length / questionsPerPage);
+
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+      Alert.alert('Warning', 'You must complete the survey before exiting.');
+      return true;
+    });
+    return () => backHandler.remove();
+  }, []);
 
   const handleAnswer = (questionIndex: number, answer: 'yes' | 'no') => {
     const updatedAnswers = [...answers];
@@ -38,17 +51,24 @@ const SurveyScreen = ({ navigation }: any) => {
   };
 
   const handleNext = () => {
+    const startIndex = currentPage * questionsPerPage;
+    const endIndex = startIndex + questionsPerPage;
+    const unanswered = answers.slice(startIndex, endIndex).some((a) => a === null);
+
+    if (unanswered) {
+      Alert.alert('Incomplete', 'Please answer all questions on this page.');
+      return;
+    }
+
     if (currentPage < totalPages - 1) {
       setCurrentPage(currentPage + 1);
     } else {
-      navigation.navigate('Result', { answers });
+      navigation.replace('Result', { answers, child });
     }
   };
 
   const handleBack = () => {
-    if (currentPage > 0) {
-      setCurrentPage(currentPage - 1);
-    }
+    if (currentPage > 0) setCurrentPage(currentPage - 1);
   };
 
   const startIndex = currentPage * questionsPerPage;
@@ -59,36 +79,54 @@ const SurveyScreen = ({ navigation }: any) => {
       <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
         {currentQuestions.map((question, index) => {
           const questionIndex = startIndex + index;
+          const isYes = answers[questionIndex] === 'yes';
+          const isNo = answers[questionIndex] === 'no';
+
           return (
-            <View key={questionIndex} style={{ marginBottom: 30 }}>
+            <View key={questionIndex} style={{ marginBottom: 28 }}>
               <Text style={{ fontSize: 18, fontWeight: '500', marginBottom: 12, color: '#333' }}>
                 {question}
               </Text>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
-                {/* Yes Button */}
+
+              <View style={{ flexDirection: 'row', justifyContent: 'space-evenly' }}>
                 <TouchableOpacity
                   style={{
+                    backgroundColor: isYes ? '#b0b0b0' : '#e5e5e5',
                     paddingVertical: 12,
-                    paddingHorizontal: 25,
-                    borderRadius: 12,
-                    backgroundColor: answers[questionIndex] === 'yes' ? '#888' : '#ccc',
+                    paddingHorizontal: 30,
+                    borderRadius: 25, // ✅ oval
                   }}
                   onPress={() => handleAnswer(questionIndex, 'yes')}
                 >
-                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Yes</Text>
+                  <Text
+                    style={{
+                      color: '#222',
+                      fontSize: 16,
+                      fontWeight: isYes ? '700' : '500',
+                    }}
+                  >
+                    Yes
+                  </Text>
                 </TouchableOpacity>
 
-                {/* No Button */}
                 <TouchableOpacity
                   style={{
+                    backgroundColor: isNo ? '#b0b0b0' : '#e5e5e5',
                     paddingVertical: 12,
-                    paddingHorizontal: 25,
-                    borderRadius: 12,
-                    backgroundColor: answers[questionIndex] === 'no' ? '#888' : '#ccc',
+                    paddingHorizontal: 30,
+                    borderRadius: 25, // ✅ oval
                   }}
                   onPress={() => handleAnswer(questionIndex, 'no')}
                 >
-                  <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>No</Text>
+                  <Text
+                    style={{
+                      color: '#222',
+                      fontSize: 16,
+                      fontWeight: isNo ? '700' : '500',
+                    }}
+                  >
+                    No
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -96,30 +134,30 @@ const SurveyScreen = ({ navigation }: any) => {
         })}
       </ScrollView>
 
-      {/* Navigation Buttons */}
+      {/* === Bottom Buttons === */}
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
-        {/* Back Button */}
         {currentPage > 0 ? (
           <TouchableOpacity
             style={{
-              backgroundColor: '#aaa',
+              backgroundColor: '#a0a0a0',
               paddingVertical: 12,
               paddingHorizontal: 25,
-              borderRadius: 25,
+              borderRadius: 25, // ✅ oval
             }}
             onPress={handleBack}
           >
             <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Back</Text>
           </TouchableOpacity>
-        ) : <View style={{ width: 100 }} />} {/* İlk sayfada boşluk bırak */}
+        ) : (
+          <View style={{ width: 100 }} />
+        )}
 
-        {/* Next / Finish Button */}
         <TouchableOpacity
           style={{
-            backgroundColor: '#FF6B9A',
+            backgroundColor: '#FF6B9A', // ✅ tekrar pembe oldu
             paddingVertical: 12,
             paddingHorizontal: 25,
-            borderRadius: 25,
+            borderRadius: 25, // ✅ oval
             alignItems: 'center',
             justifyContent: 'center',
             flexDirection: 'row',
@@ -133,7 +171,6 @@ const SurveyScreen = ({ navigation }: any) => {
         </TouchableOpacity>
       </View>
 
-      {/* Page Indicator */}
       <Text style={{ textAlign: 'center', marginTop: 10, fontSize: 14, color: '#555' }}>
         Page {currentPage + 1} of {totalPages}
       </Text>

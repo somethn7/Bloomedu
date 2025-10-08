@@ -17,12 +17,7 @@ function ParentAddChildScreen({ navigation }: any) {
   const [lastName, setLastName] = useState('');
   const [studentCode, setStudentCode] = useState('');
   const [password, setPassword] = useState('');
-
-  // ✅ BURADA TEMİZLİYORUZ
-  useEffect(() => {
-   // AsyncStorage.removeItem('parentData');
-  // console.log('🧹 AsyncStorage temizlendi.');
-  }, []);
+  const [loading, setLoading] = useState(false);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -42,18 +37,20 @@ function ParentAddChildScreen({ navigation }: any) {
     }
 
     try {
+      setLoading(true);
       const parentIdString = await AsyncStorage.getItem('parent_id');
-      
+
       if (!parentIdString) {
         Alert.alert('Error', 'Parent not logged in.');
+        setLoading(false);
         return;
       }
 
       const parentData = JSON.parse(parentIdString);
-
       const parentId = typeof parentData === 'object' && parentData.id ? parentData.id : parentData;
       if (!parentId) {
         Alert.alert('Error', 'Invalid parent data.');
+        setLoading(false);
         return;
       }
 
@@ -73,13 +70,15 @@ function ParentAddChildScreen({ navigation }: any) {
 
       if (response.ok && data.success) {
         Alert.alert('Success', 'Child matched. Redirecting to the survey screen.');
-        navigation.navigate('Survey', { child: data.child });
+        navigation.replace('Survey', { child: data.child });
       } else {
         Alert.alert('Error', data.message || 'Information did not match.');
       }
     } catch (error) {
       Alert.alert('Network Error', 'Could not connect to server.');
       console.error('Fetch error:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -87,10 +86,7 @@ function ParentAddChildScreen({ navigation }: any) {
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
       <View style={styles.container}>
         <View style={styles.iconTitleWrapper}>
-          <Image
-            source={require('./assets/child.png')}
-            style={styles.icon}
-          />
+          <Image source={require('./assets/child.png')} style={styles.icon} />
           <Text style={styles.title}>Child Verification</Text>
         </View>
 
@@ -98,38 +94,25 @@ function ParentAddChildScreen({ navigation }: any) {
           Please enter the information provided by your teacher to verify your child.
         </Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="First Name"
-          value={firstName}
-          onChangeText={setFirstName}
-          placeholderTextColor="#666"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Last Name"
-          value={lastName}
-          onChangeText={setLastName}
-          placeholderTextColor="#666"
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Student Code"
-          value={studentCode}
-          onChangeText={setStudentCode}
-          placeholderTextColor="#666"
-        />
+        <TextInput style={styles.input} placeholder="First Name" value={firstName} onChangeText={setFirstName} />
+        <TextInput style={styles.input} placeholder="Last Name" value={lastName} onChangeText={setLastName} />
+        <TextInput style={styles.input} placeholder="Student Code" value={studentCode} onChangeText={setStudentCode} />
         <TextInput
           style={styles.input}
           placeholder="Password"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
-          placeholderTextColor="#666"
         />
 
-        <TouchableOpacity style={styles.customButton} onPress={validateAndProceed}>
-          <Text style={styles.customButtonText}>Verify & Fill Survey</Text>
+        <TouchableOpacity
+          style={[styles.customButton, loading && { opacity: 0.6 }]}
+          onPress={validateAndProceed}
+          disabled={loading}
+        >
+          <Text style={styles.customButtonText}>
+            {loading ? 'Verifying...' : 'Verify & Fill Survey'}
+          </Text>
         </TouchableOpacity>
       </View>
     </TouchableWithoutFeedback>
@@ -139,33 +122,11 @@ function ParentAddChildScreen({ navigation }: any) {
 export default ParentAddChildScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 24,
-    backgroundColor: '#fff',
-    justifyContent: 'center',
-  },
-  iconTitleWrapper: {
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  icon: {
-    width: 75,
-    height: 75,
-    marginBottom: 8,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    color: '#73c0ff',
-  },
-  info: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
-    color: '#444',
-  },
+  container: { flex: 1, padding: 24, backgroundColor: '#fff', justifyContent: 'center' },
+  iconTitleWrapper: { alignItems: 'center', marginBottom: 12 },
+  icon: { width: 75, height: 75, marginBottom: 8 },
+  title: { fontSize: 22, fontWeight: 'bold', textAlign: 'center', color: '#73c0ff' },
+  info: { fontSize: 16, textAlign: 'center', marginBottom: 20, color: '#444' },
   input: {
     borderWidth: 1,
     borderColor: '#999',
@@ -181,13 +142,8 @@ const styles = StyleSheet.create({
     borderColor: '#2a6dfcb9',
     borderRadius: 8,
     paddingVertical: 12,
-    paddingHorizontal: 16,
     backgroundColor: '#2a6dfcd8',
     alignItems: 'center',
   },
-  customButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  customButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
 });

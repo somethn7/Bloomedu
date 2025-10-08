@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "363649868887",
+    "project_id": "bloomedu-d3de7",
+    "storage_bucket": "bloomedu-d3de7.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:363649868887:android:cf7bf687f408197a156f12",
+        "android_client_info": {
+          "package_name": "com.bloomedu"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyANbTuOE-HGD_qa9kX5vTaRqHcY5eHYShw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

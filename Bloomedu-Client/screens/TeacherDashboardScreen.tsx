@@ -14,6 +14,7 @@ interface Student {
   id: number;
   name: string;
   surname: string;
+  parent_id?: number;
   dailyPlayMinutes?: number;
   totalPlayMinutes?: number;
   favoriteGames?: string[];
@@ -53,7 +54,6 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
         console.error('Fetch error:', error);
       } else {
         Alert.alert('Fetch Error', 'An unknown error occurred');
-        console.error('Fetch unknown error:', error);
       }
     } finally {
       setLoading(false);
@@ -82,6 +82,21 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
           ))}
         </View>
       </View>
+
+      {/* ✅ Feedback butonu */}
+      <TouchableOpacity
+        style={styles.feedbackButton}
+        onPress={() =>
+          navigation.navigate('TeacherFeedback', {
+            childId: item.id,
+            childName: item.name,
+            childSurname: item.surname,
+            parentId: item.parent_id, // ✅ backend'e gönderilecek
+          })
+        }
+      >
+        <Text style={styles.feedbackButtonText}>Send Feedback</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -96,10 +111,7 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
         <Text style={styles.buttonText}>Add New Student</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity
-        style={styles.button}
-        onPress={handleToggleProgress}
-      >
+      <TouchableOpacity style={styles.button} onPress={handleToggleProgress}>
         <Text style={styles.buttonText}>
           {showProgress ? 'Hide Children Progress' : 'View Children Progress'}
         </Text>
@@ -125,25 +137,13 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
 export default TeacherDashboardScreen;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    backgroundColor: '#fff',
-  },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    marginBottom: 15,
-    textAlign: 'center',
-    color: '#2a4365',
-  },
+  container: { flex: 1, paddingHorizontal: 20, paddingTop: 20, backgroundColor: '#fff' },
+  title: { fontSize: 26, fontWeight: '700', marginBottom: 15, textAlign: 'center', color: '#2a4365' },
   button: {
     backgroundColor: '#64bef5ff',
     paddingVertical: 14,
     borderRadius: 30,
     marginVertical: 10,
-    width: '100%',
     alignItems: 'center',
     shadowColor: '#64bef5ff',
     shadowOpacity: 0.4,
@@ -151,11 +151,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 5,
   },
-  buttonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: '600',
-  },
+  buttonText: { color: 'white', fontSize: 18, fontWeight: '600' },
   studentCard: {
     backgroundColor: '#e8f0fe',
     padding: 18,
@@ -164,30 +160,22 @@ const styles = StyleSheet.create({
     borderLeftWidth: 6,
     borderLeftColor: '#f564dacf',
   },
-  studentName: {
-    fontSize: 20,
-    fontWeight: '700',
-    marginBottom: 8,
-    color: '#1e293b',
+  studentName: { fontSize: 20, fontWeight: '700', marginBottom: 8, color: '#1e293b' },
+  progressDetails: { marginLeft: 10 },
+  progressText: { fontSize: 15, color: '#334155', marginBottom: 4 },
+  valueText: { fontWeight: '700', color: '#64bef5ff' },
+  gamesList: { marginLeft: 10, marginTop: 2 },
+  gameItem: { fontSize: 14, color: '#475569' },
+  feedbackButton: {
+    backgroundColor: '#fb3896c0',
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginTop: 10,
+    alignItems: 'center',
+    shadowColor: '#fb3896c0',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
-  progressDetails: {
-    marginLeft: 10,
-  },
-  progressText: {
-    fontSize: 15,
-    color: '#334155',
-    marginBottom: 4,
-  },
-  valueText: {
-    fontWeight: '700',
-    color: '#64bef5ff',
-  },
-  gamesList: {
-    marginLeft: 10,
-    marginTop: 2,
-  },
-  gameItem: {
-    fontSize: 14,
-    color: '#475569',
-  },
+  feedbackButtonText: { color: 'white', fontWeight: '700', fontSize: 16 },
 });

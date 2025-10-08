@@ -1,17 +1,47 @@
-import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, TouchableOpacity, BackHandler, Alert } from 'react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 
 interface ResultScreenParams {
   answers: (string | null)[];
+  child: any;
 }
 
-const ResultScreen = ({ route, navigation }: { route: { params: ResultScreenParams }; navigation: any }) => {
-  const { answers } = route.params;
+const ResultScreen = () => {
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+  const { answers, child } = route.params as ResultScreenParams;
 
-  // null değerleri önemsiz say, sadece 'yes'leri say
+  useEffect(() => {
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', () => true);
+    return () => backHandler.remove();
+  }, []);
+
+  // ✅ Survey tamamlandı → DB’de işaretle
+  useEffect(() => {
+    const markSurveyCompleted = async () => {
+      try {
+        const res = await fetch(`http://10.0.2.2:3000/children/${child.id}/mark-survey-complete`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        const data = await res.json();
+        if (!data.success) {
+          console.warn('⚠️ Survey mark failed:', data.message);
+        } else {
+          console.log('✅ Survey marked complete in DB for child:', child.id);
+        }
+      } catch (err) {
+        console.error('❌ Error marking survey as complete:', err);
+        Alert.alert('Error', 'Failed to update survey status.');
+      }
+    };
+
+    if (child?.id) markSurveyCompleted();
+  }, [child]);
+
   const score = answers.reduce((total, a) => total + (a === 'yes' ? 1 : 0), 0);
 
-  // Seviyeyi belirle (1-5)
   let level = 1;
   if (score <= 4) level = 1;
   else if (score <= 8) level = 2;
@@ -20,7 +50,15 @@ const ResultScreen = ({ route, navigation }: { route: { params: ResultScreenPara
   else level = 5;
 
   return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20, backgroundColor: '#fff' }}>
+    <View
+      style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        padding: 20,
+      }}
+    >
       <Text style={{ fontSize: 26, fontWeight: 'bold', color: '#FF6B9A', marginBottom: 20 }}>
         Survey Completed!
       </Text>
@@ -39,16 +77,23 @@ const ResultScreen = ({ route, navigation }: { route: { params: ResultScreenPara
           paddingVertical: 15,
           paddingHorizontal: 30,
           borderRadius: 25,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'center',
+          marginBottom: 15,
         }}
         onPress={() => navigation.navigate('Education')}
       >
-        <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold', marginRight: 5 }}>
-          START EDUCATION
-        </Text>
-        <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>→</Text>
+        <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>START EDUCATION →</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={{
+          backgroundColor: '#73c0ff',
+          paddingVertical: 15,
+          paddingHorizontal: 30,
+          borderRadius: 25,
+        }}
+        onPress={() => navigation.navigate('Dashboard')}
+      >
+        <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>GO TO DASHBOARD</Text>
       </TouchableOpacity>
     </View>
   );
