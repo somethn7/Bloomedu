@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 
 const ParentVerifyCodeScreen = ({ navigation, route }: any) => {
-  const { name, email, password, originalCode } = route.params;
+  const { email } = route.params;  // sadece email almalısın
   const [code, setCode] = useState('');
 
   useLayoutEffect(() => {
@@ -31,7 +31,7 @@ const ParentVerifyCodeScreen = ({ navigation, route }: any) => {
       const response = await fetch('http://10.0.2.2:3000/parent/verify-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, inputCode: code, originalCode }),
+        body: JSON.stringify({ email, code }),  // sadece email ve code gönder
       });
       const data = await response.json();
 
@@ -53,7 +53,9 @@ const ParentVerifyCodeScreen = ({ navigation, route }: any) => {
       style={styles.container}
     >
       <Text style={styles.title}>Verification Code Sent</Text>
-      <Text style={styles.subtitle}>Please enter the 6-digit code sent to your email.</Text>
+      <Text style={styles.subtitle}>
+        Please enter the 6-digit code sent to your email.
+      </Text>
       <TextInput
         style={styles.input}
         placeholder="Verification Code"
@@ -74,11 +76,11 @@ export default ParentVerifyCodeScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: '#f9f9f9' },
-  title: { 
-    fontSize: 26, 
-    fontWeight: '700', 
-    marginBottom: 12, 
-    textAlign: 'center', 
+  title: {
+    fontSize: 26,
+    fontWeight: '700',
+    marginBottom: 12,
+    textAlign: 'center',
     color: '#525253ff',
     marginTop: -40,
   },

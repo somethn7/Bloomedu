@@ -25,7 +25,8 @@ const TeacherFeedbackScreen = ({ route, navigation }: any) => {
     setLoading(true);
 
     try {
-      const teacherId = await AsyncStorage.getItem('teacher_id');
+      const teacherIdStr = await AsyncStorage.getItem('teacher_id');
+      const teacherId = teacherIdStr ? Number(teacherIdStr) : null;
       if (!teacherId) {
         Alert.alert('Error', 'Teacher ID not found.');
         setLoading(false);
@@ -37,19 +38,25 @@ const TeacherFeedbackScreen = ({ route, navigation }: any) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           child_id: childId,
-          parent_id: parentId,
+          parent_id: parentId ?? undefined,
           teacher_id: teacherId,
           message: message,
         }),
       });
 
-      const data = await response.json();
+      const text = await response.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        // sunucu farklı format döndürdüyse
+      }
 
       if (response.ok && data.success) {
         Alert.alert('Success', 'Feedback sent successfully!');
         navigation.goBack();
       } else {
-        Alert.alert('Error', data.message || 'Failed to send feedback.');
+        Alert.alert('Error', data.message || `Failed to send feedback. (${response.status})`);
       }
     } catch (error) {
       console.error('Send feedback error:', error);

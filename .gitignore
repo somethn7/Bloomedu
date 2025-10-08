@@ -1,0 +1,3 @@
+Bloomedu-Backend/serviceAccountKey.json 
+echo Bloomedu-Backend/.env >> .gitignore
+echo .env >> .gitignore

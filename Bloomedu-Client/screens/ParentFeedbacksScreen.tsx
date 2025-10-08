@@ -6,7 +6,6 @@ type Feedback = {
   id: number;
   message: string;
   created_at?: string;
-  createdAt?: string;
   child_name?: string;
   child_surname?: string;
   teacher_name?: string;
@@ -19,23 +18,53 @@ const ParentFeedbacksScreen = () => {
   const fetchFeedbacks = async () => {
     setLoading(true);
     try {
-      const parentId = await AsyncStorage.getItem('parent_id');
-      if (!parentId) {
-        Alert.alert('Error', 'Parent ID not found');
+      const parentIdString = await AsyncStorage.getItem('parent_id');
+      if (!parentIdString) {
+        Alert.alert('Error', 'Parent ID not found.');
+        setLoading(false);
+        return;
+      }
+      const parentId = Number(parentIdString);
+      if (Number.isNaN(parentId)) {
+        Alert.alert('Error', 'Invalid Parent ID.');
+        setLoading(false);
         return;
       }
 
-      const res = await fetch(`http://10.0.2.2:3000/feedbacks/${parentId}`);
-      const data = await res.json();
+      const url = `http://10.0.2.2:3000/feedbacks/by-parent/${parentId}`;
+      console.log('🔗 Fetching feedbacks from', url);
 
-      if (data.success && Array.isArray(data.feedbacks)) {
-        setFeedbacks(data.feedbacks);
+      const res = await fetch(url);
+      const raw = await res.text();
+      console.log('📥 Raw response:', raw);
+
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch (jsonErr) {
+        console.error('❌ JSON parse error', jsonErr);
+        Alert.alert('Error', 'Unexpected server response.');
+        setLoading(false);
+        return;
+      }
+
+      if (res.ok) {
+        if (data.success && Array.isArray(data.feedbacks)) {
+          console.log(`✅ Received ${data.feedbacks.length} feedbacks`);
+          setFeedbacks(data.feedbacks);
+        } else {
+          const msg = data.message || 'Failed fetching feedbacks';
+          console.warn('⚠️ Fetch returned ok but unsuccessful:', msg);
+          Alert.alert('Error', msg);
+        }
       } else {
-        Alert.alert('Error', 'Failed to fetch feedbacks.');
+        const msg = data.message || `Fetch failed with status ${res.status}`;
+        console.error('❌ Fetch error status:', res.status, msg);
+        Alert.alert('Error', msg);
       }
     } catch (err) {
-      console.error(err);
-      Alert.alert('Error', 'Server error');
+      console.error('❌ Fetch threw error:', err);
+      Alert.alert('Error', 'Cannot connect to server or network error.');
     } finally {
       setLoading(false);
     }
@@ -49,34 +78,6 @@ const ParentFeedbacksScreen = () => {
     return <ActivityIndicator size="large" color="#64bef5" style={{ marginTop: 50 }} />;
   }
 
-  const renderItem = ({ item }: { item: Feedback }) => {
-    const created = item.created_at ?? item.createdAt;
-
-    // 🔧 Türkiye saati farkını manuel ekliyoruz (+3 saat)
-    const createdDisplay = created
-      ? new Date(new Date(created).getTime() + 3 * 60 * 60 * 1000).toLocaleString('tr-TR', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-      : '';
-
-    return (
-      <View style={styles.card}>
-        <Text style={styles.childName}>
-          👶 {item.child_name} {item.child_surname}
-        </Text>
-        <Text style={styles.message}>{item.message}</Text>
-        <Text style={styles.teacher}>
-          👩‍🏫 Teacher: {item.teacher_name || 'Unknown'}
-        </Text>
-        {!!createdDisplay && <Text style={styles.date}>🕒 {createdDisplay}</Text>}
-      </View>
-    );
-  };
-
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Teacher Feedbacks</Text>
@@ -85,8 +86,20 @@ const ParentFeedbacksScreen = () => {
       ) : (
         <FlatList
           data={feedbacks}
-          keyExtractor={(item, idx) => String(item.id ?? idx)}
-          renderItem={renderItem}
+          keyExtractor={(item) => String(item.id)}
+          renderItem={({ item }) => {
+            const created = item.created_at;
+            return (
+              <View style={styles.card}>
+                <Text style={styles.childName}>
+                  👶 {item.child_name} {item.child_surname}
+                </Text>
+                <Text style={styles.message}>{item.message}</Text>
+                <Text style={styles.teacher}>Teacher: {item.teacher_name || 'Unknown'}</Text>
+                {!!created && <Text style={styles.date}>Date: {new Date(created).toLocaleString()}</Text>}
+              </View>
+            );
+          }}
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -98,34 +111,11 @@ export default ParentFeedbacksScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff', padding: 20 },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    textAlign: 'center',
-    color: '#2a4365',
-    marginBottom: 20,
-  },
-  noFeedback: {
-    textAlign: 'center',
-    fontSize: 16,
-    color: '#64748b',
-    marginTop: 20,
-  },
-  card: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 12,
-    borderLeftWidth: 5,
-    borderLeftColor: '#fb3896c0',
-  },
-  childName: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#1e293b',
-    marginBottom: 4,
-  },
-  message: { fontSize: 15, color: '#1e293b', marginBottom: 6 },
-  teacher: { fontSize: 14, color: '#475569', fontStyle: 'italic' },
-  date: { fontSize: 13, color: '#64748b', marginTop: 4 },
+  title: { fontSize: 24, fontWeight: '700', textAlign: 'center', marginBottom: 15 },
+  noFeedback: { textAlign: 'center', fontSize: 16, color: '#777' },
+  card: { backgroundColor: '#eef', padding: 12, borderRadius: 10, marginBottom: 12 },
+  childName: { fontWeight: '700', marginBottom: 4 },
+  message: { marginBottom: 4 },
+  teacher: { fontStyle: 'italic', marginBottom: 4 },
+  date: { fontSize: 12, color: '#555' },
 });

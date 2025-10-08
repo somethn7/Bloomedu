@@ -22,20 +22,37 @@ const ParentForgotPasswordScreen = ({ navigation }: any) => {
       return;
     }
     try {
+      console.log("🔄 handleRequestReset — initiating request for email:", email);
       const response = await fetch('http://10.0.2.2:3000/parent/request-reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
-      const data = await response.json();
+      console.log("🔁 handleRequestReset — response status:", response.status);
+
+      const raw = await response.text();
+      console.log("🔁 handleRequestReset — raw response text:", raw);
+
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch (parseError) {
+        console.error("⚠️ handleRequestReset — JSON parse failed:", parseError, " — raw:", raw);
+        Alert.alert('Error', 'Invalid response from server.');
+        return;
+      }
+
+      console.log("🔁 handleRequestReset — parsed response data:", data);
+
       if (response.ok) {
         setCodeSent(true);
-        Alert.alert('Success', 'Verification code sent to your email.');
+        Alert.alert('Success', data.message || 'Verification code sent to your email.');
       } else {
         Alert.alert('Error', data.message || 'Failed to send code.');
       }
-    } catch (error) {
-      Alert.alert('Network Error', 'Could not connect to server.');
+    } catch (error: any) {
+      console.error("❌ handleRequestReset network error:", error);
+      Alert.alert('Network Error', 'Could not connect to server. ' + (error.message || ''));
     }
   };
 
@@ -45,20 +62,41 @@ const ParentForgotPasswordScreen = ({ navigation }: any) => {
       return;
     }
     try {
+      console.log("🔄 handleResetPassword — sending code & new password", { email, verificationCode, newPassword });
       const response = await fetch('http://10.0.2.2:3000/parent/reset-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, newPassword, code: verificationCode }),
+        body: JSON.stringify({
+          email,
+          code: verificationCode,
+          newPassword,
+        }),
       });
-      const data = await response.json();
+      console.log("🔁 handleResetPassword — response status:", response.status);
+
+      const raw = await response.text();
+      console.log("🔁 handleResetPassword — raw response text:", raw);
+
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch (parseError) {
+        console.error("⚠️ handleResetPassword — JSON parse failed:", parseError, " — raw:", raw);
+        Alert.alert('Error', 'Invalid response from server.');
+        return;
+      }
+
+      console.log("🔁 handleResetPassword — parsed response data:", data);
+
       if (response.ok) {
-        Alert.alert('Success', 'Password reset successfully.');
+        Alert.alert('Success', data.message || 'Password reset successfully.');
         navigation.navigate('Login');
       } else {
         Alert.alert('Error', data.message || 'Failed to reset password.');
       }
-    } catch (error) {
-      Alert.alert('Network Error', 'Could not connect to server.');
+    } catch (error: any) {
+      console.error("❌ handleResetPassword network error:", error);
+      Alert.alert('Network Error', 'Could not connect to server. ' + (error.message || ''));
     }
   };
 
@@ -103,7 +141,9 @@ const ParentForgotPasswordScreen = ({ navigation }: any) => {
           style={styles.button}
           onPress={codeSent ? handleResetPassword : handleRequestReset}
         >
-          <Text style={styles.buttonText}>{codeSent ? 'Reset Password' : 'Send Code'}</Text>
+          <Text style={styles.buttonText}>
+            {codeSent ? 'Reset Password' : 'Send Code'}
+          </Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>

@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  FlatList,
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
@@ -26,7 +25,6 @@ const ParentDashboardScreen = ({ navigation }: any) => {
     });
   }, [navigation]);
 
-  // === ÇOCUKLARI GETİR ===
   const fetchChildrenForParent = async () => {
     setLoading(true);
     try {
@@ -36,27 +34,27 @@ const ParentDashboardScreen = ({ navigation }: any) => {
         setLoading(false);
         return [];
       }
-
-      const response = await fetch(`http://10.0.2.2:3000/children-by-parent/${parentId}`);
+      const response = await fetch(`http://10.0.2.2:3000/children/by-parent/${parentId}`);
       const json = await response.json();
-
       if (!json.success) {
         Alert.alert('Error', 'Failed to load children.');
+        setLoading(false);
         return [];
       } else {
-        return json.children.map((child: any) => ({
+        const mapped = json.children.map((child: any) => ({
           ...child,
           dailyPlayMinutes: Math.floor(Math.random() * 60),
           totalPlayMinutes: Math.floor(Math.random() * 1000),
           favoriteGames: ['Puzzle Game', 'Memory Match', 'Color Blocks'],
         }));
+        setLoading(false);
+        return mapped;
       }
     } catch (error: any) {
       Alert.alert('Fetch Error', error.message || 'An unknown error occurred');
       console.error('Fetch error:', error);
-      return [];
-    } finally {
       setLoading(false);
+      return [];
     }
   };
 
@@ -70,7 +68,6 @@ const ParentDashboardScreen = ({ navigation }: any) => {
     }
   };
 
-  // ✅ EKRANA GERİ DÖNÜLDÜĞÜNDE LİSTEYİ OTOMATİK GÜNCELLE
   useFocusEffect(
     useCallback(() => {
       (async () => {
@@ -82,14 +79,12 @@ const ParentDashboardScreen = ({ navigation }: any) => {
     }, [showChildrenProgress])
   );
 
-  // === HER ÇOCUK KARTI ===
   const renderChild = (item: any) => (
     <View style={styles.childCard}>
       <Text style={styles.childName}>
         {item.name} {item.surname}
       </Text>
 
-      {/* Survey Durumu */}
       {item.survey_completed ? (
         <Text style={styles.completedText}>✅ Survey Completed</Text>
       ) : (
@@ -103,12 +98,10 @@ const ParentDashboardScreen = ({ navigation }: any) => {
 
       <View style={styles.progressDetails}>
         <Text style={styles.progressText}>
-          Daily Play Time:{' '}
-          <Text style={styles.valueText}>{item.dailyPlayMinutes} minutes</Text>
+          Daily Play Time: <Text style={styles.valueText}>{item.dailyPlayMinutes} minutes</Text>
         </Text>
         <Text style={styles.progressText}>
-          Total Play Time:{' '}
-          <Text style={styles.valueText}>{item.totalPlayMinutes} minutes</Text>
+          Total Play Time: <Text style={styles.valueText}>{item.totalPlayMinutes} minutes</Text>
         </Text>
         <Text style={styles.progressText}>Favorite Games:</Text>
         <View style={styles.gamesList}>
@@ -136,7 +129,6 @@ const ParentDashboardScreen = ({ navigation }: any) => {
             <Text style={styles.actionButtonText}>Add a Child</Text>
           </TouchableOpacity>
 
-          {/* View Progress */}
           <TouchableOpacity
             style={[styles.actionButton, styles.viewProgressButton]}
             onPress={toggleChildrenProgress}
@@ -146,20 +138,21 @@ const ParentDashboardScreen = ({ navigation }: any) => {
             </Text>
           </TouchableOpacity>
 
-          {/* Panel TAM BURADA AÇILIYOR */}
           {showChildrenProgress && (
             <View style={{ marginTop: 10 }}>
               {loading ? (
                 <ActivityIndicator size="large" color="#64bef5" />
               ) : childrenList.length > 0 ? (
-                childrenList.map((child) => renderChild(child))
+                childrenList.map((child) => (
+  <View key={child.id}>{renderChild(child)}</View>
+))
+
               ) : (
                 <Text style={styles.noFeedbackText}>No children added yet.</Text>
               )}
             </View>
           )}
 
-          {/* Feedback en altta sabit */}
           <TouchableOpacity
             style={[styles.actionButton, { backgroundColor: '#fb7ea8' }]}
             onPress={() => navigation.navigate('ParentFeedbacks')}
@@ -223,7 +216,7 @@ const styles = StyleSheet.create({
   fillSurveyButton: {
     marginTop: 8,
     alignSelf: 'flex-start',
-    backgroundColor: '#9fc3fa', // soft mavi
+    backgroundColor: '#9fc3fa',
     borderRadius: 12,
     paddingVertical: 6,
     paddingHorizontal: 14,

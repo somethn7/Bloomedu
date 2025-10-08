@@ -36,16 +36,14 @@ function ParentAddChildScreen({ navigation }: any) {
       return;
     }
 
+    setLoading(true);
     try {
-      setLoading(true);
       const parentIdString = await AsyncStorage.getItem('parent_id');
-
       if (!parentIdString) {
         Alert.alert('Error', 'Parent not logged in.');
         setLoading(false);
         return;
       }
-
       const parentData = JSON.parse(parentIdString);
       const parentId = typeof parentData === 'object' && parentData.id ? parentData.id : parentData;
       if (!parentId) {
@@ -69,8 +67,13 @@ function ParentAddChildScreen({ navigation }: any) {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        Alert.alert('Success', 'Child matched. Redirecting to the survey screen.');
-        navigation.replace('Survey', { child: data.child });
+        if (data.message === 'Child already added.') {
+          Alert.alert('Info', 'This child is already added. Redirecting you to dashboard.');
+          navigation.replace('Dashboard');
+        } else {
+          Alert.alert('Success', 'Child matched. Redirecting to the survey screen.');
+          navigation.replace('Survey', { child: data.child });
+        }
       } else {
         Alert.alert('Error', data.message || 'Information did not match.');
       }
