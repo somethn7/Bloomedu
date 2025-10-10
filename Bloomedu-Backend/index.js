@@ -108,7 +108,11 @@ app.post('/add-child', async (req, res) => {
 app.get('/children/:teacherId', async (req, res) => {
   const { teacherId } = req.params;
   try {
-    const children = await pool.query('SELECT * FROM children WHERE teacher_id = $1', [teacherId]);
+   const children = await pool.query(
+  'SELECT id, name, surname, level, survey_completed, student_code FROM children WHERE teacher_id = $1',
+  [teacherId]
+);
+
     res.json(children.rows);
   } catch (err) {
     console.error('DB Error (GET /children/:teacherId):', err);
@@ -168,6 +172,45 @@ app.put('/children/:childId/mark-survey-complete', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+
+// === CALCULATE LEVEL ===
+function calculateLevel(correctAnswers) {
+  if (correctAnswers <= 4) return 1;
+  if (correctAnswers <= 8) return 2;
+  if (correctAnswers <= 12) return 3;
+  if (correctAnswers <= 16) return 4;
+  return 5;
+}
+
+// === UPDATE CHILD LEVEL BASED ON SURVEY RESULT ===
+app.post('/children/:childId/update-level', async (req, res) => {
+  const { childId } = req.params;
+  const { correctAnswers } = req.body;
+
+  if (correctAnswers === undefined || correctAnswers === null) {
+    return res.status(400).json({ success: false, message: 'correctAnswers is required.' });
+  }
+
+  const level = calculateLevel(correctAnswers);
+
+  try {
+    const result = await pool.query(
+      'UPDATE children SET level = $1 WHERE id = $2 RETURNING id, name, level',
+      [level, childId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'Child not found.' });
+    }
+
+    console.log(`✅ Child ${childId} level updated to ${level}`);
+    res.json({ success: true, message: 'Level updated successfully.', level });
+  } catch (err) {
+    console.error('❌ Error (POST /children/:childId/update-level):', err);
+    res.status(500).json({ success: false, message: 'Server error while updating level.' });
+  }
+});
+
 
 // === SEND FEEDBACK (Teacher -> Parent) ===
 app.post('/feedback', async (req, res) => {
@@ -263,9 +306,15 @@ app.get('/children/by-parent/:parentId', async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT c.id, c.name, c.surname, c.survey_completed
-         FROM children c
-        WHERE c.parent_id = $1`,
+      `SELECT 
+         c.id, 
+         c.name, 
+         c.surname, 
+         c.survey_completed, 
+         c.level, 
+         c.student_code  -- 🆔 Student ID eklendi!
+       FROM children c
+       WHERE c.parent_id = $1`,
       [parentId]
     );
 
@@ -275,6 +324,7 @@ app.get('/children/by-parent/:parentId', async (req, res) => {
     return res.status(500).json({ success: false, message: 'Server error while fetching children.' });
   }
 });
+
 
 // === PARENT REQUEST PASSWORD RESET ===
 app.post('/parent/request-reset', async (req, res) => {
