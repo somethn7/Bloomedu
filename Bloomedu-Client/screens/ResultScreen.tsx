@@ -42,6 +42,30 @@ const ResultScreen = () => {
 
   const score = answers.reduce((total, a) => total + (a === 'yes' ? 1 : 0), 0);
 
+  // ✅ Send child's level to backend
+useEffect(() => {
+  const updateLevel = async () => {
+    try {
+      const response = await fetch(`http://10.0.2.2:3000/children/${child.id}/update-level`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ correctAnswers: score }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        console.log(`✅ Level ${data.level} saved for child ID: ${child.id}`);
+      } else {
+        console.warn('⚠️ Level update failed:', data.message);
+      }
+    } catch (err) {
+      console.error('❌ Error updating child level:', err);
+    }
+  };
+
+  if (child?.id) updateLevel();
+}, [child, score]);
+
   let level = 1;
   if (score <= 4) level = 1;
   else if (score <= 8) level = 2;

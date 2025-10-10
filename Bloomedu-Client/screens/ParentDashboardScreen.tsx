@@ -79,14 +79,39 @@ const ParentDashboardScreen = ({ navigation }: any) => {
     }, [showChildrenProgress])
   );
 
+  // ✅ Çocuk kartı renderı
   const renderChild = (item: any) => (
     <View style={styles.childCard}>
       <Text style={styles.childName}>
         {item.name} {item.surname}
       </Text>
 
+      {/* 🆔 Student ID */}
+      <Text style={styles.studentIdText}>
+        🆔 Student ID: <Text style={styles.studentIdValue}>{item.id}</Text>
+
+      </Text>
+
+      {/* 🎯 Level */}
+      <Text style={{ fontSize: 15, color: '#475569', marginBottom: 5 }}>
+        🎯 Level:{' '}
+        <Text style={{ fontWeight: '700', color: '#f564dacf' }}>
+          {item.level ?? 'Not determined'}
+        </Text>
+      </Text>
+
       {item.survey_completed ? (
-        <Text style={styles.completedText}>✅ Survey Completed</Text>
+        <>
+          <Text style={styles.completedText}>✅ Survey Completed</Text>
+
+          {/* 🎮 Go to Education butonu */}
+          <TouchableOpacity
+            style={styles.educationButton}
+            onPress={() => navigation.navigate('Education', { child: item })}
+          >
+            <Text style={styles.educationButtonText}>Go to Education →</Text>
+          </TouchableOpacity>
+        </>
       ) : (
         <TouchableOpacity
           style={styles.fillSurveyButton}
@@ -144,9 +169,8 @@ const ParentDashboardScreen = ({ navigation }: any) => {
                 <ActivityIndicator size="large" color="#64bef5" />
               ) : childrenList.length > 0 ? (
                 childrenList.map((child) => (
-  <View key={child.id}>{renderChild(child)}</View>
-))
-
+                  <View key={child.id}>{renderChild(child)}</View>
+                ))
               ) : (
                 <Text style={styles.noFeedbackText}>No children added yet.</Text>
               )}
@@ -208,6 +232,18 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   childName: { fontSize: 18, fontWeight: '600', color: '#2d3748' },
+
+  // 🆔 Student ID stili
+  studentIdText: {
+    fontSize: 14,
+    color: '#475569',
+    marginBottom: 4,
+  },
+  studentIdValue: {
+    fontWeight: '700',
+    color: '#2563eb', // canlı mavi ID rengi
+  },
+
   progressDetails: { marginTop: 8, marginLeft: 10 },
   progressText: { fontSize: 15, color: '#334155', marginBottom: 4 },
   valueText: { fontWeight: '700', color: '#64bef5ff' },
@@ -227,5 +263,23 @@ const styles = StyleSheet.create({
     color: '#16a34a',
     fontSize: 15,
     fontWeight: '600',
+  },
+  // 🎮 Education butonu (yeşil)
+  educationButton: {
+    marginTop: 10,
+    backgroundColor: '#4ade80', // açık yeşil
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    shadowColor: '#22c55e',
+    shadowOpacity: 0.35,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
+  },
+  educationButtonText: {
+    color: 'white',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

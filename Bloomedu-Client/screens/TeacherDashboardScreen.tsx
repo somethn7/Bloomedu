@@ -7,6 +7,7 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -15,6 +16,7 @@ interface Student {
   name: string;
   surname: string;
   parent_id?: number;
+  level?: number;
   dailyPlayMinutes?: number;
   totalPlayMinutes?: number;
   favoriteGames?: string[];
@@ -24,6 +26,7 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
   const [showProgress, setShowProgress] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState(''); // 🔍 Arama state
 
   const fetchChildren = async () => {
     const teacherId = await AsyncStorage.getItem('teacher_id');
@@ -39,7 +42,6 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
 
       const data: Student[] = await response.json();
 
-      // Demo progress data
       const studentsWithProgress = data.map(student => ({
         ...student,
         dailyPlayMinutes: Math.floor(Math.random() * 60),
@@ -65,9 +67,23 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
     if (!showProgress) fetchChildren();
   };
 
+  // 🔎 Arama filtresi
+  const filteredStudents = students.filter(student =>
+    `${student.name} ${student.surname}`.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const renderStudent = ({ item }: { item: Student }) => (
     <View style={styles.studentCard}>
       <Text style={styles.studentName}>{item.name} {item.surname}</Text>
+
+      <Text style={{ fontSize: 15, color: '#475569', marginBottom: 6 }}>
+        🎯 Level: <Text style={{ fontWeight: '700', color: '#f564dacf' }}>{item.level ?? 'N/A'}</Text>
+      </Text>
+
+      <Text style={{ fontSize: 14, color: '#6b7280', marginBottom: 8 }}>
+        🆔 Student ID: <Text style={{ fontWeight: '700', color: '#2563eb' }}>{item.id}</Text>
+      </Text>
+
       <View style={styles.progressDetails}>
         <Text style={styles.progressText}>
           Daily Play Time: <Text style={styles.valueText}>{item.dailyPlayMinutes} minutes</Text>
@@ -83,7 +99,6 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
         </View>
       </View>
 
-      {/* ✅ Feedback butonu */}
       <TouchableOpacity
         style={styles.feedbackButton}
         onPress={() =>
@@ -91,7 +106,7 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
             childId: item.id,
             childName: item.name,
             childSurname: item.surname,
-            parentId: item.parent_id, // ✅ backend'e gönderilecek
+            parentId: item.parent_id,
           })
         }
       >
@@ -118,17 +133,28 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
       </TouchableOpacity>
 
       {showProgress && (
-        loading ? (
-          <ActivityIndicator size="large" color="#64bef5" style={{ marginTop: 20 }} />
-        ) : (
-          <FlatList
-            data={students}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={renderStudent}
-            contentContainerStyle={{ paddingTop: 20 }}
-            showsVerticalScrollIndicator={false}
+        <>
+          {/* 🔍 Search input */}
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search student..."
+            placeholderTextColor="#9ca3af"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
-        )
+
+          {loading ? (
+            <ActivityIndicator size="large" color="#64bef5" style={{ marginTop: 20 }} />
+          ) : (
+            <FlatList
+              data={filteredStudents}
+              keyExtractor={(item) => item.id.toString()}
+              renderItem={renderStudent}
+              contentContainerStyle={{ paddingTop: 20 }}
+              showsVerticalScrollIndicator={false}
+            />
+          )}
+        </>
       )}
     </View>
   );
@@ -152,6 +178,17 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   buttonText: { color: 'white', fontSize: 18, fontWeight: '600' },
+  searchInput: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    marginTop: 10,
+    fontSize: 16,
+    color: '#1e293b',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
   studentCard: {
     backgroundColor: '#e8f0fe',
     padding: 18,
