@@ -39,7 +39,7 @@ const TeacherLoginScreen = ({ navigation }: any) => {
       return;
     }
     try {
-      const response = await fetch('http://10.0.2.2:3000/teacher/login', {
+      const response = await fetch('https://bloomedu-backend.onrender.com/teacher/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),

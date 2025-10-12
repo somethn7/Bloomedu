@@ -166,7 +166,7 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
 
       console.log('Sending /add-child body:', bodyData);
 
-      const response = await fetch('http://10.0.2.2:3000/add-child', {
+      const response = await fetch('https://bloomedu-backend.onrender.com/teacher/add-child', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bodyData),

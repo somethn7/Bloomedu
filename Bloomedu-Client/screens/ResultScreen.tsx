@@ -21,7 +21,7 @@ const ResultScreen = () => {
   useEffect(() => {
     const markSurveyCompleted = async () => {
       try {
-        const res = await fetch(`http://10.0.2.2:3000/children/${child.id}/mark-survey-complete`, {
+        const res = await fetch(`https://bloomedu-backend.onrender.com/children/${child.id}/mark-survey-complete`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
         });

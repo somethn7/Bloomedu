@@ -34,7 +34,7 @@ const ParentDashboardScreen = ({ navigation }: any) => {
         setLoading(false);
         return [];
       }
-      const response = await fetch(`http://10.0.2.2:3000/children/by-parent/${parentId}`);
+      const response = await fetch(`https://bloomedu-backend.onrender.com/children/by-parent/${parentId}`);
       const json = await response.json();
       if (!json.success) {
         Alert.alert('Error', 'Failed to load children.');

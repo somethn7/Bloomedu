@@ -31,7 +31,7 @@ const ParentFeedbacksScreen = () => {
         return;
       }
 
-      const url = `http://10.0.2.2:3000/feedbacks/by-parent/${parentId}`;
+      const url = `https://bloomedu-backend.onrender.com/feedbacks/by-parent/${parentId}`;
       console.log('🔗 Fetching feedbacks from', url);
 
       const res = await fetch(url);
