@@ -1,19 +1,20 @@
-// utils/sendMail.js
 const nodemailer = require("nodemailer");
 
 const sendStudentCredentials = async (toEmail, studentCode, studentPassword) => {
   try {
     const transporter = nodemailer.createTransport({
-      host: "sandbox.smtp.mailtrap.io",
-      port: 587,
+      service: "gmail",
       auth: {
-        user: process.env.MAILTRAP_USER, // .env'den alınacak
-        pass: process.env.MAILTRAP_PASS,
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+      tls: {
+        rejectUnauthorized: false, // Render SSL hatasını engeller
       },
     });
 
     const mailOptions = {
-      from: '"Bloomedu" <noreply@bloomedu.com>',
+      from: '"Bloomedu" <bloomedu.app@gmail.com>',
       to: toEmail,
       subject: "Bloomedu - Öğrenci Bilgileri",
       text: `Merhaba,
@@ -30,7 +31,7 @@ Bloomedu Ekibi`,
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`✅ Mail gönderildi (Mailtrap): ${toEmail}`);
+    console.log(`✅ Mail gönderildi: ${toEmail}`);
   } catch (error) {
     console.error("❌ Mail gönderme hatası:", error);
   }
