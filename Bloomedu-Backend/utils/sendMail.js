@@ -1,3 +1,4 @@
+// utils/sendMail.js
 const nodemailer = require("nodemailer");
 
 const sendStudentCredentials = async (toEmail, studentCode, studentPassword) => {
@@ -5,12 +6,19 @@ const sendStudentCredentials = async (toEmail, studentCode, studentPassword) => 
     const transporter = nodemailer.createTransport({
       host: "smtp.gmail.com",
       port: 465,
-      secure: true,
+      secure: true, // 465 = SSL/TLS
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
+      tls: {
+        rejectUnauthorized: false,
+      },
     });
+
+    // ✅ bağlantı kontrolü
+    await transporter.verify();
+    console.log("✅ Gmail bağlantısı başarılı.");
 
     const mailOptions = {
       from: `"Bloomedu" <${process.env.EMAIL_USER}>`,
@@ -18,10 +26,10 @@ const sendStudentCredentials = async (toEmail, studentCode, studentPassword) => 
       subject: "Bloomedu - Öğrenci Bilgileri",
       text: `Merhaba,
 
-Çocuğunuz sisteme eklendi.
+Çocuğunuz sisteme eklendi 🎉
 
 👧 Öğrenci Kodu: ${studentCode}
-🔑 Şifresi: ${studentPassword}
+🔑 Şifre: ${studentPassword}
 
 Bloomedu uygulamasına bu bilgilerle giriş yapabilirsiniz.
 
@@ -29,10 +37,11 @@ Sevgiler,
 Bloomedu Ekibi`,
     };
 
-    await transporter.sendMail(mailOptions);
-    console.log(`✅ Mail gönderildi: ${toEmail}`);
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`✅ Mail gönderildi: ${toEmail} (${info.messageId})`);
   } catch (error) {
     console.error("❌ Mail gönderme hatası:", error);
+    throw error;
   }
 };
 

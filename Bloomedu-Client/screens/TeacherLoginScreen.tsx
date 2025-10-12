@@ -34,42 +34,51 @@ const TeacherLoginScreen = ({ navigation }: any) => {
   }, [navigation]);
 
   const handleLogin = async () => {
+    console.log('🟦 Login button pressed');
     if (!email || !password) {
       Alert.alert('Error', 'Please enter email and password.');
       return;
     }
+
     try {
+      console.log('🔹 Sending login request to backend...');
       const response = await fetch('https://bloomedu-backend.onrender.com/teacher/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
 
+      console.log('🔸 Response status:', response.status);
+
       const contentType = response.headers.get('content-type');
-      let data = null;
+      let data: any = null;
+
       if (contentType && contentType.indexOf('application/json') !== -1) {
         data = await response.json();
       } else {
+        const text = await response.text();
+        console.warn('⚠️ Response is not JSON:', text);
         Alert.alert('Error', 'Invalid server response.');
         return;
       }
 
+      console.log('✅ Backend response:', data);
+
       if (response.ok && data.teacherId) {
-        // Burada teacherId objesi olarak saklıyoruz ki, diğer ekranlarda parse ettiğimizde id alınabilsin
         await AsyncStorage.setItem('loggedInTeacher', JSON.stringify({ id: data.teacherId }));
         await AsyncStorage.setItem('teacher_id', data.teacherId.toString());
+        Alert.alert('Welcome', 'Login successful!');
+        console.log('👩‍🏫 Logged in as teacherId:', data.teacherId);
 
-        Alert.alert('Welcome', `Welcome, Teacher!`);
-
-        navigation.navigate('TeacherStudents', { teacherId: data.teacherId });
+        navigation.navigate('TeacherDashboard', { teacherId: data.teacherId });
       } else if (response.status === 401) {
         Alert.alert('Login Failed', data.message || 'Invalid email or password.');
       } else {
         Alert.alert('Login Failed', data.message || 'Unknown error');
       }
     } catch (error) {
-      Alert.alert('Network Error', 'Could not connect to server');
-      console.error(error);
+      console.error('❌ Network or unexpected error:', error);
+      Alert.alert('Network Error', 'Could not connect to server.');
     }
   };
 
