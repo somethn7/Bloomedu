@@ -6,21 +6,24 @@ const sendStudentCredentials = async (toEmail, studentCode, studentPassword) => 
     const transporter = nodemailer.createTransport({
       service: "gmail",
       auth: {
-        user: "bloomedu.app@gmail.com",         // <-- kendi gmail adresini yaz
-        pass: "hswehknbnjxnzkej",              // <-- Google'dan aldığın 16 karakterlik uygulama şifresi
+        user: "bloomedu.app@gmail.com",
+        pass: "hswehknbnjxnzkej", // Google App Password
+      },
+      tls: {
+        rejectUnauthorized: false, // 🧩 Render TLS sorunu için
       },
     });
 
     const mailOptions = {
-      from: '"Bloomedu" <SENINGMAILADRESIN@gmail.com>', // görünmesini istediğin gönderici adı
+      from: '"Bloomedu" <bloomedu.app@gmail.com>', // ✅ Doğru adres
       to: toEmail,
       subject: "Bloomedu - Öğrenci Bilgileri",
       text: `Merhaba,
 
 Çocuğunuz sisteme eklendi.
 
-Öğrenci Kodu: ${studentCode}
-Şifresi: ${studentPassword}
+👧 Öğrenci Kodu: ${studentCode}
+🔑 Şifresi: ${studentPassword}
 
 Bloomedu uygulamasına bu bilgilerle giriş yapabilirsiniz.
 

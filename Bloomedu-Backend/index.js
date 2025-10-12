@@ -12,7 +12,7 @@ admin.initializeApp({
 
 const express = require('express');
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 const cors = require('cors');
 const pool = require('./db');
 const sendVerificationCode = require('./utils/sendVerificationCode');
