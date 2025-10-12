@@ -28,9 +28,7 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
     'Italy', 'Spain', 'Canada', 'Netherlands', 'Australia', 'Other'
   ];
 
-  const genderOptions = [
-    'Male', 'Female', 'Other', 'Prefer not to say'
-  ];
+  const genderOptions = ['Male', 'Female', 'Other', 'Prefer not to say'];
 
   useEffect(() => {
     const fetchTeacher = async () => {
@@ -38,7 +36,7 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
         const stored = await AsyncStorage.getItem('loggedInTeacher');
         if (stored) {
           const parsed = JSON.parse(stored);
-          console.log('Loaded teacher from AsyncStorage:', parsed);
+          console.log('📦 Loaded teacher from AsyncStorage:', parsed);
           if (parsed?.id) {
             setTeacherId(parsed.id.toString());
           } else {
@@ -50,7 +48,7 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
           navigation.navigate('TeacherLoginScreen');
         }
       } catch (e) {
-        console.error('Error reading teacher from AsyncStorage:', e);
+        console.error('❌ Error reading teacher from AsyncStorage:', e);
         Alert.alert('Error', 'Failed to load teacher info. Please login again.');
         navigation.navigate('TeacherLoginScreen');
       }
@@ -58,127 +56,73 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
     fetchTeacher();
   }, []);
 
-  const generateCode = () => {
-    return uuid.v4().toString().slice(0, 8);
-  };
+  const generateCode = () => uuid.v4().toString().slice(0, 8);
 
-  const isValidDate = (dateStr: string) => {
-    const regex = /^(\d{2})-(\d{2})-(\d{4})$/;
-    const match = dateStr.match(regex);
-    if (!match) return false;
-
-    const day = parseInt(match[1], 10);
-    const month = parseInt(match[2], 10);
-    const year = parseInt(match[3], 10);
-
-    if (month < 1 || month > 12) return false;
-    if (day < 1) return false;
-
-    const maxDays = [
-      31,
-      (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0 ? 29 : 28,
-      31,
-      30,
-      31,
-      30,
-      31,
-      31,
-      30,
-      31,
-      30,
-      31,
-    ];
-    if (day > maxDays[month - 1]) return false;
-
-    return true;
-  };
-
-  const isValidEmail = (email: string) => {
-    const basicRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!basicRegex.test(email)) return false;
-
-    const parts = email.split('@');
-    if (parts.length !== 2) return false;
-
-    const domain = parts[1];
-    if (!domain.includes('.')) return false;
-    if (domain.startsWith('.') || domain.endsWith('.')) return false;
-
-    const domainParts = domain.split('.');
-    if (domainParts.some((part) => part.trim() === '')) return false;
-
-    return true;
+  const formatDateForBackend = (dateStr: string) => {
+    const [day, month, year] = dateStr.split('-');
+    return `${year}-${month}-${day}`; // PostgreSQL için YYYY-MM-DD formatı
   };
 
   const handleSave = async () => {
-    console.log('Attempting to save student, teacherId:', teacherId);
+    console.log('📩 handleSave triggered with teacherId:', teacherId);
 
     if (!teacherId) {
       Alert.alert('Error', 'Teacher ID is missing. Please login again.');
       return;
     }
 
-    if (
-      !name.trim() ||
-      !surname.trim() ||
-      !birthdate.trim() ||
-      !birthplace ||
-      !gender ||
-      !diagnosisDate.trim() ||
-      !parentEmail.trim()
-    ) {
+    if (!name || !surname || !birthdate || !birthplace || !gender || !diagnosisDate || !parentEmail) {
       Alert.alert('Missing Fields', 'Please fill in all required fields.');
-      return;
-    }
-
-    if (!isValidDate(birthdate)) {
-      Alert.alert('Invalid Date', 'Birthdate must be in DD-MM-YYYY format and valid.');
-      return;
-    }
-
-    if (!isValidDate(diagnosisDate)) {
-      Alert.alert('Invalid Date', 'Diagnosis Date must be in DD-MM-YYYY format and valid.');
-      return;
-    }
-
-    if (!isValidEmail(parentEmail)) {
-      Alert.alert('Invalid Email', 'Please enter a valid email address.');
       return;
     }
 
     const student_code = generateCode();
     const student_password = generateCode();
 
+    const bodyData = {
+      name,
+      surname,
+      birthdate: formatDateForBackend(birthdate),
+      birthplace,
+      gender,
+      diagnosis_date: formatDateForBackend(diagnosisDate),
+      communication_notes: communicationNotes,
+      teacher_id: teacherId,
+      parent_email: parentEmail,
+      student_code,
+      student_password,
+    };
+
+    console.log('🚀 Sending data to backend:', bodyData);
+
     try {
-      const bodyData = {
-        name,
-        surname,
-        birthdate,
-        birthplace,
-        gender,
-        diagnosis_date: diagnosisDate,
-        communication_notes: communicationNotes,
-        teacher_id: teacherId,
-        parent_email: parentEmail,
-        student_code,
-        student_password,
-      };
-
-      console.log('Sending /add-child body:', bodyData);
-
       const response = await fetch('https://bloomedu-backend.onrender.com/teacher/add-child', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(bodyData),
       });
 
-      const data = await response.json();
+      console.log('✅ Got response status:', response.status);
+
+      const text = await response.text();
+      console.log('🧩 Raw response body:', text);
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        console.warn('⚠️ Response is not valid JSON');
+        data = { message: text };
+      }
 
       if (response.ok) {
         Alert.alert(
           'Success',
           `Student added.\nCode: ${student_code}\nPassword: ${student_password}`
         );
+        console.log('🎉 Student added successfully:', data);
+
+        // inputları sıfırla
         setName('');
         setSurname('');
         setBirthdate('');
@@ -189,11 +133,12 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
         setParentEmail('');
         navigation.goBack();
       } else {
+        console.error('❌ Server error response:', data);
         Alert.alert('Error', data.message || 'Server error');
       }
     } catch (error) {
+      console.error('❌ Network error:', error);
       Alert.alert('Network Error', 'Could not connect to server');
-      console.error(error);
     }
   };
 
@@ -230,23 +175,17 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
 
       <Text style={styles.label}>Birthplace</Text>
       <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={birthplace}
-          onValueChange={(itemValue) => setBirthplace(itemValue)}
-        >
+        <Picker selectedValue={birthplace} onValueChange={setBirthplace}>
           <Picker.Item label="Select country..." value="" />
-          {countryList.map((country) => (
-            <Picker.Item key={country} label={country} value={country} />
+          {countryList.map((c) => (
+            <Picker.Item key={c} label={c} value={c} />
           ))}
         </Picker>
       </View>
 
       <Text style={styles.label}>Gender</Text>
       <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={gender}
-          onValueChange={(itemValue) => setGender(itemValue)}
-        >
+        <Picker selectedValue={gender} onValueChange={setGender}>
           <Picker.Item label="Select gender..." value="" />
           {genderOptions.map((g) => (
             <Picker.Item key={g} label={g} value={g} />
