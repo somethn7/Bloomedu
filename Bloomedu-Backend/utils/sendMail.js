@@ -3,18 +3,17 @@ const nodemailer = require("nodemailer");
 const sendStudentCredentials = async (toEmail, studentCode, studentPassword) => {
   try {
     const transporter = nodemailer.createTransport({
-      service: "gmail",
+      host: "smtp.gmail.com",
+      port: 465,
+      secure: true,
       auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS,
       },
-      tls: {
-        rejectUnauthorized: false, // Render SSL hatasını engeller
-      },
     });
 
     const mailOptions = {
-      from: '"Bloomedu" <bloomedu.app@gmail.com>',
+      from: `"Bloomedu" <${process.env.EMAIL_USER}>`,
       to: toEmail,
       subject: "Bloomedu - Öğrenci Bilgileri",
       text: `Merhaba,
