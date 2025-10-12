@@ -4,18 +4,16 @@ const nodemailer = require("nodemailer");
 const sendStudentCredentials = async (toEmail, studentCode, studentPassword) => {
   try {
     const transporter = nodemailer.createTransport({
-      service: "gmail",
+      host: "sandbox.smtp.mailtrap.io",
+      port: 587,
       auth: {
-        user: "bloomedu.app@gmail.com",
-        pass: "hswehknbnjxnzkej", // Google App Password
-      },
-      tls: {
-        rejectUnauthorized: false, // 🧩 Render TLS sorunu için
+        user: process.env.MAILTRAP_USER, // .env'den alınacak
+        pass: process.env.MAILTRAP_PASS,
       },
     });
 
     const mailOptions = {
-      from: '"Bloomedu" <bloomedu.app@gmail.com>', // ✅ Doğru adres
+      from: '"Bloomedu" <noreply@bloomedu.com>',
       to: toEmail,
       subject: "Bloomedu - Öğrenci Bilgileri",
       text: `Merhaba,
@@ -32,7 +30,7 @@ Bloomedu Ekibi`,
     };
 
     await transporter.sendMail(mailOptions);
-    console.log(`✅ Mail gönderildi: ${toEmail}`);
+    console.log(`✅ Mail gönderildi (Mailtrap): ${toEmail}`);
   } catch (error) {
     console.error("❌ Mail gönderme hatası:", error);
   }
