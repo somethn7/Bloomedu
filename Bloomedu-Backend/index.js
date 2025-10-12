@@ -10,8 +10,8 @@ const nodemailer = require('nodemailer');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// === Firebase initialization ===
-const serviceAccount = require('./serviceAccountKey.json');
+// === Firebase initialization (Railway uyumlu) ===
+const serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
@@ -188,7 +188,7 @@ app.post('/parent/verify-child', async (req, res) => {
   }
 });
 
-// (Diğer endpointlerin senin sürümünde olduğu gibi kalıyor)
+// === SUNUCU ===
 app.listen(port, () => {
   console.log(`✅ Backend is running on http://localhost:${port}`);
 });
