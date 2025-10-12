@@ -73,7 +73,8 @@ app.post('/teacher/login', async (req, res) => {
 });
 
 // === ADD CHILD ===
-app.post('/add-child', async (req, res) => {
+app.post('/teacher/add-child', async (req, res) => {
+
   const {
     name,
     surname,
