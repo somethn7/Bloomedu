@@ -4,7 +4,6 @@ const admin = require('firebase-admin');
 const express = require('express');
 const cors = require('cors');
 const pool = require('./db');
-const nodemailer = require('nodemailer');
 const sendVerificationCode = require('./utils/sendVerificationCode');
 const sendStudentCredentials = require('./utils/sendMail');
 
@@ -27,25 +26,6 @@ app.use((req, res, next) => {
   next();
 });
 
-// === SMTP BAĞLANTISI DOĞRULAMA ===
-(async () => {
-  try {
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 465,
-      secure: true,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      tls: { rejectUnauthorized: false },
-    });
-    await transporter.verify();
-    console.log('✅ Gmail SMTP bağlantısı doğrulandı.');
-  } catch (err) {
-    console.error('❌ Gmail SMTP doğrulaması başarısız:', err);
-  }
-})();
 
 // === HEALTH CHECK ===
 app.get('/health', (req, res) => res.json({ ok: true }));
