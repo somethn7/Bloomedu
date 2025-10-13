@@ -209,6 +209,36 @@ app.post('/feedback', async (req, res) => {
   }
 });
 
+// === GET FEEDBACKS BY PARENT ===
+app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
+  const { parentId } = req.params;
+
+  try {
+    const result = await pool.query(
+      `SELECT 
+         f.id AS feedback_id,
+         f.message,
+         f.created_at,
+         c.name AS child_name,
+         c.surname AS child_surname,
+         t.name AS teacher_name,
+         t.surname AS teacher_surname
+       FROM feedbacks f
+       JOIN children c ON f.child_id = c.id
+       JOIN teachers t ON f.teacher_id = t.id
+       WHERE f.parent_id = $1
+       ORDER BY f.created_at DESC`,
+      [parentId]
+    );
+
+    res.json({ success: true, feedbacks: result.rows });
+  } catch (err) {
+    console.error('DB Error (GET /feedbacks/by-parent/:parentId):', err);
+    res.status(500).json({ success: false, message: 'Server error while fetching feedbacks.' });
+  }
+});
+
+
 // === CHILDREN BY PARENT ===
 app.get('/children/by-parent/:parentId', async (req, res) => {
   try {
