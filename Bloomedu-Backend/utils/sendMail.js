@@ -1,4 +1,4 @@
-// ✅ node-fetch uyumlu kullanım (ESM içinde değilken require alternatifi)
+// ✅ node-fetch uyumlu kullanım
 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
 
 async function sendStudentCredentials(to, studentCode, studentPassword) {
@@ -17,15 +17,20 @@ async function sendStudentCredentials(to, studentCode, studentPassword) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "Bloomedu <bloomedu.app@gmail.com>", // ✅ artık kendi hesabını kullanıyor
-        to,
-        subject: "Your Bloomedu Student Credentials",
+        // 👇 Gönderen Resend’in test domaini (buna dokunmuyoruz!)
+        from: "Bloomedu <onboarding@resend.dev>",
+
+        // 👇 Mailin gideceği yer: Bloomedu ekip hesabı
+        to: "bloomedu.app@gmail.com",
+
+        subject: "New Student Added to Bloomedu",
         html: `
-          <h2>Welcome to Bloomedu!</h2>
-          <p>Your child's login credentials:</p>
+          <h2>New Student Added</h2>
+          <p><b>Parent Email:</b> ${to}</p>
           <p><b>Student Code:</b> ${studentCode}</p>
           <p><b>Password:</b> ${studentPassword}</p>
-          <p>Sent from Bloomedu automated system.</p>
+          <hr/>
+          <p>This email was sent automatically by the Bloomedu system.</p>
         `,
       }),
     });
@@ -36,7 +41,7 @@ async function sendStudentCredentials(to, studentCode, studentPassword) {
       throw new Error("Email sending failed");
     }
 
-    console.log(`✅ Mail sent successfully to ${to}`);
+    console.log(`✅ Mail successfully sent to bloomedu.app@gmail.com`);
   } catch (err) {
     console.error("❌ Error in sendStudentCredentials:", err);
     throw err;
