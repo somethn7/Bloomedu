@@ -1,18 +1,16 @@
 require('dotenv').config();
-
-const admin = require('firebase-admin');
 const express = require('express');
 const cors = require('cors');
+const admin = require('firebase-admin');
 const pool = require('./db');
 const sendVerificationCode = require('./utils/sendVerificationCode');
-const sendStudentCredentials = require('./utils/sendMail');
+const sendStudentCredentials = require('./utils/sendMail'); // ✅ sadece bu yeterli
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 // === FIREBASE INIT ===
 const serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
-
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
@@ -20,7 +18,7 @@ admin.initializeApp({
 app.use(cors());
 app.use(express.json());
 
-// === LOGGING MIDDLEWARE ===
+// === LOG MIDDLEWARE ===
 app.use((req, res, next) => {
   console.log(`👉 ${req.method} ${req.url} - Body:`, req.body);
   next();
