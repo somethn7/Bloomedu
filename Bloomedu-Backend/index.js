@@ -7,7 +7,8 @@ const sendVerificationCode = require('./utils/sendVerificationCode');
 const sendStudentCredentials = require('./utils/sendMail'); // ✅ sadece bu yeterli
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 8080;
+
 
 // === FIREBASE INIT ===
 const serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
@@ -225,4 +226,9 @@ app.post('/parent/login', async (req, res) => {
   }
 });
 
-app.listen(port, () => console.log(`✅ Backend is running on http://localhost:${port}`));
+
+app.listen(port, "0.0.0.0", () => {
+  console.log(`✅ Backend is running on port ${port}`);
+});
+
+
