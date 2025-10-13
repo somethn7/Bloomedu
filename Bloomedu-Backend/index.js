@@ -4,7 +4,7 @@ const cors = require('cors');
 const admin = require('firebase-admin');
 const pool = require('./db');
 const sendVerificationCode = require('./utils/sendVerificationCode');
-const sendStudentCredentials = require('./utils/sendMail'); // ✅ sadece bu yeterli
+const sendStudentCredentials = require('./utils/sendMail');
 
 const app = express();
 
@@ -22,7 +22,6 @@ app.use((req, res, next) => {
   console.log(`👉 ${req.method} ${req.url} - Body:`, req.body);
   next();
 });
-
 
 // === HEALTH CHECK ===
 app.get('/health', (req, res) => res.json({ ok: true }));
@@ -48,29 +47,23 @@ app.post('/teacher/login', async (req, res) => {
 // === PARENT SIGNUP ===
 app.post('/parent/signup', async (req, res) => {
   const { name, email, password } = req.body;
-
   if (!name || !email || !password)
     return res.status(400).json({ success: false, message: 'All fields are required.' });
 
   try {
-    // ✅ Email format kontrolü
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email))
       return res.status(400).json({ success: false, message: 'Invalid email format.' });
 
-    // ✅ Parent zaten var mı?
     const existing = await pool.query('SELECT * FROM parents WHERE email = $1', [email]);
     if (existing.rows.length > 0)
       return res.status(400).json({ success: false, message: 'Email already registered.' });
 
-    // ✅ 6 haneli doğrulama kodu üret
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // ✅ Mail gönder (Resend kullanıyor)
     await sendVerificationCode(email, verificationCode);
     console.log(`📩 Verification code sent to ${email}: ${verificationCode}`);
 
-    // ✅ Geçici olarak verification bilgilerini sakla (DB'ye eklemeden önce)
     await pool.query(
       'INSERT INTO parents (name, email, password, is_verified, verification_code) VALUES ($1,$2,$3,$4,$5)',
       [name, email, password, false, verificationCode]
@@ -79,7 +72,7 @@ app.post('/parent/signup', async (req, res) => {
     res.json({
       success: true,
       message: 'Verification email sent. Please check your inbox.',
-      verificationCode, // React Native verify ekranına gönderiyoruz
+      verificationCode
     });
   } catch (err) {
     console.error('Error (POST /parent/signup):', err);
@@ -87,6 +80,33 @@ app.post('/parent/signup', async (req, res) => {
   }
 });
 
+// === NEW: VERIFY PARENT EMAIL ===
+app.post('/parent/verify-code', async (req, res) => {
+  const { email, code } = req.body;
+
+  if (!email || !code)
+    return res.status(400).json({ success: false, message: 'Email and code are required.' });
+
+  try {
+    const result = await pool.query(
+      'SELECT * FROM parents WHERE email = $1 AND verification_code = $2',
+      [email, code]
+    );
+
+    if (result.rows.length === 0)
+      return res.status(400).json({ success: false, message: 'Invalid verification code.' });
+
+    await pool.query(
+      'UPDATE parents SET is_verified = true, verification_code = NULL WHERE email = $1',
+      [email]
+    );
+
+    res.json({ success: true, message: 'Email verified successfully.' });
+  } catch (err) {
+    console.error('Error (POST /parent/verify-code):', err);
+    res.status(500).json({ success: false, message: 'Server error during verification.' });
+  }
+});
 
 // === ADD CHILD ===
 app.post('/teacher/add-child', async (req, res) => {
@@ -224,15 +244,10 @@ app.post('/parent/login', async (req, res) => {
   }
 });
 
-app.get("/health", (req, res) => {
-  res.status(200).json({ ok: true });
-});
+// === HEALTH CHECK (redundant but safe) ===
+app.get("/health", (req, res) => res.status(200).json({ ok: true }));
 
 const port = process.env.PORT || 8080;
 app.listen(port, "0.0.0.0", () => {
   console.log(`✅ Backend is running on 0.0.0.0:${port}`);
 });
-
-
-
-
