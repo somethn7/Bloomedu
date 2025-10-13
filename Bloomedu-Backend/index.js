@@ -224,6 +224,42 @@ app.get('/children/by-parent/:parentId', async (req, res) => {
   }
 });
 
+// === MARK SURVEY AS COMPLETE ===
+app.put('/children/:id/mark-survey-complete', async (req, res) => {
+  const { id } = req.params;
+  try {
+    await pool.query('UPDATE children SET survey_completed = TRUE WHERE id = $1', [id]);
+    res.json({ success: true, message: 'Survey marked as complete.' });
+  } catch (err) {
+    console.error('DB Error (PUT /children/:id/mark-survey-complete):', err);
+    res.status(500).json({ success: false, message: 'Server error while marking survey complete.' });
+  }
+});
+
+// === UPDATE CHILD LEVEL ===
+app.post('/children/:id/update-level', async (req, res) => {
+  const { id } = req.params;
+  const { correctAnswers } = req.body;
+
+  if (correctAnswers === undefined)
+    return res.status(400).json({ success: false, message: 'Missing correctAnswers field.' });
+
+  let level = 1;
+  if (correctAnswers <= 4) level = 1;
+  else if (correctAnswers <= 8) level = 2;
+  else if (correctAnswers <= 12) level = 3;
+  else if (correctAnswers <= 16) level = 4;
+  else level = 5;
+
+  try {
+    await pool.query('UPDATE children SET level = $1 WHERE id = $2', [level, id]);
+    res.json({ success: true, message: 'Level updated.', level });
+  } catch (err) {
+    console.error('DB Error (POST /children/:id/update-level):', err);
+    res.status(500).json({ success: false, message: 'Server error updating level.' });
+  }
+});
+
 // === PARENT LOGIN ===
 app.post('/parent/login', async (req, res) => {
   const { email, password } = req.body;
