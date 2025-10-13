@@ -38,9 +38,9 @@ const TeacherFeedbackScreen = ({ route, navigation }: any) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           child_id: childId,
-          parent_id: parentId ?? undefined,
+          parent_id: parentId ?? 0, // 🔹 0 gönder, NULL olmasın
           teacher_id: teacherId,
-          message: message,
+          message: message.trim(),
         }),
       });
 
@@ -49,11 +49,12 @@ const TeacherFeedbackScreen = ({ route, navigation }: any) => {
       try {
         data = JSON.parse(text);
       } catch {
-        // sunucu farklı format döndürdüyse
+        console.warn('⚠️ Non-JSON server response:', text);
       }
 
       if (response.ok && data.success) {
-        Alert.alert('Success', 'Feedback sent successfully!');
+        Alert.alert('✅ Success', 'Feedback sent successfully!');
+        setMessage('');
         navigation.goBack();
       } else {
         Alert.alert('Error', data.message || `Failed to send feedback. (${response.status})`);

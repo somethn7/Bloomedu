@@ -3,7 +3,7 @@ import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert } from 'reac
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Feedback = {
-  id: number;
+  feedback_id: number;
   message: string;
   created_at?: string;
   child_name?: string;
@@ -86,7 +86,7 @@ const ParentFeedbacksScreen = () => {
       ) : (
         <FlatList
           data={feedbacks}
-          keyExtractor={(item) => String(item.id)}
+          keyExtractor={(item) => String(item.feedback_id)}
           renderItem={({ item }) => {
             const created = item.created_at;
             return (
@@ -95,8 +95,12 @@ const ParentFeedbacksScreen = () => {
                   👶 {item.child_name} {item.child_surname}
                 </Text>
                 <Text style={styles.message}>{item.message}</Text>
-                <Text style={styles.teacher}>Teacher: {item.teacher_name || 'Unknown'}</Text>
-                {!!created && <Text style={styles.date}>Date: {new Date(created).toLocaleString()}</Text>}
+                <Text style={styles.teacher}>👩‍🏫 {item.teacher_name || 'Unknown teacher'}</Text>
+                {!!created && (
+                  <Text style={styles.date}>
+                    🕒 {created ? created.replace('T', ' ').slice(0, 16) : ''}
+                  </Text>
+                )}
               </View>
             );
           }}
@@ -111,11 +115,26 @@ export default ParentFeedbacksScreen;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff', padding: 20 },
-  title: { fontSize: 24, fontWeight: '700', textAlign: 'center', marginBottom: 15 },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 15,
+    color: '#fb3896c0',
+  },
   noFeedback: { textAlign: 'center', fontSize: 16, color: '#777' },
-  card: { backgroundColor: '#eef', padding: 12, borderRadius: 10, marginBottom: 12 },
-  childName: { fontWeight: '700', marginBottom: 4 },
-  message: { marginBottom: 4 },
-  teacher: { fontStyle: 'italic', marginBottom: 4 },
-  date: { fontSize: 12, color: '#555' },
+  card: {
+    backgroundColor: '#e8f0fe',
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  childName: { fontWeight: '700', marginBottom: 4, fontSize: 16 },
+  message: { marginBottom: 4, fontSize: 15, color: '#334155' },
+  teacher: { fontStyle: 'italic', marginBottom: 4, color: '#475569' },
+  date: { fontSize: 12, color: '#64748b' },
 });
