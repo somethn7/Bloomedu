@@ -224,6 +224,9 @@ app.post('/parent/login', async (req, res) => {
   }
 });
 
+app.get("/health", (req, res) => {
+  res.status(200).json({ ok: true });
+});
 
 const port = process.env.PORT || 8080;
 
