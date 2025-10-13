@@ -34,7 +34,9 @@ const ParentDashboardScreen = ({ navigation }: any) => {
         setLoading(false);
         return [];
       }
-      const response = await fetch(`https://bloomedu-production.up.railway.app/children/by-parent/${parentId}`);
+      const response = await fetch(
+        `https://bloomedu-production.up.railway.app/children/by-parent/${parentId}`
+      );
       const json = await response.json();
       if (!json.success) {
         Alert.alert('Error', 'Failed to load children.');
@@ -79,7 +81,7 @@ const ParentDashboardScreen = ({ navigation }: any) => {
     }, [showChildrenProgress])
   );
 
-  // ✅ Çocuk kartı renderı
+  // ✅ Child card
   const renderChild = (item: any) => (
     <View style={styles.childCard}>
       <Text style={styles.childName}>
@@ -89,22 +91,21 @@ const ParentDashboardScreen = ({ navigation }: any) => {
       {/* 🆔 Student ID */}
       <Text style={styles.studentIdText}>
         🆔 Student ID: <Text style={styles.studentIdValue}>{item.id}</Text>
-
       </Text>
 
-      {/* 🎯 Level */}
-      <Text style={{ fontSize: 15, color: '#475569', marginBottom: 5 }}>
-        🎯 Level:{' '}
-        <Text style={{ fontWeight: '700', color: '#f564dacf' }}>
-          {item.level ?? 'Not determined'}
+      {/* 🎯 Level sadece survey tamamlandıysa gösterilir */}
+      {item.survey_completed && (
+        <Text style={{ fontSize: 15, color: '#475569', marginBottom: 5 }}>
+          🎯 Level:{' '}
+          <Text style={{ fontWeight: '700', color: '#f564dacf' }}>
+            {item.level ?? 'Not determined'}
+          </Text>
         </Text>
-      </Text>
+      )}
 
       {item.survey_completed ? (
         <>
           <Text style={styles.completedText}>✅ Survey Completed</Text>
-
-          {/* 🎮 Go to Education butonu */}
           <TouchableOpacity
             style={styles.educationButton}
             onPress={() => navigation.navigate('Education', { child: item })}
@@ -232,18 +233,8 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   childName: { fontSize: 18, fontWeight: '600', color: '#2d3748' },
-
-  // 🆔 Student ID stili
-  studentIdText: {
-    fontSize: 14,
-    color: '#475569',
-    marginBottom: 4,
-  },
-  studentIdValue: {
-    fontWeight: '700',
-    color: '#2563eb', // canlı mavi ID rengi
-  },
-
+  studentIdText: { fontSize: 14, color: '#475569', marginBottom: 4 },
+  studentIdValue: { fontWeight: '700', color: '#2563eb' },
   progressDetails: { marginTop: 8, marginLeft: 10 },
   progressText: { fontSize: 15, color: '#334155', marginBottom: 4 },
   valueText: { fontWeight: '700', color: '#64bef5ff' },
@@ -258,16 +249,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
   },
   fillSurveyText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  completedText: {
-    marginTop: 8,
-    color: '#16a34a',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  // 🎮 Education butonu (yeşil)
+  completedText: { marginTop: 8, color: '#16a34a', fontSize: 15, fontWeight: '600' },
   educationButton: {
     marginTop: 10,
-    backgroundColor: '#4ade80', // açık yeşil
+    backgroundColor: '#4ade80',
     borderRadius: 12,
     paddingVertical: 10,
     paddingHorizontal: 16,
@@ -277,9 +262,5 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     elevation: 5,
   },
-  educationButtonText: {
-    color: 'white',
-    fontSize: 15,
-    fontWeight: '700',
-  },
+  educationButtonText: { color: 'white', fontSize: 15, fontWeight: '700' },
 });

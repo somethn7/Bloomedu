@@ -31,21 +31,27 @@ const ParentSignupScreen = ({ navigation }: any) => {
       if (response.ok && data.success) {
         Alert.alert(
           'Verification Required',
-          'We have sent a verification code to your email. Please enter the code to complete your registration.'
+          'A verification code has been sent to your email.'
         );
-        navigation.navigate('ParentVerifyCode', { email: email, name, password, originalCode: data.verificationCode });
+        navigation.navigate('ParentVerifyCode', {
+          email,
+          name,
+          password,
+          originalCode: data.verificationCode,
+        });
       } else {
         Alert.alert('Signup Failed', data.message || 'Something went wrong.');
       }
     } catch (error) {
+      console.error('❌ Signup error:', error);
       Alert.alert('Server Error', 'Unable to connect to the server.');
-      console.error(error);
     }
   };
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Parent Sign Up</Text>
+
       <TextInput
         placeholder="Full Name"
         value={name}
@@ -68,9 +74,11 @@ const ParentSignupScreen = ({ navigation }: any) => {
         style={styles.input}
         secureTextEntry
       />
+
       <TouchableOpacity style={styles.button} onPress={handleSignup}>
         <Text style={styles.buttonText}>Sign Up</Text>
       </TouchableOpacity>
+
       <TouchableOpacity onPress={() => navigation.navigate('Login')}>
         <Text style={styles.link}>Already have an account? Log In</Text>
       </TouchableOpacity>
