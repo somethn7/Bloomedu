@@ -9,6 +9,9 @@ async function sendStudentCredentials(to, studentCode, studentPassword) {
     throw new Error("Missing RESEND_API_KEY");
   }
 
+  // 🔹 Artık tüm mailler ortak Bloomedu hesabına gidecek
+  const destination = "bloomedu.app@gmail.com";
+
   try {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -18,14 +21,14 @@ async function sendStudentCredentials(to, studentCode, studentPassword) {
       },
       body: JSON.stringify({
         from: "Bloomedu <onboarding@resend.dev>",
-        to,
-        subject: "Your Bloomedu Student Credentials",
+        to: destination, // sabitlendi
+        subject: "New Student Added to Bloomedu",
         html: `
-          <h2>Welcome to Bloomedu!</h2>
-          <p>Your child's login credentials:</p>
+          <h2>New Student Added</h2>
+          <p>A teacher has added a new student to the Bloomedu system.</p>
           <p><b>Student Code:</b> ${studentCode}</p>
           <p><b>Password:</b> ${studentPassword}</p>
-          <p>Please keep these safe.</p>
+          <p>All notifications are sent to the central Bloomedu account.</p>
         `,
       }),
     });
@@ -36,7 +39,7 @@ async function sendStudentCredentials(to, studentCode, studentPassword) {
       throw new Error("Email sending failed");
     }
 
-    console.log(`✅ Mail sent successfully to ${to}`);
+    console.log(`✅ Mail sent successfully to ${destination}`);
   } catch (err) {
     console.error("❌ Error in sendStudentCredentials:", err);
     throw err;
