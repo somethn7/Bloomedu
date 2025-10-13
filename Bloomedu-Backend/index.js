@@ -12,7 +12,8 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 // === FIREBASE INIT ===
-const serviceAccount = require('./serviceAccountKey.json');
+const serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
+
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount)
 });
