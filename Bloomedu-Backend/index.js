@@ -234,7 +234,7 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
          COALESCE(TO_CHAR(f.created_at, 'YYYY-MM-DD HH24:MI:SS'), '') AS created_at,
          c.name AS child_name,
          c.surname AS child_surname,
-         t.full_name AS teacher_name
+         COALESCE(t.full_name, 'Unknown Teacher') AS teacher_name
        FROM feedbacks f
        LEFT JOIN children c ON f.child_id = c.id
        LEFT JOIN teachers t ON f.teacher_id = t.id
@@ -249,7 +249,6 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error while fetching feedbacks.' });
   }
 });
-
 
 
 // === CHILDREN BY PARENT ===
