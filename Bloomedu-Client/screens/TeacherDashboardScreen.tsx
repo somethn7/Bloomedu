@@ -37,7 +37,7 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
 
     setLoading(true);
     try {
-      const response = await fetch(`https://bloomedu-backend.onrender.com/children/${teacherId}`);
+      const response = await fetch(`https://bloomedu-production.up.railway.app/children/${teacherId}`);
       if (!response.ok) throw new Error(`Server error ${response.status}`);
 
       const data: Student[] = await response.json();

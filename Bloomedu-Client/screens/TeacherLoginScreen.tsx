@@ -42,7 +42,7 @@ const TeacherLoginScreen = ({ navigation }: any) => {
 
     try {
       console.log('🔹 Sending login request to backend...');
-      const response = await fetch('https://bloomedu-backend.onrender.com/teacher/login', {
+      const response = await fetch('https://bloomedu-production.up.railway.app/teacher/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -70,7 +70,8 @@ const TeacherLoginScreen = ({ navigation }: any) => {
         Alert.alert('Welcome', 'Login successful!');
         console.log('👩‍🏫 Logged in as teacherId:', data.teacherId);
 
-        navigation.navigate('TeacherDashboard', { teacherId: data.teacherId });
+        navigation.navigate('TeacherStudents', { teacherId: data.teacherId });
+
       } else if (response.status === 401) {
         Alert.alert('Login Failed', data.message || 'Invalid email or password.');
       } else {

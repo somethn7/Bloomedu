@@ -23,7 +23,7 @@ const ParentForgotPasswordScreen = ({ navigation }: any) => {
     }
     try {
       console.log("🔄 handleRequestReset — initiating request for email:", email);
-      const response = await fetch('https://bloomedu-backend.onrender.com/parent/request-reset', {
+      const response = await fetch('https://bloomedu-production.up.railway.app/parent/request-reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),

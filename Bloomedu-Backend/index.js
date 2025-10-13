@@ -1,31 +1,32 @@
 require('dotenv').config();
+
+const admin = require('firebase-admin');
 const express = require('express');
 const cors = require('cors');
-const admin = require('firebase-admin');
 const pool = require('./db');
+const nodemailer = require('nodemailer');
 const sendVerificationCode = require('./utils/sendVerificationCode');
 const sendStudentCredentials = require('./utils/sendMail');
-const nodemailer = require('nodemailer');
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// === Firebase initialization (Railway uyumlu) ===
-const serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
+// === FIREBASE INIT ===
+const serviceAccount = require('./serviceAccountKey.json');
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
+  credential: admin.credential.cert(serviceAccount)
 });
 
 app.use(cors());
 app.use(express.json());
 
-// === Middleware: loglama ===
+// === LOGGING MIDDLEWARE ===
 app.use((req, res, next) => {
   console.log(`👉 ${req.method} ${req.url} - Body:`, req.body);
   next();
 });
 
-// === SMTP bağlantısını başlatırken doğrula ===
+// === SMTP BAĞLANTISI DOĞRULAMA ===
 (async () => {
   try {
     const transporter = nodemailer.createTransport({
@@ -48,49 +49,25 @@ app.use((req, res, next) => {
 // === HEALTH CHECK ===
 app.get('/health', (req, res) => res.json({ ok: true }));
 
-// === EMAIL CHECK ===
-function isValidEmail(email) {
-  const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  return re.test(email);
-}
-
-// === FCM NOTIFICATION ===
-async function sendFeedbackNotification(parent_id, message) {
-  try {
-    const tokenRes = await pool.query('SELECT token FROM device_tokens WHERE parent_id = $1', [parent_id]);
-    if (tokenRes.rows.length === 0) {
-      console.log('⚠️ No device token found for parent', parent_id);
-      return;
-    }
-    const token = tokenRes.rows[0].token;
-    await admin.messaging().send({
-      token,
-      notification: { title: 'New Feedback', body: message },
-      data: { screen: 'ParentFeedbacks' },
-    });
-    console.log('✅ Push notification sent to parent', parent_id);
-  } catch (err) {
-    console.error('❌ Error sending FCM notification:', err);
-  }
-}
-
 // === TEACHER LOGIN ===
 app.post('/teacher/login', async (req, res) => {
   const { email, password } = req.body;
   try {
-    const teacher = await pool.query('SELECT * FROM teachers WHERE email = $1 AND password = $2', [email, password]);
-    if (teacher.rows.length > 0) {
+    const teacher = await pool.query(
+      'SELECT * FROM teachers WHERE email = $1 AND password = $2',
+      [email, password]
+    );
+    if (teacher.rows.length > 0)
       res.json({ success: true, teacherId: teacher.rows[0].id });
-    } else {
+    else
       res.status(401).json({ success: false, message: 'Invalid credentials' });
-    }
   } catch (err) {
     console.error('DB Error (POST /teacher/login):', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-// === ADD CHILD (mail gönderimi dahil) ===
+// === ADD CHILD ===
 app.post('/teacher/add-child', async (req, res) => {
   const {
     name,
@@ -108,34 +85,24 @@ app.post('/teacher/add-child', async (req, res) => {
   } = req.body;
 
   if (!teacher_id)
-    return res.status(400).json({ success: false, message: 'Teacher ID is required.' });
+    return res.status(400).json({ success: false, message: 'Teacher ID required.' });
   if (!parent_email)
-    return res.status(400).json({ success: false, message: 'Parent email is required.' });
+    return res.status(400).json({ success: false, message: 'Parent email required.' });
 
   try {
-    const insertResult = await pool.query(
+    await pool.query(
       `INSERT INTO children 
-       (name, surname, birthdate, birthplace, gender, diagnosis_date, communication_notes, general_notes, teacher_id, student_code, student_password, survey_completed) 
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,FALSE)
-       RETURNING id`,
-      [name, surname, birthdate, birthplace, gender, diagnosis_date, communication_notes, general_notes, teacher_id, student_code, student_password]
+       (name, surname, birthdate, birthplace, gender, diagnosis_date,
+        communication_notes, general_notes, teacher_id, student_code, student_password, survey_completed) 
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,FALSE)`,
+      [name, surname, birthdate, birthplace, gender, diagnosis_date,
+       communication_notes, general_notes, teacher_id, student_code, student_password]
     );
 
-    const childId = insertResult.rows[0].id;
-    console.log(`🧒 Yeni öğrenci eklendi (ID: ${childId}), veli maili gönderiliyor...`);
+    await sendStudentCredentials(parent_email, student_code, student_password);
+    console.log(`📨 Mail gönderildi: ${parent_email}`);
 
-    try {
-      await sendStudentCredentials(parent_email, student_code, student_password);
-      console.log(`📨 Mail başarıyla gönderildi: ${parent_email}`);
-    } catch (mailErr) {
-      console.error('❌ Mail gönderilemedi:', mailErr);
-      return res.status(500).json({
-        success: true,
-        message: 'Child added but email failed to send.',
-      });
-    }
-
-    res.json({ success: true, message: 'Child added and credentials sent to parent.' });
+    res.json({ success: true, message: 'Child added and credentials sent.' });
   } catch (err) {
     console.error('DB Error (POST /teacher/add-child):', err);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -157,38 +124,83 @@ app.get('/children/:teacherId', async (req, res) => {
   }
 });
 
-// === VERIFY CHILD ===
+// === VERIFY CHILD (Parent Add Child) ===
 app.post('/parent/verify-child', async (req, res) => {
   const { firstName, lastName, studentCode, studentPassword, parentId } = req.body;
-  if (!firstName || !lastName || !studentCode || !studentPassword || !parentId) {
-    return res.status(400).json({ success: false, message: 'All fields are required.' });
-  }
+  if (!firstName || !lastName || !studentCode || !studentPassword || !parentId)
+    return res.status(400).json({ success: false, message: 'All fields required.' });
+
   try {
-    const childQuery = await pool.query(
+    const result = await pool.query(
       'SELECT * FROM children WHERE name = $1 AND surname = $2 AND student_code = $3 AND student_password = $4',
       [firstName, lastName, studentCode, studentPassword]
     );
-    if (childQuery.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Child not found or information does not match.' });
-    }
+    if (result.rows.length === 0)
+      return res.status(404).json({ success: false, message: 'Child not found.' });
 
-    const child = childQuery.rows[0];
-    const childId = child.id;
+    const child = result.rows[0];
+    if (child.parent_id && child.parent_id !== parentId)
+      return res.status(400).json({ success: false, message: 'Child already linked.' });
 
-    if (child.parent_id && child.parent_id !== parentId) {
-      return res.status(400).json({ success: false, message: 'This child is already linked with another parent.' });
-    }
-
-    await pool.query('UPDATE children SET parent_id = $1 WHERE id = $2', [parentId, childId]);
-    console.log(`✅ Child (ID: ${childId}) linked to Parent (ID: ${parentId})`);
-    res.json({ success: true, message: 'Child verified and linked successfully.', child });
+    await pool.query('UPDATE children SET parent_id = $1 WHERE id = $2', [parentId, child.id]);
+    res.json({ success: true, message: 'Child linked successfully.', child });
   } catch (err) {
-    console.error('❌ Error (POST /parent/verify-child):', err);
-    res.status(500).json({ success: false, message: 'Server error while verifying child.' });
+    console.error('Error (POST /parent/verify-child):', err);
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-// === SUNUCU ===
-app.listen(port, () => {
-  console.log(`✅ Backend is running on http://localhost:${port}`);
+// === FEEDBACK ===
+app.post('/feedback', async (req, res) => {
+  const { child_id, parent_id, teacher_id, message } = req.body;
+  if (!child_id || !teacher_id || !message)
+    return res.status(400).json({ success: false, message: 'Missing fields.' });
+
+  try {
+    await pool.query(
+      'INSERT INTO feedbacks (child_id, parent_id, teacher_id, message) VALUES ($1,$2,$3,$4)',
+      [child_id, parent_id, teacher_id, message]
+    );
+    res.json({ success: true, message: 'Feedback saved.' });
+  } catch (err) {
+    console.error('Error (POST /feedback):', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
 });
+
+// === CHILDREN BY PARENT ===
+app.get('/children/by-parent/:parentId', async (req, res) => {
+  try {
+    const { parentId } = req.params;
+    const result = await pool.query(
+      `SELECT id, name, surname, survey_completed, level, student_code
+       FROM children WHERE parent_id = $1`, [parentId]
+    );
+    res.json({ success: true, children: result.rows });
+  } catch (err) {
+    console.error('Error (GET /children/by-parent):', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+// === PARENT LOGIN ===
+app.post('/parent/login', async (req, res) => {
+  const { email, password } = req.body;
+  try {
+    const result = await pool.query(
+      'SELECT * FROM parents WHERE email = $1 AND password = $2',
+      [email, password]
+    );
+    if (result.rows.length > 0) {
+      const user = result.rows[0];
+      if (!user.is_verified)
+        return res.status(403).json({ success: false, message: 'Please verify your email.' });
+      res.json({ success: true, parentId: user.id });
+    } else res.status(401).json({ success: false, message: 'Invalid credentials' });
+  } catch (err) {
+    console.error('DB Error (POST /parent/login):', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+app.listen(port, () => console.log(`✅ Backend is running on http://localhost:${port}`));

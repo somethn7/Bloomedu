@@ -28,7 +28,7 @@ const ParentVerifyCodeScreen = ({ navigation, route }: any) => {
     }
 
     try {
-      const response = await fetch('https://bloomedu-backend.onrender.com/parent/verify-code', {
+      const response = await fetch('https://bloomedu-production.up.railway.app/parent/verify-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code }),  // sadece email ve code gönder

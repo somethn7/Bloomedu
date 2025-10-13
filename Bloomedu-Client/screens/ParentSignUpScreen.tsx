@@ -20,7 +20,7 @@ const ParentSignupScreen = ({ navigation }: any) => {
     }
 
     try {
-      const response = await fetch('https://bloomedu-backend.onrender.com/parent/signup', {
+      const response = await fetch('https://bloomedu-production.up.railway.app/parent/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, email, password }),

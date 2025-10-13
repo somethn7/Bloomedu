@@ -52,7 +52,7 @@ function ParentAddChildScreen({ navigation }: any) {
         return;
       }
 
-      const response = await fetch('https://bloomedu-backend.onrender.com/parent/verify-child', {
+      const response = await fetch('https://bloomedu-production.up.railway.app/parent/verify-child', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

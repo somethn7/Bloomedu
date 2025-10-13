@@ -33,7 +33,7 @@ const TeacherFeedbackScreen = ({ route, navigation }: any) => {
         return;
       }
 
-      const response = await fetch('https://bloomedu-backend.onrender.com/feedback', {
+      const response = await fetch('https://bloomedu-production.up.railway.app/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
