@@ -194,20 +194,33 @@ app.post('/parent/verify-child', async (req, res) => {
 // === FEEDBACK ===
 app.post('/feedback', async (req, res) => {
   const { child_id, parent_id, teacher_id, message } = req.body;
+
   if (!child_id || !teacher_id || !message)
     return res.status(400).json({ success: false, message: 'Missing fields.' });
 
   try {
+    // 🔹 Eğer parent_id gönderilmediyse çocuk üzerinden bul
+    let parentIdToUse = parent_id;
+    if (!parent_id || parent_id === 0) {
+      const parentResult = await pool.query(
+        'SELECT parent_id FROM children WHERE id = $1',
+        [child_id]
+      );
+      parentIdToUse = parentResult.rows[0]?.parent_id || null;
+    }
+
     await pool.query(
       'INSERT INTO feedbacks (child_id, parent_id, teacher_id, message) VALUES ($1,$2,$3,$4)',
-      [child_id, parent_id, teacher_id, message]
+      [child_id, parentIdToUse, teacher_id, message]
     );
-    res.json({ success: true, message: 'Feedback saved.' });
+
+    res.json({ success: true, message: 'Feedback saved successfully.' });
   } catch (err) {
     console.error('Error (POST /feedback):', err);
-    res.status(500).json({ success: false, message: 'Server error.' });
+    res.status(500).json({ success: false, message: 'Server error while saving feedback.' });
   }
 });
+
 
 // === GET FEEDBACKS BY PARENT ===
 app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
