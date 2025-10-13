@@ -1,26 +1,34 @@
-const nodemailer = require('nodemailer');
+const fetch = require("node-fetch");
 
-const sendVerificationCode = async (email, code) => {
-  try {
-    let transporter = nodemailer.createTransport({
-      service: 'gmail',
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-    });
+async function sendVerificationCode(email, code) {
+  const apiKey = process.env.RESEND_API_KEY;
 
-    await transporter.sendMail({
-      from: `"Bloomedu" <${process.env.EMAIL_USER}>`,
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "Bloomedu <onboarding@resend.dev>",
       to: email,
-      subject: 'Bloomedu Hesap Doğrulama Kodu',
-      text: `Merhaba,\n\nDoğrulama kodunuz: ${code}\n\nBloomedu Ekibi`,
-    });
+      subject: "Bloomedu Email Verification Code",
+      html: `
+        <h2>Verify Your Email</h2>
+        <p>Your verification code is:</p>
+        <h1>${code}</h1>
+        <p>Enter this code in the Bloomedu app to complete your registration.</p>
+      `,
+    }),
+  });
 
-    console.log(`Verification code sent to: ${email}`);
-  } catch (error) {
-    console.error('Error sending verification email:', error);
+  if (!response.ok) {
+    const error = await response.text();
+    console.error("❌ Failed to send verification code:", error);
+    throw new Error("Verification email failed");
   }
-};
+
+  console.log(`✅ Verification email sent to ${email}`);
+}
 
 module.exports = sendVerificationCode;

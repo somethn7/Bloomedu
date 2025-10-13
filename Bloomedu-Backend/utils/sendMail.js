@@ -1,48 +1,35 @@
-// utils/sendMail.js
-const nodemailer = require("nodemailer");
+const fetch = require("node-fetch");
 
-const sendStudentCredentials = async (toEmail, studentCode, studentPassword) => {
-  try {
-    const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true, // 465 = SSL/TLS
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      tls: {
-        rejectUnauthorized: false,
-      },
-    });
+async function sendStudentCredentials(to, studentCode, studentPassword) {
+  const apiKey = process.env.RESEND_API_KEY;
 
-    // ✅ bağlantı kontrolü
-    await transporter.verify();
-    console.log("✅ Gmail bağlantısı başarılı.");
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "Bloomedu <onboarding@resend.dev>",
+      to,
+      subject: "Your Bloomedu Student Credentials",
+      html: `
+        <h2>Welcome to Bloomedu!</h2>
+        <p>Your child's login credentials:</p>
+        <p><b>Student Code:</b> ${studentCode}</p>
+        <p><b>Password:</b> ${studentPassword}</p>
+        <p>Please keep these safe.</p>
+      `,
+    }),
+  });
 
-    const mailOptions = {
-      from: `"Bloomedu" <${process.env.EMAIL_USER}>`,
-      to: toEmail,
-      subject: "Bloomedu - Öğrenci Bilgileri",
-      text: `Merhaba,
-
-Çocuğunuz sisteme eklendi 🎉
-
-👧 Öğrenci Kodu: ${studentCode}
-🔑 Şifre: ${studentPassword}
-
-Bloomedu uygulamasına bu bilgilerle giriş yapabilirsiniz.
-
-Sevgiler,
-Bloomedu Ekibi`,
-    };
-
-    const info = await transporter.sendMail(mailOptions);
-    console.log(`✅ Mail gönderildi: ${toEmail} (${info.messageId})`);
-  } catch (error) {
-    console.error("❌ Mail gönderme hatası:", error);
-    throw error;
+  if (!response.ok) {
+    const error = await response.text();
+    console.error("❌ Failed to send mail via Resend:", error);
+    throw new Error("Email sending failed");
   }
-};
+
+  console.log(`✅ Mail sent successfully to ${to}`);
+}
 
 module.exports = sendStudentCredentials;
