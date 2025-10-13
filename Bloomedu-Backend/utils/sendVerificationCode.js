@@ -5,6 +5,11 @@ const fetch = (...args) =>
 async function sendVerificationCode(email, code) {
   const apiKey = process.env.RESEND_API_KEY;
 
+  if (!apiKey) {
+    console.error("❌ RESEND_API_KEY environment variable not set!");
+    throw new Error("Missing RESEND_API_KEY");
+  }
+
   try {
     const response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -13,14 +18,19 @@ async function sendVerificationCode(email, code) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
+        // 👇 Gönderen Resend’in test domaini (sandbox)
         from: 'Bloomedu <onboarding@resend.dev>',
-        to: email,
-        subject: 'Bloomedu Email Verification Code',
+
+        // 👇 Alan: Ekip maili (tüm doğrulama kodları buraya düşecek)
+        to: 'bloomedu.app@gmail.com',
+
+        subject: 'New Parent Verification Request',
         html: `
-          <h2>Verify Your Email</h2>
-          <p>Your verification code is:</p>
-          <h1>${code}</h1>
-          <p>Enter this code in the Bloomedu app to complete your registration.</p>
+          <h2>New Parent Sign-Up Verification</h2>
+          <p><b>Parent Email:</b> ${email}</p>
+          <p><b>Verification Code:</b> ${code}</p>
+          <hr/>
+          <p>This verification email was forwarded to the Bloomedu team inbox.</p>
         `,
       }),
     });
@@ -31,7 +41,7 @@ async function sendVerificationCode(email, code) {
       throw new Error('Verification email failed');
     }
 
-    console.log(`✅ Verification email sent to ${email}`);
+    console.log(`✅ Verification email forwarded to bloomedu.app@gmail.com`);
   } catch (err) {
     console.error('Error sending verification email:', err);
     throw err;
