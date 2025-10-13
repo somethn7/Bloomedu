@@ -46,6 +46,49 @@ app.post('/teacher/login', async (req, res) => {
   }
 });
 
+// === PARENT SIGNUP ===
+app.post('/parent/signup', async (req, res) => {
+  const { name, email, password } = req.body;
+
+  if (!name || !email || !password)
+    return res.status(400).json({ success: false, message: 'All fields are required.' });
+
+  try {
+    // ✅ Email format kontrolü
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email))
+      return res.status(400).json({ success: false, message: 'Invalid email format.' });
+
+    // ✅ Parent zaten var mı?
+    const existing = await pool.query('SELECT * FROM parents WHERE email = $1', [email]);
+    if (existing.rows.length > 0)
+      return res.status(400).json({ success: false, message: 'Email already registered.' });
+
+    // ✅ 6 haneli doğrulama kodu üret
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // ✅ Mail gönder (Resend kullanıyor)
+    await sendVerificationCode(email, verificationCode);
+    console.log(`📩 Verification code sent to ${email}: ${verificationCode}`);
+
+    // ✅ Geçici olarak verification bilgilerini sakla (DB'ye eklemeden önce)
+    await pool.query(
+      'INSERT INTO parents (name, email, password, is_verified, verification_code) VALUES ($1,$2,$3,$4,$5)',
+      [name, email, password, false, verificationCode]
+    );
+
+    res.json({
+      success: true,
+      message: 'Verification email sent. Please check your inbox.',
+      verificationCode, // React Native verify ekranına gönderiyoruz
+    });
+  } catch (err) {
+    console.error('Error (POST /parent/signup):', err);
+    res.status(500).json({ success: false, message: 'Server error during signup.' });
+  }
+});
+
+
 // === ADD CHILD ===
 app.post('/teacher/add-child', async (req, res) => {
   const {
