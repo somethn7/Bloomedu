@@ -8,12 +8,16 @@ const categories = [
   { title: 'Animals', image: require('./assets/animals.png') },
 ];
 
-const EducationScreen = ({ navigation }: any) => {
+// -umut: Child parametresi eklendi - oyunlara child bilgisini iletmek için (28.10.2025)
+const EducationScreen = ({ navigation, route }: any) => {
+  const { child } = route.params || {};
+
   const handleCategoryPress = (categoryTitle: string) => {
     if (categoryTitle === 'Colors') {
-      navigation.navigate('ColorsGame');
+      // -umut: Level 1 renk tanıma oyununa yönlendirme - child bilgisi ile birlikte (28.10.2025)
+      navigation.navigate('ColorsRecognitionLevel1', { child });
     } else {
-      Alert.alert('Selected', categoryTitle);
+      Alert.alert('Coming Soon!', `${categoryTitle} games will be available soon!`);
     }
   };
   return (

@@ -322,6 +322,108 @@ app.post('/parent/login', async (req, res) => {
   }
 });
 
+// === SAVE GAME SESSION ===
+// -umut: Oyun skorlarını ve istatistiklerini database'e kaydetmek için yeni endpoint eklendi (28.10.2025)
+// Bu endpoint çocukların oynadığı oyunların skorlarını, süresini ve tamamlanma durumunu kaydeder
+app.post('/game-session', async (req, res) => {
+  const { child_id, game_type, level, score, max_score, duration_seconds, completed } = req.body;
+
+  if (!child_id || !game_type || level === undefined || score === undefined) {
+    return res.status(400).json({ success: false, message: 'Missing required fields.' });
+  }
+
+  try {
+    await pool.query(
+      `INSERT INTO game_sessions 
+       (child_id, game_type, level, score, max_score, duration_seconds, completed) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [child_id, game_type, level, score, max_score, duration_seconds, completed]
+    );
+
+    res.json({ success: true, message: 'Game session saved successfully.' });
+  } catch (err) {
+    console.error('Error (POST /game-session):', err);
+    res.status(500).json({ success: false, message: 'Server error while saving game session.' });
+  }
+});
+
+// === SAVE VIDEO SESSION ===
+// -umut: Video izleme istatistiklerini kaydetmek için yeni endpoint eklendi (28.10.2025)
+// Çocukların hangi videoları ne kadar izlediğini takip etmek için kullanılır
+app.post('/video-session', async (req, res) => {
+  const { child_id, video_title, category, level, watch_duration_seconds, completed } = req.body;
+
+  if (!child_id || !video_title || !category) {
+    return res.status(400).json({ success: false, message: 'Missing required fields.' });
+  }
+
+  try {
+    await pool.query(
+      `INSERT INTO video_sessions 
+       (child_id, video_title, category, level, watch_duration_seconds, completed) 
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [child_id, video_title, category, level, watch_duration_seconds, completed]
+    );
+
+    res.json({ success: true, message: 'Video session saved successfully.' });
+  } catch (err) {
+    console.error('Error (POST /video-session):', err);
+    res.status(500).json({ success: false, message: 'Server error while saving video session.' });
+  }
+});
+
+// === GET CHILD PROGRESS ===
+// -umut: Çocuğun tüm gelişim verilerini (oyun skorları, video izleme, aktiviteler) getiren endpoint (28.10.2025)
+// Öğretmen dashboard'unda çocuğun ilerlemesini göstermek için kullanılacak
+app.get('/progress/:childId', async (req, res) => {
+  const { childId } = req.params;
+
+  try {
+    // Oyun istatistikleri
+    const gameStats = await pool.query(
+      `SELECT game_type, level, COUNT(*) as play_count, 
+       AVG(score) as avg_score, MAX(score) as best_score,
+       SUM(duration_seconds) as total_duration
+       FROM game_sessions 
+       WHERE child_id = $1 
+       GROUP BY game_type, level
+       ORDER BY game_type, level`,
+      [childId]
+    );
+
+    // Video istatistikleri
+    const videoStats = await pool.query(
+      `SELECT category, level, COUNT(*) as watch_count,
+       SUM(watch_duration_seconds) as total_watch_time
+       FROM video_sessions 
+       WHERE child_id = $1 
+       GROUP BY category, level
+       ORDER BY category, level`,
+      [childId]
+    );
+
+    // Son aktiviteler
+    const recentGames = await pool.query(
+      `SELECT game_type, level, score, max_score, completed, played_at
+       FROM game_sessions 
+       WHERE child_id = $1 
+       ORDER BY played_at DESC 
+       LIMIT 10`,
+      [childId]
+    );
+
+    res.json({
+      success: true,
+      gameStats: gameStats.rows,
+      videoStats: videoStats.rows,
+      recentGames: recentGames.rows,
+    });
+  } catch (err) {
+    console.error('Error (GET /progress/:childId):', err);
+    res.status(500).json({ success: false, message: 'Server error while fetching progress.' });
+  }
+});
+
 // === HEALTH CHECK (redundant but safe) ===
 app.get("/health", (req, res) => res.status(200).json({ ok: true }));
 

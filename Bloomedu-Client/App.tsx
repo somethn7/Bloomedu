@@ -18,6 +18,11 @@ import EducationScreen from './screens/EducationScreen';
 import ColorsGameScreen from './screens/ColorsGameScreen';
 import ColorsMatchingGameScreen from './screens/ColorsMatchingGameScreen';
 
+// -umut: Level 1 oyunları için yeni import eklendi (28.10.2025)
+// Oyun skor takibi sisteminin bir parçası
+// Level 1 Games
+import ColorsRecognitionLevel1 from './screens/games/Level1/ColorsRecognitionLevel1';
+
 import TeacherLoginScreen from './screens/TeacherLoginScreen';
 import TeacherDashboardScreen from './screens/TeacherDashboardScreen';
 import TeacherAddChildScreen from './screens/TeacherAddChildScreen';
@@ -64,6 +69,15 @@ export default function App() {
           <Stack.Screen name="Education" component={EducationScreen} />
           <Stack.Screen name="ColorsGame" component={ColorsGameScreen} />
           <Stack.Screen name="ColorsMatchingGame" component={ColorsMatchingGameScreen} />
+          
+          {/* -umut: Level 1 oyunları için navigation route eklendi (28.10.2025) */}
+          {/* Renk tanıma oyunu - Child bilgisini alır ve skorları backend'e kaydeder */}
+          {/* === LEVEL 1 GAMES === */}
+          <Stack.Screen 
+            name="ColorsRecognitionLevel1" 
+            component={ColorsRecognitionLevel1}
+            options={{ title: 'Colors - Level 1', headerTintColor: '#FF6B9A' }}
+          />
 
           {/* === TEACHER SIDE === */}
           <Stack.Screen
