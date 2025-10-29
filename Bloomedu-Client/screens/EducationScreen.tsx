@@ -51,8 +51,12 @@ const EducationScreen = ({ navigation, route }: any) => {
         Alert.alert('Coming Soon!', `Level ${childLevel} Colors games will be available soon!`);
       }
     } else if (categoryTitle === 'Numbers') {
-      // -umut: Numbers kategorisi - seviyeye göre (28.10.2025)
-      Alert.alert('Coming Soon!', `Numbers games for Level ${childLevel} will be available soon!`);
+      // Numbers: route by level
+      if (childLevel === 1) {
+        navigation.navigate('LearnNumbers', { child });
+      } else {
+        Alert.alert('Coming Soon!', `Numbers games for Level ${childLevel} will be available soon!`);
+      }
     } else if (categoryTitle === 'Objects') {
       // -umut: Objects kategorisi - Bedtime Journey oyunu (28.10.2025)
       if (childLevel === 1) {

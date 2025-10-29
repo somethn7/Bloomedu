@@ -9,10 +9,11 @@ const sendStudentCredentials = require('./utils/sendMail');
 const app = express();
 
 // === FIREBASE INIT ===
-const serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
-});
+// Firebase initialization is optional for now
+// const serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
+// admin.initializeApp({
+//   credential: admin.credential.cert(serviceAccount)
+// });
 
 app.use(cors());
 app.use(express.json());
