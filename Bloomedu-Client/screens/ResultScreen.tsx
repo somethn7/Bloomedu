@@ -95,6 +95,7 @@ useEffect(() => {
         Your Child's Level: {level}
       </Text>
 
+      {/* -umut: Child parametresi Education'a iletiliyor - oyunlarda skor kaydı için gerekli (28.10.2025) */}
       <TouchableOpacity
         style={{
           backgroundColor: '#FF6B9A',
@@ -103,7 +104,7 @@ useEffect(() => {
           borderRadius: 25,
           marginBottom: 15,
         }}
-        onPress={() => navigation.navigate('Education')}
+        onPress={() => navigation.navigate('Education', { child })}
       >
         <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>START EDUCATION →</Text>
       </TouchableOpacity>

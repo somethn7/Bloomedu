@@ -28,12 +28,51 @@ const items = [
 ];
 
 // 💡 Navigation tipi burada tanımlandı
-const ColorsMatchingGameScreen = () => {
+// -umut: Child parametresi ve skor kaydetme sistemi eklendi (28.10.2025)
+const ColorsMatchingGameScreen = ({ route }: any) => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList, 'ColorsMatchingGame'>>();
+  const { child } = route.params || {}; // -umut: Child bilgisi route'tan alınıyor
   const [feedback, setFeedback] = useState<string | null>(null);
   const [correctCount, setCorrectCount] = useState(0);
   const [gameCompleted, setGameCompleted] = useState(false);
+  const [gameStartTime] = useState(Date.now()); // -umut: Oyun süresini hesaplamak için başlangıç zamanı
   const positions = useRef(items.map(() => new Animated.ValueXY())).current;
+
+  // -umut: Oyun sonuçlarını backend'e kaydeden fonksiyon (28.10.2025)
+  // Çocuğun oyun skorunu, süresini ve tamamlanma durumunu database'e kaydeder
+  const saveGameSession = async (finalScore: number) => {
+    if (!child?.id) {
+      console.warn('⚠️ Child ID not found, skipping score save.');
+      return;
+    }
+
+    const durationSeconds = Math.floor((Date.now() - gameStartTime) / 1000);
+
+    try {
+      const response = await fetch('https://bloomedu-production.up.railway.app/game-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          child_id: child.id,
+          game_type: 'colors_matching',
+          level: child.level || 1,
+          score: finalScore,
+          max_score: items.length,
+          duration_seconds: durationSeconds,
+          completed: true,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        console.log('✅ Colors matching game session saved!');
+      } else {
+        console.warn('⚠️ Failed to save game session:', data.message);
+      }
+    } catch (err) {
+      console.error('❌ Error saving game session:', err);
+    }
+  };
 
   const createPanResponder = (index: number, itemColor: string) =>
     PanResponder.create({
@@ -53,7 +92,11 @@ const ColorsMatchingGameScreen = () => {
           setCorrectCount(prev => {
             const newCount = prev + 1;
             if (newCount === items.length) {
-              setTimeout(() => setGameCompleted(true), 1000);
+              // -umut: Oyun tamamlandığında skoru kaydet (28.10.2025)
+              setTimeout(() => {
+                setGameCompleted(true);
+                saveGameSession(newCount);
+              }, 1000);
             }
             return newCount;
           });
@@ -109,8 +152,9 @@ const ColorsMatchingGameScreen = () => {
       {gameCompleted && (
         <View style={styles.congratulationsBox}>
           <Text style={styles.congratulationsText}>🎉 Congratulations!</Text>
+          {/* -umut: Child parametresi ile Education'a geri dön (28.10.2025) */}
           <TouchableOpacity
-            onPress={() => navigation.navigate('Education')}
+            onPress={() => navigation.navigate('Education', { child })}
             style={styles.congratulationsButton}
           >
             <Text style={styles.congratulationsButtonText}>Back to Categories</Text>

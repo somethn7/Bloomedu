@@ -18,10 +18,23 @@ import EducationScreen from './screens/EducationScreen';
 import ColorsGameScreen from './screens/ColorsGameScreen';
 import ColorsMatchingGameScreen from './screens/ColorsMatchingGameScreen';
 
+// -umut: Level 1 oyunları için yeni import eklendi (28.10.2025)
+// Oyun skor takibi sisteminin bir parçası
+// Level 1 Games
+import ColorsRecognitionLevel1 from './screens/games/Level1/ColorsRecognitionLevel1';
+import StarTrackingLevel1 from './screens/games/Level1/StarTrackingLevel1';
+
+// -umut: Level 2 oyunları (28.10.2025)
+// Level 2 Games
+import ColorObjectsLevel2 from './screens/games/Level2/ColorObjectsLevel2';
+
 import TeacherLoginScreen from './screens/TeacherLoginScreen';
 import TeacherDashboardScreen from './screens/TeacherDashboardScreen';
 import TeacherAddChildScreen from './screens/TeacherAddChildScreen';
 import TeacherFeedbackScreen from './screens/TeacherFeedbackScreen';
+
+// -umut: Çocuk gelişim ekranı (28.10.2025)
+import ChildProgressScreen from './screens/ChildProgressScreen';
 
 import SettingsScreen from './screens/SettingsScreen';
 import { FeedbackProvider } from './screens/Contexts/FeedbackContext';
@@ -64,6 +77,41 @@ export default function App() {
           <Stack.Screen name="Education" component={EducationScreen} />
           <Stack.Screen name="ColorsGame" component={ColorsGameScreen} />
           <Stack.Screen name="ColorsMatchingGame" component={ColorsMatchingGameScreen} />
+          
+          {/* -umut: Level 1 oyunları için navigation route eklendi (28.10.2025) */}
+          {/* Renk tanıma oyunu - Child bilgisini alır ve skorları backend'e kaydeder */}
+          {/* === LEVEL 1 GAMES === */}
+          <Stack.Screen 
+            name="ColorsRecognitionLevel1" 
+            component={ColorsRecognitionLevel1}
+            options={{ 
+              title: '🎨 Color Match - Beginner', 
+              headerTintColor: '#FF6B9A',
+              headerStyle: { backgroundColor: '#FFF' }
+            }}
+          />
+          <Stack.Screen 
+            name="StarTrackingLevel1" 
+            component={StarTrackingLevel1}
+            options={{ 
+              title: '🌙 Bedtime Journey - Focus', 
+              headerTintColor: '#5DADE2',
+              headerStyle: { backgroundColor: '#FFF' }
+            }}
+          />
+
+          {/* -umut: Level 2 oyunları (28.10.2025) */}
+          {/* Renk + Nesne kombinasyonu oyunu */}
+          {/* === LEVEL 2 GAMES === */}
+          <Stack.Screen 
+            name="ColorObjectsLevel2" 
+            component={ColorObjectsLevel2}
+            options={{ 
+              title: '🎯 Color Objects - Intermediate', 
+              headerTintColor: '#4DABF7',
+              headerStyle: { backgroundColor: '#FFF' }
+            }}
+          />
 
           {/* === TEACHER SIDE === */}
           <Stack.Screen
@@ -85,6 +133,11 @@ export default function App() {
             name="TeacherFeedback"
             component={TeacherFeedbackScreen as any}
             options={{ title: 'Send Feedback', headerTintColor: 'grey' }}
+          />
+          <Stack.Screen
+            name="ChildProgress"
+            component={ChildProgressScreen}
+            options={{ title: 'Student Progress', headerTintColor: '#4DABF7' }}
           />
 
           {/* === OTHER === */}

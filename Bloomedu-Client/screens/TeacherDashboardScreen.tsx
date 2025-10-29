@@ -99,19 +99,35 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
         </View>
       </View>
 
-      <TouchableOpacity
-        style={styles.feedbackButton}
-        onPress={() =>
-          navigation.navigate('TeacherFeedback', {
-            childId: item.id,
-            childName: item.name,
-            childSurname: item.surname,
-            parentId: item.parent_id,
-          })
-        }
-      >
-        <Text style={styles.feedbackButtonText}>Send Feedback</Text>
-      </TouchableOpacity>
+      {/* -umut: Butonlar - Progress ve Feedback (28.10.2025) */}
+      <View style={styles.actionButtons}>
+        <TouchableOpacity
+          style={styles.progressButton}
+          onPress={() =>
+            navigation.navigate('ChildProgress', {
+              childId: item.id,
+              childName: item.name,
+              childSurname: item.surname,
+            })
+          }
+        >
+          <Text style={styles.progressButtonText}>📊 View Progress</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.feedbackButton}
+          onPress={() =>
+            navigation.navigate('TeacherFeedback', {
+              childId: item.id,
+              childName: item.name,
+              childSurname: item.surname,
+              parentId: item.parent_id,
+            })
+          }
+        >
+          <Text style={styles.feedbackButtonText}>💬 Send Feedback</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -203,16 +219,42 @@ const styles = StyleSheet.create({
   valueText: { fontWeight: '700', color: '#64bef5ff' },
   gamesList: { marginLeft: 10, marginTop: 2 },
   gameItem: { fontSize: 14, color: '#475569' },
+  // -umut: Aksiyon butonları (28.10.2025)
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  progressButton: {
+    flex: 1,
+    backgroundColor: '#4DABF7',
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    shadowColor: '#4DABF7',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
+  },
+  progressButtonText: { 
+    color: 'white', 
+    fontWeight: '700', 
+    fontSize: 14,
+  },
   feedbackButton: {
+    flex: 1,
     backgroundColor: '#fb3896c0',
     paddingVertical: 10,
     borderRadius: 10,
-    marginTop: 10,
     alignItems: 'center',
     shadowColor: '#fb3896c0',
     shadowOpacity: 0.3,
     shadowOffset: { width: 0, height: 3 },
     elevation: 4,
   },
-  feedbackButtonText: { color: 'white', fontWeight: '700', fontSize: 16 },
+  feedbackButtonText: { 
+    color: 'white', 
+    fontWeight: '700', 
+    fontSize: 14,
+  },
 });
