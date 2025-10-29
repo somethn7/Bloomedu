@@ -22,6 +22,7 @@ import ColorsMatchingGameScreen from './screens/ColorsMatchingGameScreen';
 // Oyun skor takibi sisteminin bir parçası
 // Level 1 Games
 import ColorsRecognitionLevel1 from './screens/games/Level1/ColorsRecognitionLevel1';
+import StarTrackingLevel1 from './screens/games/Level1/StarTrackingLevel1';
 
 // -umut: Level 2 oyunları (28.10.2025)
 // Level 2 Games
@@ -31,6 +32,9 @@ import TeacherLoginScreen from './screens/TeacherLoginScreen';
 import TeacherDashboardScreen from './screens/TeacherDashboardScreen';
 import TeacherAddChildScreen from './screens/TeacherAddChildScreen';
 import TeacherFeedbackScreen from './screens/TeacherFeedbackScreen';
+
+// -umut: Çocuk gelişim ekranı (28.10.2025)
+import ChildProgressScreen from './screens/ChildProgressScreen';
 
 import SettingsScreen from './screens/SettingsScreen';
 import { FeedbackProvider } from './screens/Contexts/FeedbackContext';
@@ -80,7 +84,20 @@ export default function App() {
           <Stack.Screen 
             name="ColorsRecognitionLevel1" 
             component={ColorsRecognitionLevel1}
-            options={{ title: 'Colors - Level 1', headerTintColor: '#FF6B9A' }}
+            options={{ 
+              title: '🎨 Color Match - Beginner', 
+              headerTintColor: '#FF6B9A',
+              headerStyle: { backgroundColor: '#FFF' }
+            }}
+          />
+          <Stack.Screen 
+            name="StarTrackingLevel1" 
+            component={StarTrackingLevel1}
+            options={{ 
+              title: '🌙 Bedtime Journey - Focus', 
+              headerTintColor: '#5DADE2',
+              headerStyle: { backgroundColor: '#FFF' }
+            }}
           />
 
           {/* -umut: Level 2 oyunları (28.10.2025) */}
@@ -89,7 +106,11 @@ export default function App() {
           <Stack.Screen 
             name="ColorObjectsLevel2" 
             component={ColorObjectsLevel2}
-            options={{ title: 'Color Objects - Level 2', headerTintColor: '#4DABF7' }}
+            options={{ 
+              title: '🎯 Color Objects - Intermediate', 
+              headerTintColor: '#4DABF7',
+              headerStyle: { backgroundColor: '#FFF' }
+            }}
           />
 
           {/* === TEACHER SIDE === */}
@@ -112,6 +133,11 @@ export default function App() {
             name="TeacherFeedback"
             component={TeacherFeedbackScreen as any}
             options={{ title: 'Send Feedback', headerTintColor: 'grey' }}
+          />
+          <Stack.Screen
+            name="ChildProgress"
+            component={ChildProgressScreen}
+            options={{ title: 'Student Progress', headerTintColor: '#4DABF7' }}
           />
 
           {/* === OTHER === */}

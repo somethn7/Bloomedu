@@ -66,49 +66,74 @@ export default function ColorsRecognitionLevel1() {
 
   // -umut: Text-to-Speech ayarları (28.10.2025)
   useEffect(() => {
-    configureTts();
-    setGameStartTime(Date.now());
-    newQuestion();
+    const initGame = async () => {
+      console.log('🎮 Level 1 Colors - Initializing...');
+      await configureTts();
+      setGameStartTime(Date.now());
+      // -umut: TTS hazır olduktan sonra oyunu başlat (28.10.2025)
+      setTimeout(() => {
+        newQuestion();
+      }, 800);
+    };
+
+    initGame();
 
     return () => {
-      Tts.stop(); // -umut: Component unmount olduğunda TTS'i durdur
+      console.log('🎮 Cleanup - stopping TTS');
+      Tts.stop();
     };
   }, []);
 
   // -umut: TTS yapılandırması - yavaş ve net konuşma (28.10.2025)
   const configureTts = async () => {
+    console.log('🔧 Configuring TTS for Level 1 Colors...');
     try {
-      if (Platform.OS === 'android') {
-        await Tts.setDefaultLanguage('en-US');
-      } else {
-        await Tts.setDefaultLanguage('en-US');
-      }
-      await Tts.setDefaultRate(0.45); // -umut: Yavaş konuşma hızı (0.45 = çok yavaş)
-      await Tts.setDefaultPitch(1.0); // -umut: Normal ton
+      const engines = await Tts.engines();
+      console.log('📱 Available TTS engines:', engines);
+      
+      await Tts.setDefaultLanguage('en-US');
+      await Tts.setDefaultRate(0.45);
+      await Tts.setDefaultPitch(1.0);
+      
+      // -umut: Event listeners ekle (28.10.2025)
+      Tts.addEventListener('tts-start', (event) => console.log('🔊 TTS started:', event));
+      Tts.addEventListener('tts-finish', (event) => console.log('🔊 TTS finished:', event));
+      Tts.addEventListener('tts-cancel', (event) => console.log('🔊 TTS cancelled:', event));
+      
+      console.log('✅ TTS configured - testing...');
+      setTimeout(() => {
+        Tts.speak('Ready');
+      }, 300);
     } catch (error) {
-      console.warn('TTS configuration error:', error);
+      console.error('❌ TTS configuration error:', error);
     }
   };
 
   // -umut: Renk adını sesli söyle (28.10.2025)
   const speakColorName = (colorName: string) => {
+    const text = `Find this color. ${colorName}`;
+    console.log('🔊 Speaking:', text);
+    
     try {
-      Tts.stop(); // Önceki konuşmayı durdur
+      Tts.stop();
       setTimeout(() => {
-        Tts.speak(`Find this color. ${colorName}`); // "Find this color. RED" gibi
-      }, 300);
+        console.log('🔊 TTS.speak called with:', text);
+        Tts.speak(text);
+      }, 500);
     } catch (error) {
-      console.warn('TTS speak error:', error);
+      console.error('❌ TTS speak error:', error);
     }
   };
 
   // -umut: Yeni soru oluştur (28.10.2025)
   const newQuestion = () => {
+    console.log('❓ Creating new question...');
     setFeedback('');
     setQuestionStartTime(Date.now());
     
     // Rastgele hedef renk seç
     const target = COLORS[Math.floor(Math.random() * COLORS.length)];
+    console.log('🎯 Target color:', target.name);
     setTargetColor(target);
     
     // Tüm 6 rengi karıştırılmış şekilde göster
@@ -118,7 +143,7 @@ export default function ColorsRecognitionLevel1() {
     // -umut: Renk adını sesli söyle (28.10.2025)
     setTimeout(() => {
       speakColorName(target.name);
-    }, 500);
+    }, 1000);
   };
 
   // -umut: Renk seçildiğinde (28.10.2025)

@@ -89,14 +89,24 @@ export default function ColorObjectsLevel2() {
   const configureTts = async () => {
     console.log('🔧 Configuring TTS for Level 2...');
     try {
+      // -umut: Android TTS engine'ini kontrol et (28.10.2025)
+      const engines = await Tts.engines();
+      console.log('📱 Available TTS engines:', engines);
+      
       await Tts.setDefaultLanguage('en-US');
       await Tts.setDefaultRate(0.4);
       await Tts.setDefaultPitch(1.0);
       
-      Tts.addEventListener('tts-start', () => console.log('🔊 TTS started'));
-      Tts.addEventListener('tts-finish', () => console.log('🔊 TTS finished'));
+      // -umut: Event listeners (28.10.2025)
+      Tts.addEventListener('tts-start', (event) => console.log('🔊 TTS started:', event));
+      Tts.addEventListener('tts-finish', (event) => console.log('🔊 TTS finished:', event));
+      Tts.addEventListener('tts-cancel', (event) => console.log('🔊 TTS cancelled:', event));
       
-      console.log('✅ TTS configured successfully');
+      // -umut: İlk test konuşması (28.10.2025)
+      console.log('✅ TTS configured - testing...');
+      setTimeout(() => {
+        Tts.speak('Ready');
+      }, 300);
     } catch (error) {
       console.error('❌ TTS configuration error:', error);
     }
@@ -109,9 +119,9 @@ export default function ColorObjectsLevel2() {
     try {
       Tts.stop();
       setTimeout(() => {
-        console.log('🔊 TTS.speak called');
+        console.log('🔊 TTS.speak called with:', text);
         Tts.speak(text);
-      }, 600);
+      }, 700);
     } catch (error) {
       console.error('❌ TTS speak error:', error);
     }
