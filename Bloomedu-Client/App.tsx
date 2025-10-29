@@ -23,6 +23,10 @@ import ColorsMatchingGameScreen from './screens/ColorsMatchingGameScreen';
 // Level 1 Games
 import ColorsRecognitionLevel1 from './screens/games/Level1/ColorsRecognitionLevel1';
 
+// -umut: Level 2 oyunları (28.10.2025)
+// Level 2 Games
+import ColorObjectsLevel2 from './screens/games/Level2/ColorObjectsLevel2';
+
 import TeacherLoginScreen from './screens/TeacherLoginScreen';
 import TeacherDashboardScreen from './screens/TeacherDashboardScreen';
 import TeacherAddChildScreen from './screens/TeacherAddChildScreen';
@@ -77,6 +81,15 @@ export default function App() {
             name="ColorsRecognitionLevel1" 
             component={ColorsRecognitionLevel1}
             options={{ title: 'Colors - Level 1', headerTintColor: '#FF6B9A' }}
+          />
+
+          {/* -umut: Level 2 oyunları (28.10.2025) */}
+          {/* Renk + Nesne kombinasyonu oyunu */}
+          {/* === LEVEL 2 GAMES === */}
+          <Stack.Screen 
+            name="ColorObjectsLevel2" 
+            component={ColorObjectsLevel2}
+            options={{ title: 'Color Objects - Level 2', headerTintColor: '#4DABF7' }}
           />
 
           {/* === TEACHER SIDE === */}
