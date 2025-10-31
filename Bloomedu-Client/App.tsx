@@ -15,6 +15,7 @@ import ChildInfoScreen from './screens/ChildInfoScreen';
 import SurveyScreen from './screens/SurveyScreen';
 import ResultScreen from './screens/ResultScreen';
 import EducationScreen from './screens/EducationScreen';
+import CategoryGamesScreen from './screens/CategoryGamesScreen';
 import ColorsGameScreen from './screens/ColorsGameScreen';
 import ColorsMatchingGameScreen from './screens/ColorsMatchingGameScreen';
 
@@ -23,10 +24,15 @@ import ColorsMatchingGameScreen from './screens/ColorsMatchingGameScreen';
 // Level 1 Games
 import ColorsRecognitionLevel1 from './screens/games/Level1/ColorsRecognitionLevel1';
 import StarTrackingLevel1 from './screens/games/Level1/StarTrackingLevel1';
+import LearnNumbersLevel1 from './screens/games/Level1/LearnNumbersLevel1';
+import SortNumbersLevel1 from './screens/games/Level1/SortNumbersLevel1';
+import AnimalSoundsLevel1 from './screens/games/Level1/AnimalSoundsLevel1';
 
 // -umut: Level 2 oyunları (28.10.2025)
 // Level 2 Games
 import ColorObjectsLevel2 from './screens/games/Level2/ColorObjectsLevel2';
+import MissingNumbersLevel2 from './screens/games/Level2/MissingNumbersLevel2';
+import MatchNumbersLevel2 from './screens/games/Level2/MatchNumbersLevel2';
 
 import TeacherLoginScreen from './screens/TeacherLoginScreen';
 import TeacherDashboardScreen from './screens/TeacherDashboardScreen';
@@ -75,6 +81,11 @@ export default function App() {
           <Stack.Screen name="Survey" component={SurveyScreen} />
           <Stack.Screen name="Result" component={ResultScreen} />
           <Stack.Screen name="Education" component={EducationScreen} />
+          <Stack.Screen 
+            name="CategoryGames" 
+            component={CategoryGamesScreen}
+            options={{ headerShown: false }}
+          />
           <Stack.Screen name="ColorsGame" component={ColorsGameScreen} />
           <Stack.Screen name="ColorsMatchingGame" component={ColorsMatchingGameScreen} />
           
@@ -99,6 +110,33 @@ export default function App() {
               headerStyle: { backgroundColor: '#FFF' }
             }}
           />
+          <Stack.Screen 
+            name="LearnNumbersLevel1" 
+            component={LearnNumbersLevel1}
+            options={{ 
+              title: '🔢 Learn Numbers - Beginner', 
+              headerTintColor: '#4ECDC4',
+              headerStyle: { backgroundColor: '#FFF' }
+            }}
+          />
+          <Stack.Screen 
+            name="SortNumbersLevel1" 
+            component={SortNumbersLevel1}
+            options={{ 
+              title: '🔢 Sort Numbers - Beginner', 
+              headerTintColor: '#45B7D1',
+              headerStyle: { backgroundColor: '#FFF' }
+            }}
+          />
+          <Stack.Screen 
+            name="AnimalSoundsLevel1" 
+            component={AnimalSoundsLevel1}
+            options={{ 
+              title: '🎵 Animal Sounds - Beginner', 
+              headerTintColor: '#FFD43B',
+              headerStyle: { backgroundColor: '#FFF' }
+            }}
+          />
 
           {/* -umut: Level 2 oyunları (28.10.2025) */}
           {/* Renk + Nesne kombinasyonu oyunu */}
@@ -109,6 +147,24 @@ export default function App() {
             options={{ 
               title: '🎯 Color Objects - Intermediate', 
               headerTintColor: '#4DABF7',
+              headerStyle: { backgroundColor: '#FFF' }
+            }}
+          />
+          <Stack.Screen 
+            name="MissingNumbersLevel2" 
+            component={MissingNumbersLevel2}
+            options={{ 
+              title: '🔢 Missing Numbers - Intermediate', 
+              headerTintColor: '#85C1E9',
+              headerStyle: { backgroundColor: '#FFF' }
+            }}
+          />
+          <Stack.Screen 
+            name="MatchNumbersLevel2" 
+            component={MatchNumbersLevel2}
+            options={{ 
+              title: '🔢 Match Numbers - Intermediate', 
+              headerTintColor: '#96CEB4',
               headerStyle: { backgroundColor: '#FFF' }
             }}
           />

@@ -39,32 +39,9 @@ const EducationScreen = ({ navigation, route }: any) => {
   const { child } = route.params || {};
   const childLevel = child?.level || 1; // -umut: Çocuğun seviyesi
 
-  // -umut: Kategori seçimi - doğrudan oyun veya video (28.10.2025)
+  // -umut: Kategori seçimi - yeni CategoryGamesScreen'e yönlendir (31.10.2025)
   const handleCategoryPress = (categoryTitle: string) => {
-    if (categoryTitle === 'Colors') {
-      // -umut: Çocuğun seviyesine göre oyun yönlendirmesi (28.10.2025)
-      if (childLevel === 1) {
-        navigation.navigate('ColorsRecognitionLevel1', { child });
-      } else if (childLevel === 2) {
-        navigation.navigate('ColorObjectsLevel2', { child });
-      } else {
-        Alert.alert('Coming Soon!', `Level ${childLevel} Colors games will be available soon!`);
-      }
-    } else if (categoryTitle === 'Numbers') {
-      // -umut: Numbers kategorisi - seviyeye göre (28.10.2025)
-      Alert.alert('Coming Soon!', `Numbers games for Level ${childLevel} will be available soon!`);
-    } else if (categoryTitle === 'Objects') {
-      // -umut: Objects kategorisi - Bedtime Journey oyunu (28.10.2025)
-      if (childLevel === 1) {
-        navigation.navigate('StarTrackingLevel1', { child });
-      } else {
-        Alert.alert('Coming Soon!', `Objects games for Level ${childLevel} will be available soon!`);
-      }
-    } else if (categoryTitle === 'Animals') {
-      Alert.alert('Coming Soon!', `Animals games for Level ${childLevel} will be available soon!`);
-    } else {
-      Alert.alert('Coming Soon!', `${categoryTitle} games will be available soon!`);
-    }
+    navigation.navigate('CategoryGames', { categoryTitle, child });
   };
   // -umut: Seviye adı (28.10.2025)
   const getLevelName = (level: number) => {

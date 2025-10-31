@@ -8,7 +8,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  Image,
+  ScrollView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -18,18 +18,7 @@ const ParentLoginScreen = ({ navigation }: any) => {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: 'Login',
-      headerStyle: {
-        backgroundColor: '#ffffff',
-        shadowColor: 'transparent',
-        elevation: 0,
-      },
-      headerTintColor: '#7a8a91',
-      headerTitleStyle: {
-        color: '#7a8a91',
-        fontWeight: '600',
-        fontSize: 20,
-      },
+      headerShown: false,
     });
   }, [navigation]);
 
@@ -72,47 +61,85 @@ const ParentLoginScreen = ({ navigation }: any) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
-      <View style={styles.innerContainer}>
-        <Image source={require('./assets/parent.png')} style={styles.iconImage} />
-        <Text style={styles.title}>Parent Login</Text>
-
-        <TextInput
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          style={styles.input}
-          autoCapitalize="none"
-          placeholderTextColor="#7a8a91"
-        />
-        <TextInput
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          style={styles.input}
-          placeholderTextColor="#7a8a91"
-        />
-
-        <TouchableOpacity style={styles.button} onPress={handleLogin}>
-          <Text style={styles.buttonText}>Login</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() => navigation.navigate('Signup')}
-          style={styles.signUpLinkContainer}
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Back Button */}
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => navigation.goBack()}
         >
-          <Text style={styles.signUpText}>Don't have an account? </Text>
-          <Text style={styles.signUpLink}>Sign up</Text>
+          <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          onPress={() => navigation.navigate('ParentForgotPassword')}
-          style={styles.forgotPasswordContainer}
-        >
-          <Text style={styles.forgotPasswordText}>Forgot your password?</Text>
-        </TouchableOpacity>
-      </View>
+        {/* Header Section */}
+        <View style={styles.headerSection}>
+          <Text style={styles.iconEmoji}>👨‍👩‍👧‍👦</Text>
+          <Text style={styles.welcomeText}>Welcome Back!</Text>
+          <Text style={styles.title}>Parent Login</Text>
+          <Text style={styles.subtitle}>Sign in to track your child's progress</Text>
+        </View>
+
+        {/* Form Card */}
+        <View style={styles.formCard}>
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>📧 Email</Text>
+            <TextInput
+              placeholder="Enter your email"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              style={styles.input}
+              autoCapitalize="none"
+              placeholderTextColor="#A0AEC0"
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>🔒 Password</Text>
+            <TextInput
+              placeholder="Enter your password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              style={styles.input}
+              placeholderTextColor="#A0AEC0"
+            />
+          </View>
+
+          <TouchableOpacity
+            onPress={() => navigation.navigate('ParentForgotPassword')}
+            style={styles.forgotPasswordLink}
+          >
+            <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+            <Text style={styles.loginButtonText}>Sign In</Text>
+            <Text style={styles.loginButtonArrow}>→</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Sign Up Section */}
+        <View style={styles.signUpSection}>
+          <Text style={styles.signUpText}>Don't have an account?</Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Signup')}
+            style={styles.signUpButton}
+          >
+            <Text style={styles.signUpButtonText}>Create Account</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Info Box */}
+        <View style={styles.infoBox}>
+          <Text style={styles.infoIcon}>💡</Text>
+          <Text style={styles.infoText}>
+            Track learning progress, manage children, and receive teacher feedback all in one place.
+          </Text>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 };
@@ -122,74 +149,162 @@ export default ParentLoginScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#F8F9FA',
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    width: 45,
+    height: 45,
+    borderRadius: 23,
+    backgroundColor: '#FFFFFF',
     justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    zIndex: 10,
   },
-  innerContainer: {
-    marginHorizontal: 30,
+  backButtonText: {
+    fontSize: 28,
+    color: '#FF6B9A',
+    fontWeight: '700',
   },
-  iconImage: {
-    width: 75,
-    height: 75,
-    alignSelf: 'center',
-    marginBottom: 10,
+  headerSection: {
+    paddingTop: 120,
+    paddingBottom: 40,
+    paddingHorizontal: 30,
+    alignItems: 'center',
+  },
+  iconEmoji: {
+    fontSize: 70,
+    marginBottom: 20,
+  },
+  welcomeText: {
+    fontSize: 18,
+    color: '#718096',
+    fontWeight: '500',
+    marginBottom: 8,
   },
   title: {
-    fontSize: 28,
+    fontSize: 34,
     fontWeight: '800',
-    color: '#fb3896c0',
-    marginBottom: 40,
+    color: '#FF6B9A',
+    marginBottom: 10,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: '#4A5568',
     textAlign: 'center',
   },
+  formCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    borderRadius: 25,
+    padding: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  inputContainer: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginBottom: 8,
+  },
   input: {
-    backgroundColor: '#f5f6fa',
-    borderRadius: 12,
+    backgroundColor: '#F7FAFC',
+    borderRadius: 14,
     paddingHorizontal: 18,
     paddingVertical: 14,
     fontSize: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#fb389681',
-    color: '#34495e',
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    color: '#2D3748',
   },
-  button: {
-    backgroundColor: '#fb389674',
-    paddingVertical: 16,
-    borderRadius: 30,
-    alignItems: 'center',
-    marginTop: 10,
-    shadowColor: '#fb389674',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  signUpLinkContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 30,
-  },
-  signUpText: {
-    color: '#5a6e72',
-    fontSize: 14,
-  },
-  signUpLink: {
-    color: '#ff73c7ff',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  forgotPasswordContainer: {
-    marginTop: 20,
-    alignItems: 'center',
+  forgotPasswordLink: {
+    alignSelf: 'flex-end',
+    marginBottom: 25,
   },
   forgotPasswordText: {
-    color: '#fb3896c0',
+    color: '#FF6B9A',
     fontSize: 14,
     fontWeight: '600',
+  },
+  loginButton: {
+    backgroundColor: '#FF6B9A',
+    borderRadius: 16,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#FF6B9A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  loginButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    marginRight: 8,
+  },
+  loginButtonArrow: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  signUpSection: {
+    marginTop: 30,
+    alignItems: 'center',
+  },
+  signUpText: {
+    fontSize: 15,
+    color: '#718096',
+    marginBottom: 12,
+  },
+  signUpButton: {
+    borderWidth: 2,
+    borderColor: '#FF6B9A',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 30,
+  },
+  signUpButtonText: {
+    color: '#FF6B9A',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  infoBox: {
+    flexDirection: 'row',
+    backgroundColor: '#FFF5F7',
+    marginHorizontal: 20,
+    marginTop: 30,
+    padding: 18,
+    borderRadius: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FF6B9A',
+  },
+  infoIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#4A5568',
+    lineHeight: 20,
   },
 });

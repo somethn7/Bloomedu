@@ -8,7 +8,7 @@ import {
   Alert,
   Platform,
   KeyboardAvoidingView,
-  Image,
+  ScrollView,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -18,18 +18,7 @@ const TeacherLoginScreen = ({ navigation }: any) => {
 
   useLayoutEffect(() => {
     navigation.setOptions({
-      title: 'Teacher Login',
-      headerStyle: {
-        backgroundColor: '#ffffff',
-        shadowColor: 'transparent',
-        elevation: 0,
-      },
-      headerTintColor: '#7a8a91',
-      headerTitleStyle: {
-        color: '#7a8a91',
-        fontWeight: '600',
-        fontSize: 20,
-      },
+      headerShown: false,
     });
   }, [navigation]);
 
@@ -88,44 +77,82 @@ const TeacherLoginScreen = ({ navigation }: any) => {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
-      <View style={styles.innerContainer}>
-        <Image source={require('./assets/teacher.png')} style={styles.iconImage} />
-
-        <Text style={styles.title}>Teacher Login</Text>
-
-        <TextInput
-          placeholder="Email"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          style={styles.input}
-          autoCapitalize="none"
-          placeholderTextColor="#7a8a91"
-        />
-
-        <TextInput
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          style={styles.input}
-          placeholderTextColor="#7a8a91"
-        />
-
-        <TouchableOpacity style={styles.button} onPress={handleLogin}>
-          <Text style={styles.buttonText}>Login</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          onPress={() =>
-            Alert.alert('Password Reset', 'Please contact support or use the reset screen.')
-          }
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Back Button */}
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => navigation.goBack()}
         >
-          <Text style={styles.forgotPasswordText}>
-            Forgot your password? Tap here to reset.
-          </Text>
+          <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
-      </View>
+
+        {/* Header Section */}
+        <View style={styles.headerSection}>
+          <Text style={styles.iconEmoji}>👩‍🏫</Text>
+          <Text style={styles.welcomeText}>Welcome Back!</Text>
+          <Text style={styles.title}>Teacher Login</Text>
+          <Text style={styles.subtitle}>Access your classroom dashboard</Text>
+        </View>
+
+        {/* Form Card */}
+        <View style={styles.formCard}>
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>📧 Email</Text>
+            <TextInput
+              placeholder="Enter your email"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              style={styles.input}
+              autoCapitalize="none"
+              placeholderTextColor="#A0AEC0"
+            />
+          </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>🔒 Password</Text>
+            <TextInput
+              placeholder="Enter your password"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+              style={styles.input}
+              placeholderTextColor="#A0AEC0"
+            />
+          </View>
+
+          <TouchableOpacity
+            onPress={() =>
+              Alert.alert('Password Reset', 'Please contact support for password reset assistance.')
+            }
+            style={styles.forgotPasswordLink}
+          >
+            <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
+            <Text style={styles.loginButtonText}>Sign In</Text>
+            <Text style={styles.loginButtonArrow}>→</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Info Box */}
+        <View style={styles.infoBox}>
+          <Text style={styles.infoIcon}>📚</Text>
+          <Text style={styles.infoText}>
+            Monitor student progress, send feedback to parents, and manage your classroom efficiently.
+          </Text>
+        </View>
+
+        {/* Support Section */}
+        <View style={styles.supportSection}>
+          <Text style={styles.supportText}>Need help? Contact support</Text>
+          <Text style={styles.supportEmail}>support@bloomedu.com</Text>
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 };
@@ -133,39 +160,158 @@ const TeacherLoginScreen = ({ navigation }: any) => {
 export default TeacherLoginScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#ffffff', justifyContent: 'center' },
-  innerContainer: { marginHorizontal: 30 },
-  iconImage: { width: 75, height: 75, alignSelf: 'center', marginBottom: 10 },
-  title: { fontSize: 28, fontWeight: '800', color: '#64bef5ff', marginBottom: 40, textAlign: 'center' },
+  container: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+  },
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  backButton: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    width: 45,
+    height: 45,
+    borderRadius: 23,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+    zIndex: 10,
+  },
+  backButtonText: {
+    fontSize: 28,
+    color: '#4ECDC4',
+    fontWeight: '700',
+  },
+  headerSection: {
+    paddingTop: 120,
+    paddingBottom: 40,
+    paddingHorizontal: 30,
+    alignItems: 'center',
+  },
+  iconEmoji: {
+    fontSize: 70,
+    marginBottom: 20,
+  },
+  welcomeText: {
+    fontSize: 18,
+    color: '#718096',
+    fontWeight: '500',
+    marginBottom: 8,
+  },
+  title: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: '#4ECDC4',
+    marginBottom: 10,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: '#4A5568',
+    textAlign: 'center',
+  },
+  formCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
+    borderRadius: 25,
+    padding: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  inputContainer: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#2D3748',
+    marginBottom: 8,
+  },
   input: {
-    backgroundColor: '#f5f6fa',
-    borderRadius: 12,
+    backgroundColor: '#F7FAFC',
+    borderRadius: 14,
     paddingHorizontal: 18,
     paddingVertical: 14,
     fontSize: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#64bef5ff',
-    color: '#34495e',
+    borderWidth: 2,
+    borderColor: '#E2E8F0',
+    color: '#2D3748',
   },
-  button: {
-    backgroundColor: '#64bef5ff',
+  forgotPasswordLink: {
+    alignSelf: 'flex-end',
+    marginBottom: 25,
+  },
+  forgotPasswordText: {
+    color: '#4ECDC4',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  loginButton: {
+    backgroundColor: '#4ECDC4',
+    borderRadius: 16,
     paddingVertical: 16,
-    borderRadius: 30,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
-    shadowColor: '#73c0ffce',
-    shadowOffset: { width: 0, height: 10 },
+    justifyContent: 'center',
+    shadowColor: '#4ECDC4',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 10,
+    shadowRadius: 8,
     elevation: 5,
   },
-  buttonText: { color: '#fff', fontSize: 18, fontWeight: '700' },
-  forgotPasswordText: {
-    color: '#7a8a91',
-    textAlign: 'center',
-    marginTop: 25,
-    textDecorationLine: 'underline',
+  loginButtonText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '700',
+    marginRight: 8,
+  },
+  loginButtonArrow: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  infoBox: {
+    flexDirection: 'row',
+    backgroundColor: '#E6FFFA',
+    marginHorizontal: 20,
+    marginTop: 30,
+    padding: 18,
+    borderRadius: 16,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4ECDC4',
+  },
+  infoIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  infoText: {
+    flex: 1,
     fontSize: 14,
+    color: '#4A5568',
+    lineHeight: 20,
+  },
+  supportSection: {
+    marginTop: 30,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  supportText: {
+    fontSize: 14,
+    color: '#718096',
+    marginBottom: 6,
+  },
+  supportEmail: {
+    fontSize: 15,
+    color: '#4ECDC4',
+    fontWeight: '700',
   },
 });

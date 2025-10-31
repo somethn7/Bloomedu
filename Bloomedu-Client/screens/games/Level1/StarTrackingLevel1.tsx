@@ -20,13 +20,13 @@ import Tts from 'react-native-tts';
 
 const { width, height } = Dimensions.get('window');
 
-// -umut: Oyun sabitleri (28.10.2025)
-const STAR_SIZE = 100;
-const CLOUD_SIZE = 120;
+// -umut: Oyun sabitleri - Responsive boyutlandırma (31.10.2025)
+const STAR_SIZE = Math.min(width, height) * 0.12; // Ekran boyutunun %12'si
+const CLOUD_SIZE = Math.min(width, height) * 0.15; // Ekran boyutunun %15'i
 const STAR_OFFSET = (CLOUD_SIZE - STAR_SIZE) / 2;
-const PATH_THICKNESS = 20;
-const MARGIN_H = 40;
-const MARGIN_V = 120;
+const PATH_THICKNESS = Math.min(width, height) * 0.025; // Ekran boyutunun %2.5'i
+const MARGIN_H = width * 0.08; // Yatay margin: ekran genişliğinin %8'i
+const MARGIN_V = height * 0.15; // Dikey margin: ekran yüksekliğinin %15'i
 const TOTAL_ROUNDS = 8; // -umut: Toplam tur sayısı (her yön 2 kez)
 
 // -umut: Gece teması için renk paleti - otizmli çocuklar için sakinleştirici (28.10.2025)
@@ -166,23 +166,30 @@ export default function StarTrackingLevel1() {
     setSleepyEmoji('😴'); // Uyuyan bebek
 
     // -umut: Yön talimatı sesli söyle (28.10.2025)
-    setTimeout(() => {
+    const speakTimer = setTimeout(() => {
       speakDirection(config.name);
     }, 300);
 
     // -umut: Uyuyan karakter animasyonu (28.10.2025)
-    Animated.timing(pan, {
+    const animation = Animated.timing(pan, {
       toValue: config.starEndPos,
       duration: 3500, // Yavaş hareket - takip etmesi kolay
       useNativeDriver: false,
-    }).start(() => {
+    });
+    
+    animation.start(() => {
       setSleepyEmoji('😴💤'); // Yatakta uyuyor
-      setCompletedRounds(completedRounds + 1);
+      setCompletedRounds(prev => prev + 1);
       
-      setTimeout(() => {
-        setRound(round + 1);
+      const roundTimer = setTimeout(() => {
+        setRound(prev => prev + 1);
       }, 1500);
     });
+
+    return () => {
+      clearTimeout(speakTimer);
+      animation.stop();
+    };
   }, [round]);
 
   // -umut: TTS yapılandırması (28.10.2025)
@@ -193,7 +200,7 @@ export default function StarTrackingLevel1() {
       console.log('📱 Available TTS engines:', engines);
       
       await Tts.setDefaultLanguage('en-US');
-      await Tts.setDefaultRate(0.4);
+      await Tts.setDefaultRate(0.3); // Otizmli çocuklar için oldukça yavaş
       await Tts.setDefaultPitch(1.0);
       
       Tts.addEventListener('tts-start', (event) => console.log('🔊 TTS started:', event));
@@ -447,7 +454,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   title: {
-    fontSize: 26,
+    fontSize: width * 0.055, // Responsive font size
     fontWeight: '700',
     color: COLORS.text,
     marginBottom: 5,
@@ -456,7 +463,7 @@ const styles = StyleSheet.create({
     textShadowRadius: 3,
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: width * 0.04, // Responsive font size
     fontWeight: '500',
     color: COLORS.text,
     marginBottom: 15,
@@ -517,11 +524,11 @@ const styles = StyleSheet.create({
     borderColor: '#85C1E2',
   },
   bedEmoji: {
-    fontSize: 40,
+    fontSize: CLOUD_SIZE * 0.35, // Yatak büyüklüğüne göre responsive
     marginBottom: 2,
   },
   bedLabel: {
-    fontSize: 12,
+    fontSize: width * 0.028, // Responsive font size
     fontWeight: '700',
     color: '#2C3E50',
   },
@@ -540,7 +547,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   characterText: { 
-    fontSize: 60,
+    fontSize: STAR_SIZE * 0.6, // Karakter boyutuna göre responsive
   },
   footer: {
     alignItems: 'center',
@@ -548,7 +555,7 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
   motivationText: {
-    fontSize: 18,
+    fontSize: width * 0.042, // Responsive font size
     fontWeight: '600',
     color: COLORS.successText,
   },
@@ -594,16 +601,16 @@ const styles = StyleSheet.create({
     borderColor: '#85C1E2',
   },
   resultEmoji: {
-    fontSize: 50,
+    fontSize: width * 0.12, // Responsive font size
     marginBottom: 10,
   },
   resultNumber: {
-    fontSize: 40,
+    fontSize: width * 0.1, // Responsive font size
     fontWeight: '700',
     color: '#5DADE2',
   },
   resultLabel: {
-    fontSize: 14,
+    fontSize: width * 0.035, // Responsive font size
     color: '#718096',
     marginTop: 5,
   },

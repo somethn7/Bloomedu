@@ -94,7 +94,7 @@ export default function ColorObjectsLevel2() {
       console.log('📱 Available TTS engines:', engines);
       
       await Tts.setDefaultLanguage('en-US');
-      await Tts.setDefaultRate(0.4);
+      await Tts.setDefaultRate(0.3); // Otizmli çocuklar için oldukça yavaş
       await Tts.setDefaultPitch(1.0);
       
       // -umut: Event listeners (28.10.2025)
