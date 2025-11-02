@@ -1,101 +1,116 @@
-<<<<<<< HEAD
-# Bloomedu-Client
-=======
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# BloomEdu - React Native Client
 
-# Getting Started
+Otizmli çocuklar için eğitsel oyun platformu.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## 🚀 Kurulum
 
-## Step 1: Start Metro
+### Gereksinimler:
+- Node.js 16+
+- React Native CLI
+- Android Studio / Xcode
+- Backend API çalışıyor olmalı
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+### Adımlar:
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+```bash
+# 1. Bağımlılıkları yükle
+npm install
 
-```sh
-# Using npm
+# 2. Android için
+npx react-native run-android
+
+# 3. iOS için (Mac gerekli)
+cd ios && pod install && cd ..
+npx react-native run-ios
+```
+
+## ⚙️ Backend Bağlantısı
+
+### Backend URL'leri:
+
+**Oyunlar için:**
+- Android Emulator: `http://10.0.2.2:3000`
+- iOS Simulator: `http://localhost:3000`
+- Fiziksel Cihaz: `http://[BİLGİSAYARIN-IP]:3000`
+
+**Login/Dashboard için:**
+- Production: `https://bloomedu-production.up.railway.app`
+
+### Backend'i Çalıştırma:
+
+```bash
+cd Bloomedu-Backend
+npm install
 npm start
 
-# OR using Yarn
-yarn start
+# Şunu görmelisin:
+# ✅ Backend is running on 0.0.0.0:3000
 ```
 
-## Step 2: Build and run your app
+## 🐛 Sorun Giderme
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
+### "Network request failed" hatası:
 
-### Android
+1. ✅ Backend çalışıyor mu kontrol et
+2. ✅ IP adresi doğru mu kontrol et
+3. ✅ Firewall backend'i engelliyor mu kontrol et
 
-```sh
-# Using npm
-npm run android
+### Fiziksel Cihaz Kullanıyorsan:
 
-# OR using Yarn
-yarn android
+1. IP adresini öğren:
+```bash
+# Windows
+ipconfig
+
+# Mac/Linux  
+ifconfig
 ```
 
-### iOS
+2. Tüm `http://10.0.2.2:3000` yerlerini `http://[SENIN-IP]:3000` yap
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+## 📝 Development
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+### Console Logs:
 
-```sh
-bundle install
+- Development modda tüm log'lar görünür
+- Production build'de sadece error'lar görünür
+- `utils/logger.ts` dosyasını kullanabilirsiniz
+
+## 📱 Build
+
+### Android APK:
+
+```bash
+cd android
+./gradlew assembleRelease
+# APK: android/app/build/outputs/apk/release/app-release.apk
 ```
 
-Then, and every time you update your native dependencies, run:
+### iOS:
 
-```sh
-bundle exec pod install
+```bash
+# Xcode'da açıp Archive edin
 ```
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
+## 🎮 Oyunlar
 
-```sh
-# Using npm
-npm run ios
+- **Level 1:** 7 oyun
+- **Level 2:** 6 oyun
+- **Kategoriler:** Colors, Numbers, Objects, Animals, Family
 
-# OR using Yarn
-yarn ios
-```
+## 📊 Database
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+Backend PostgreSQL (Supabase) kullanıyor.
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+Oyun skorları otomatik kaydediliyor.
 
-## Step 3: Modify your app
+## 🤝 Ekip İçin
 
-Now that you have successfully run the app, let's make changes!
+Projeyi çalıştırmadan önce:
+1. Backend'i çalıştır
+2. .env dosyasını kontrol et (Backend'de)
+3. npm install yap
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+---
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
->>>>>>> cafbb73 (Initial commit)
+Made with ❤️ for children with autism
