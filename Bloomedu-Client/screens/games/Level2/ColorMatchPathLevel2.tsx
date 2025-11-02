@@ -11,6 +11,7 @@ import {
 import Tts from 'react-native-tts';
 import { useRoute } from '@react-navigation/native';
 import { createGameCompletionHandler } from '../../../utils/gameNavigation';
+import { sendGameResult } from '../../../config/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -218,27 +219,15 @@ const ColorMatchPathLevel2 = ({ navigation }: any) => {
     const totalTime = Date.now() - gameStartTime;
 
     if (child?.id) {
-      try {
-        const response = await fetch('http://10.0.2.2:3000/game-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            child_id: child.id,
-            game_type: 'color_match_path',
-            level: 2,
-            score: correctAnswers,
-            max_score: totalColors,
-            duration_seconds: Math.floor(totalTime / 1000),
-            completed: true,
-          }),
-        });
-
-        if (response.ok) {
-          console.log('✅ Color Match Path game session saved successfully!');
-        }
-      } catch (error) {
-        console.error('❌ Error sending data:', error);
-      }
+      await sendGameResult({
+        child_id: child.id,
+        game_type: 'color_match_path',
+        level: 2,
+        score: correctAnswers,
+        max_score: totalColors,
+        duration_seconds: Math.floor(totalTime / 1000),
+        completed: true,
+      });
     }
 
     const gameNavigation = createGameCompletionHandler({

@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert } from 'react
 import Tts from 'react-native-tts';
 import { useRoute } from '@react-navigation/native';
 import { createGameCompletionHandler } from '../../../utils/gameNavigation';
+import { sendGameResult } from '../../../config/api';
 
 interface RouteParams {
   child?: {
@@ -89,35 +90,15 @@ const MatchNumbersLevel2 = ({ navigation }: any) => {
       return;
     }
     
-    try {
-      const response = await fetch('http://10.0.2.2:3000/game-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          child_id: child.id,
-          game_type: 'numbers-match',
-          level: 2,
-          score: data.correctAnswers,
-          max_score: data.totalQuestions,
-          duration_seconds: Math.floor(data.totalTime / 1000),
-          completed: true,
-        }),
-      });
-
-      if (!response.ok) {
-        console.error('❌ Backend error. Response status:', response.status);
-        return;
-      }
-
-      const result = await response.json();
-      if (result.success) {
-        console.log('✅ Match Numbers game session saved successfully!');
-      } else {
-        console.warn('⚠️ Failed to save game session:', result.message);
-      }
-    } catch (error) {
-      console.error('❌ Error sending data:', error instanceof Error ? error.message : 'Unknown error');
-    }
+    await sendGameResult({
+      child_id: child.id,
+      game_type: 'numbers-match',
+      level: 2,
+      score: data.correctAnswers,
+      max_score: data.totalQuestions,
+      duration_seconds: Math.floor(data.totalTime / 1000),
+      completed: true,
+    });
   };
 
   useEffect(() => {

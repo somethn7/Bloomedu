@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Alert }
 import { useRoute } from '@react-navigation/native';
 import Tts from 'react-native-tts';
 import { createGameCompletionHandler, GameSequenceParams } from '../../../utils/gameNavigation';
+import { sendGameResult } from '../../../config/api';
 
 const { width } = Dimensions.get('window');
 
@@ -135,33 +136,16 @@ const LearnNumbersLevel1 = ({ navigation }: any) => {
       console.warn('⚠️ Child ID not found, skipping score save.');
       return;
     }
-    try {
-      const response = await fetch('http://10.0.2.2:3000/game-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          child_id: child.id,
-          game_type: 'numbers-learn',
-          level: 1,
-          score: data.correctAnswers,
-          max_score: data.totalQuestions,
-          duration_seconds: Math.floor(data.totalTime / 1000),
-          completed: true,
-        }),
-      });
-      if (!response.ok) {
-        console.error('❌ Backend error. Response status:', response.status);
-        return;
-      }
-      const result = await response.json();
-      if (result?.success) {
-        console.log('✅ Learn Numbers game session saved successfully!');
-      } else {
-        console.warn('⚠️ Failed to save game session:', result?.message);
-      }
-    } catch (error: any) {
-      console.error('❌ Error sending data:', error?.message || 'Unknown error');
-    }
+    
+    await sendGameResult({
+      child_id: child.id,
+      game_type: 'numbers-learn',
+      level: 1,
+      score: data.correctAnswers,
+      max_score: data.totalQuestions,
+      duration_seconds: Math.floor(data.totalTime / 1000),
+      completed: true,
+    });
   };
 
   const showCompletionMessage = () => {

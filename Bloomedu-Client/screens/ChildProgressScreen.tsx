@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { API_ENDPOINTS } from '../config/api';
 import { useRoute } from '@react-navigation/native';
 
 interface GameStat {
@@ -52,7 +53,7 @@ const ChildProgressScreen = () => {
     }
 
     try {
-      const response = await fetch(`http://10.0.2.2:3000/progress/${childId}`);
+      const response = await fetch(API_ENDPOINTS.PROGRESS(childId));
       const data = await response.json();
 
       if (data.success) {

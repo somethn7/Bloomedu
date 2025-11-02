@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, Text, TouchableOpacity, BackHandler, Alert } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
+import { API_ENDPOINTS } from '../config/api';
 
 interface ResultScreenParams {
   answers: (string | null)[];
@@ -46,7 +47,7 @@ const ResultScreen = () => {
 useEffect(() => {
   const updateLevel = async () => {
     try {
-      const response = await fetch(`http://10.0.2.2:3000/children/${child.id}/update-level`, {
+      const response = await fetch(API_ENDPOINTS.UPDATE_LEVEL(child.id), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ correctAnswers: score }),

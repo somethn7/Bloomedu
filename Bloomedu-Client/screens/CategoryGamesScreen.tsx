@@ -55,6 +55,9 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
         2: [
           { title: 'Sorting Baskets', subtitle: 'Sort items by category', screen: 'SortingBasketsLevel2', icon: '🧺' },
         ],
+        3: [
+          { title: 'Shape Match', subtitle: 'Match the shapes', screen: 'ShapeMatchLevel3', icon: '🌼' },
+        ],
       },
     },
     Animals: {

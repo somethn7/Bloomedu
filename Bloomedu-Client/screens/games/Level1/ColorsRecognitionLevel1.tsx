@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import Tts from 'react-native-tts'; // -umut: Text-to-Speech için eklendi
+import { sendGameResult } from '../../../config/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -272,37 +273,15 @@ export default function ColorsRecognitionLevel1() {
       return;
     }
     
-    try {
-      // -umut: Android emulator için local backend URL'i (28.10.2025)
-      const response = await fetch('http://10.0.2.2:3000/game-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          child_id: child.id,
-          game_type: 'colors_recognition',
-          level: 1,
-          score: data.correctAnswers,
-          max_score: data.totalQuestions,
-          duration_seconds: Math.floor(data.totalTime / 1000),
-          completed: true,
-        }),
-      });
-
-      // -umut: Yanıtı kontrol et (28.10.2025)
-      if (!response.ok) {
-        console.error('❌ Backend error. Response status:', response.status);
-        return;
-      }
-
-      const result = await response.json();
-      if (result.success) {
-        console.log('✅ Game session saved successfully!');
-      } else {
-        console.warn('⚠️ Failed to save game session:', result.message);
-      }
-    } catch (error) {
-      console.error('❌ Error sending data:', error instanceof Error ? error.message : 'Unknown error');
-    }
+    await sendGameResult({
+      child_id: child.id,
+      game_type: 'colors_recognition',
+      level: 1,
+      score: data.correctAnswers,
+      max_score: data.totalQuestions,
+      duration_seconds: Math.floor(data.totalTime / 1000),
+      completed: true,
+    });
   };
 
   // -umut: Oyunu yeniden başlat (28.10.2025)

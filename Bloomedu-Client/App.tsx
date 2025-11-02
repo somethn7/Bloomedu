@@ -39,6 +39,9 @@ import ColorMatchPathLevel2 from './screens/games/Level2/ColorMatchPathLevel2';
 import SortingBasketsLevel2 from './screens/games/Level2/SortingBasketsLevel2';
 import FindFamilyMemberLevel2 from './screens/games/Level2/FindFamilyMemberLevel2';
 
+// Level 3 Games
+import ShapeMatchLevel3 from './screens/games/Level3/ShapeMatchLevel3';
+
 import TeacherLoginScreen from './screens/TeacherLoginScreen';
 import TeacherDashboardScreen from './screens/TeacherDashboardScreen';
 import TeacherAddChildScreen from './screens/TeacherAddChildScreen';
@@ -221,6 +224,17 @@ export default function App() {
             options={{ 
               title: '👨‍👩‍👧‍👦 Find Family Member - Intermediate', 
               headerTintColor: '#FF6B9A',
+              headerStyle: { backgroundColor: '#FFF' }
+            }}
+          />
+
+          {/* Level 3 Games */}
+          <Stack.Screen 
+            name="ShapeMatchLevel3" 
+            component={ShapeMatchLevel3}
+            options={{ 
+              title: '🌼 Shape Match - Advanced', 
+              headerTintColor: '#51CF66',
               headerStyle: { backgroundColor: '#FFF' }
             }}
           />

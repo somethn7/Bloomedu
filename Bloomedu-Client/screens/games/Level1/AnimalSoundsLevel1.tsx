@@ -10,6 +10,7 @@ import {
 import { useRoute } from '@react-navigation/native';
 import Tts from 'react-native-tts';
 import { createGameCompletionHandler } from '../../../utils/gameNavigation';
+import { sendGameResult } from '../../../config/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -287,36 +288,16 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
       return;
     }
     
-    try {
-      const totalTime = Date.now() - gameStartTime;
-      const response = await fetch('http://10.0.2.2:3000/game-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          child_id: child.id,
-          game_type: 'animals-sounds',
-          level: 1,
-          score: completedAnimals.length,
-          max_score: ANIMALS.length,
-          duration_seconds: Math.floor(totalTime / 1000),
-          completed: true,
-        }),
-      });
-
-      if (!response.ok) {
-        console.error('❌ Backend error. Response status:', response.status);
-        return;
-      }
-
-      const result = await response.json();
-      if (result.success) {
-        console.log('✅ Animal Sounds game session saved successfully!');
-      } else {
-        console.warn('⚠️ Failed to save game session:', result.message);
-      }
-    } catch (error) {
-      console.error('❌ Error sending data:', error instanceof Error ? error.message : 'Unknown error');
-    }
+    const totalTime = Date.now() - gameStartTime;
+    await sendGameResult({
+      child_id: child.id,
+      game_type: 'animals-sounds',
+      level: 1,
+      score: completedAnimals.length,
+      max_score: ANIMALS.length,
+      duration_seconds: Math.floor(totalTime / 1000),
+      completed: true,
+    });
   };
 
   const finishGame = () => {

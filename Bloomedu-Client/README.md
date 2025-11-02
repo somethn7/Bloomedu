@@ -2,50 +2,73 @@
 
 Otizmli çocuklar için eğitsel oyun platformu.
 
-## 🚀 Kurulum
+## 🚀 Hızlı Başlangıç
 
 ### Gereksinimler:
 - Node.js 16+
 - React Native CLI
 - Android Studio / Xcode
-- Backend API çalışıyor olmalı
+- **Railway Backend URL'si otomatik kullanılıyor** ✅
 
-### Adımlar:
+### Kurulum Adımları:
 
 ```bash
-# 1. Bağımlılıkları yükle
+# 1. Repository'yi klonla
+git clone https://github.com/[username]/Bloomedu.git
+cd Bloomedu
+
+# 2. Client bağımlılıklarını yükle
+cd Bloomedu-Client
 npm install
 
-# 2. Android için
+# 3. Android için çalıştır
 npx react-native run-android
 
-# 3. iOS için (Mac gerekli)
+# 4. iOS için çalıştır (Mac gerekli)
 cd ios && pod install && cd ..
 npx react-native run-ios
 ```
 
-## ⚙️ Backend Bağlantısı
+## 🌐 Backend Yapılandırması
 
-### Backend URL'leri:
+### ✅ Production (Varsayılan)
 
-**Oyunlar için:**
-- Android Emulator: `http://10.0.2.2:3000`
-- iOS Simulator: `http://localhost:3000`
-- Fiziksel Cihaz: `http://[BİLGİSAYARIN-IP]:3000`
+**Tüm işlemler otomatik olarak Railway production backend'e bağlanır:**
+- URL: `https://bloomedu-production.up.railway.app`
+- Dosya: `Bloomedu-Client/config/api.ts`
+- **Herhangi bir değişiklik gerektirmez!**
 
-**Login/Dashboard için:**
-- Production: `https://bloomedu-production.up.railway.app`
+### 🔧 Local Development (Opsiyonel)
 
-### Backend'i Çalıştırma:
+Sadece backend geliştiriyorsanız:
 
 ```bash
+# 1. Backend'i yerel olarak çalıştır
 cd Bloomedu-Backend
 npm install
 npm start
 
-# Şunu görmelisin:
-# ✅ Backend is running on 0.0.0.0:3000
+# 2. API config'i değiştir (Bloomedu-Client/config/api.ts)
+# Şu satırı yorum satırından çıkar:
+# export const API_BASE_URL = 'http://10.0.2.2:3000'; // Android Emulator
+# export const API_BASE_URL = 'http://localhost:3000'; // iOS Simulator
 ```
+
+## 🎮 Yeni Özellikler
+
+### Merkezi API Yönetimi
+- ✅ Tüm API çağrıları `config/api.ts` üzerinden yapılır
+- ✅ Oyun sonuçları otomatik Railway database'e kaydedilir
+- ✅ Video session'lar kaldırıldı (her şey `game_sessions` tablosunda)
+
+### Level 3 Oyunlar
+- ✅ **Shape Match** (Objects kategorisi)
+
+### Oyun Geliştirmeleri
+- ✅ TTS (Text-to-Speech) tüm oyunlarda yavaş (0.3 rate)
+- ✅ Dinamik skorlama (yanlış cevaplar skoru düşürür)
+- ✅ Oyun bitişinde "Play Again" ve "Next Game" butonları
+- ✅ Otomatik animasyonlu oyunlar iyileştirildi
 
 ## 🐛 Sorun Giderme
 

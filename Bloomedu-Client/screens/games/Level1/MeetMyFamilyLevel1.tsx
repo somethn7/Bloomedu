@@ -10,6 +10,7 @@ import {
 import { useRoute } from '@react-navigation/native';
 import Tts from 'react-native-tts';
 import { createGameCompletionHandler } from '../../../utils/gameNavigation';
+import { sendGameResult } from '../../../config/api';
 
 const { width, height } = Dimensions.get('window');
 
@@ -222,27 +223,15 @@ export default function MeetMyFamilyLevel1({ navigation }: any) {
     const finalScore = totalMembers; // Tüm üyeleri tamamladık
 
     if (child?.id) {
-      try {
-        const response = await fetch('http://10.0.2.2:3000/game-session', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            child_id: child.id,
-            game_type: 'meet_family',
-            level: 1,
-            score: finalScore,
-            max_score: totalMembers,
-            duration_seconds: Math.floor(totalTime / 1000),
-            completed: true,
-          }),
-        });
-
-        if (response.ok) {
-          console.log('✅ Meet My Family game session saved successfully!');
-        }
-      } catch (error) {
-        console.error('❌ Error sending data:', error);
-      }
+      await sendGameResult({
+        child_id: child.id,
+        game_type: 'meet_family',
+        level: 1,
+        score: finalScore,
+        max_score: totalMembers,
+        duration_seconds: Math.floor(totalTime / 1000),
+        completed: true,
+      });
     }
 
     const gameNavigation = createGameCompletionHandler({
