@@ -169,16 +169,25 @@ const LearnNumbersLevel1 = ({ navigation }: any) => {
     const gameResult = { correctAnswers: score, totalQuestions: 10, totalTime };
     sendToDatabase(gameResult);
     
-    const gameNavigation = createGameCompletionHandler(
+    const gameNavigation = createGameCompletionHandler({
       navigation,
-      { child, gameSequence, currentGameIndex, categoryTitle },
-      () => { setCurrentNumber(1); setScore(0); setStreak(0); setIsPlaying(true); setGameStartTime(Date.now()); }
-    );
-    
-    Alert.alert(
-      '🎉 Amazing! 🎉',
-      gameNavigation.getCompletionMessage(),
-      gameNavigation.createCompletionButtons()
+      child,
+      gameSequence,
+      currentGameIndex,
+      categoryTitle,
+      resetGame: () => {
+        setCurrentNumber(1);
+        setScore(0);
+        setStreak(0);
+        setIsPlaying(true);
+        setGameStartTime(Date.now());
+      },
+    });
+
+    gameNavigation.showCompletionMessage(
+      score,
+      10,
+      gameNavigation.getCompletionMessage()
     );
   };
 

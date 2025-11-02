@@ -1,663 +1,877 @@
-// -umut: LEVEL 1 UYKU ZAMANI OYUNU - Göz Takibi (28.10.2025)
-// Otizmli çocukların göz takibi ve dikkat becerilerini geliştiren oyun
-// Uyuyan emoji yatağa gider, çocuk gözüyle takip eder
-// Gece teması: Yıldızlı gökyüzü, sakin renkler, uyku müziği
-// Otizmli çocuklar için özel renk paleti ve sakinleştirici atmosfer
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  View, 
-  StyleSheet, 
-  SafeAreaView, 
-  Text, 
-  Animated, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  Animated,
   Dimensions,
-  Modal,
   TouchableOpacity,
-  Platform,
+  Alert,
 } from 'react-native';
-import { useRoute, useNavigation } from '@react-navigation/native';
+import { useRoute } from '@react-navigation/native';
 import Tts from 'react-native-tts';
+import { createGameCompletionHandler } from '../../../utils/gameNavigation';
 
 const { width, height } = Dimensions.get('window');
 
-// -umut: Oyun sabitleri - Responsive boyutlandırma (31.10.2025)
-const STAR_SIZE = Math.min(width, height) * 0.12; // Ekran boyutunun %12'si
-const CLOUD_SIZE = Math.min(width, height) * 0.15; // Ekran boyutunun %15'i
-const STAR_OFFSET = (CLOUD_SIZE - STAR_SIZE) / 2;
-const PATH_THICKNESS = Math.min(width, height) * 0.025; // Ekran boyutunun %2.5'i
-const MARGIN_H = width * 0.08; // Yatay margin: ekran genişliğinin %8'i
-const MARGIN_V = height * 0.15; // Dikey margin: ekran yüksekliğinin %15'i
-const TOTAL_ROUNDS = 8; // -umut: Toplam tur sayısı (her yön 2 kez)
+// Responsive sizing
+const ITEM_SIZE = Math.min(width, height) * 0.12;
+const TARGET_SIZE = Math.min(width, height) * 0.16;
+const MARGIN = width * 0.12;
 
-// -umut: Gece teması için renk paleti - otizmli çocuklar için sakinleştirici (28.10.2025)
-const COLORS = {
-  background: '#1a1f3a', // Gece gökyüzü - koyu mavi
-  starsBg: '#2C3E50', // Daha koyu mavi (yıldızlar için)
-  path: 'rgba(255, 223, 186, 0.3)', // Yumuşak turuncu yol - gece ışığı
-  startBed: '#FFE5B4', // Yumuşak krem - yatak
-  endBed: '#D4E6F1', // Yumuşak açık mavi - hedef yatak
-  text: '#ECF0F1', // Açık gri - okunabilir
-  successText: '#F39C12', // Altın sarısı
-  stars: '#FFD700', // Yıldız rengi - altın
-};
-
-// -umut: Yön konfigürasyonları (28.10.2025)
-const DIRECTIONS_CONFIG = [
-  {
-    name: 'LEFT_TO_RIGHT',
-    startCloudStyle: { top: height / 2 - CLOUD_SIZE / 2, left: MARGIN_H },
-    endCloudStyle: { top: height / 2 - CLOUD_SIZE / 2, left: width - MARGIN_H - CLOUD_SIZE },
-    pathStyle: { 
-      top: height / 2 - PATH_THICKNESS / 2, 
-      left: MARGIN_H + CLOUD_SIZE, 
-      width: width - (MARGIN_H * 2) - CLOUD_SIZE, 
-      height: PATH_THICKNESS,
-      borderRadius: 10,
-    },
-    starStartPos: { x: MARGIN_H + STAR_OFFSET, y: height / 2 - STAR_SIZE / 2 },
-    starEndPos: { x: width - MARGIN_H - CLOUD_SIZE + STAR_OFFSET, y: height / 2 - STAR_SIZE / 2 },
-  },
-  {
-    name: 'TOP_TO_BOTTOM',
-    startCloudStyle: { top: MARGIN_V, left: width / 2 - CLOUD_SIZE / 2 },
-    endCloudStyle: { top: height - MARGIN_V - CLOUD_SIZE, left: width / 2 - CLOUD_SIZE / 2 },
-    pathStyle: { 
-      top: MARGIN_V + CLOUD_SIZE, 
-      left: width / 2 - PATH_THICKNESS / 2, 
-      width: PATH_THICKNESS, 
-      height: height - (MARGIN_V * 2) - CLOUD_SIZE,
-      borderRadius: 10,
-    },
-    starStartPos: { x: width / 2 - STAR_SIZE / 2, y: MARGIN_V + STAR_OFFSET },
-    starEndPos: { x: width / 2 - STAR_SIZE / 2, y: height - MARGIN_V - CLOUD_SIZE + STAR_OFFSET },
-  },
-  {
-    name: 'RIGHT_TO_LEFT',
-    startCloudStyle: { top: height / 2 - CLOUD_SIZE / 2, left: width - MARGIN_H - CLOUD_SIZE },
-    endCloudStyle: { top: height / 2 - CLOUD_SIZE / 2, left: MARGIN_H },
-    pathStyle: { 
-      top: height / 2 - PATH_THICKNESS / 2, 
-      left: MARGIN_H + CLOUD_SIZE, 
-      width: width - (MARGIN_H * 2) - CLOUD_SIZE, 
-      height: PATH_THICKNESS,
-      borderRadius: 10,
-    },
-    starStartPos: { x: width - MARGIN_H - CLOUD_SIZE + STAR_OFFSET, y: height / 2 - STAR_SIZE / 2 },
-    starEndPos: { x: MARGIN_H + STAR_OFFSET, y: height / 2 - STAR_SIZE / 2 },
-  },
-  {
-    name: 'BOTTOM_TO_TOP',
-    startCloudStyle: { top: height - MARGIN_V - CLOUD_SIZE, left: width / 2 - CLOUD_SIZE / 2 },
-    endCloudStyle: { top: MARGIN_V, left: width / 2 - CLOUD_SIZE / 2 },
-    pathStyle: { 
-      top: MARGIN_V + CLOUD_SIZE, 
-      left: width / 2 - PATH_THICKNESS / 2, 
-      width: PATH_THICKNESS, 
-      height: height - (MARGIN_V * 2) - CLOUD_SIZE,
-      borderRadius: 10,
-    },
-    starStartPos: { x: width / 2 - STAR_SIZE / 2, y: height - MARGIN_V - CLOUD_SIZE + STAR_OFFSET },
-    starEndPos: { x: width / 2 - STAR_SIZE / 2, y: MARGIN_V + STAR_OFFSET },
-  },
-];
-
-// -umut: Child parametresi için tip tanımı (28.10.2025)
 interface RouteParams {
   child?: {
     id: number;
     level: number;
     name?: string;
   };
+  gameSequence?: any[];
+  currentGameIndex?: number;
+  categoryTitle?: string;
 }
 
-export default function StarTrackingLevel1() {
-  const navigation = useNavigation<any>();
-  const route = useRoute<any>();
-  const { child } = (route.params || {}) as RouteParams;
+// Seviye 1: Basit takip senaryoları
+const TRACKING_SCENARIOS = [
+  {
+    emoji: '🐝',
+    name: 'bee',
+    target: '🌸',
+    targetName: 'flower',
+    message: 'Watch the bee fly to the flower!',
+    color: '#FFF9C4',
+    accentColor: '#FFD54F',
+  },
+  {
+    emoji: '🐶',
+    name: 'puppy',
+    target: '🦴',
+    targetName: 'bone',
+    message: 'Watch the puppy go to the bone!',
+    color: '#FFE5B4',
+    accentColor: '#FFB74D',
+  },
+  {
+    emoji: '🚗',
+    name: 'car',
+    target: '🏠',
+    targetName: 'home',
+    message: 'Watch the car drive home!',
+    color: '#E3F2FD',
+    accentColor: '#64B5F6',
+  },
+  {
+    emoji: '🐱',
+    name: 'cat',
+    target: '🥛',
+    targetName: 'milk',
+    message: 'Watch the cat go to the milk!',
+    color: '#F3E5F5',
+    accentColor: '#BA68C8',
+  },
+  {
+    emoji: '⚽',
+    name: 'ball',
+    target: '⛳',
+    targetName: 'goal',
+    message: 'Watch the ball roll to the goal!',
+    color: '#E8F5E9',
+    accentColor: '#81C784',
+  },
+  {
+    emoji: '🐠',
+    name: 'fish',
+    target: '🪸',
+    targetName: 'coral',
+    message: 'Watch the fish swim to the coral!',
+    color: '#E0F2F1',
+    accentColor: '#4DB6AC',
+  },
+];
 
-  // -umut: Oyun state'leri (28.10.2025)
-  const [round, setRound] = useState(0);
-  const [sleepyEmoji, setSleepyEmoji] = useState('😴'); // Uyuyan karakter
-  const [completedRounds, setCompletedRounds] = useState(0);
-  const [gameFinished, setGameFinished] = useState(false);
-  const [gameStartTime, setGameStartTime] = useState<number>(0);
-  
-  // -umut: Arkaplan yıldızları için (28.10.2025)
-  const [backgroundStars] = useState(() => 
-    Array.from({ length: 20 }, () => ({
-      left: Math.random() * width,
-      top: Math.random() * height,
-      size: Math.random() * 3 + 2,
-      opacity: Math.random() * 0.7 + 0.3,
-    }))
-  );
-  
-  const pan = useRef(new Animated.ValueXY()).current;
+// Hareket yönleri - Daha iyi konumlandırma
+const DIRECTIONS = [
+  { 
+    name: 'left-to-right', 
+    startX: MARGIN, 
+    startY: height * 0.4, 
+    endX: width - MARGIN - ITEM_SIZE, 
+    endY: height * 0.4 
+  },
+  { 
+    name: 'top-to-bottom', 
+    startX: width * 0.4, 
+    startY: height * 0.25, 
+    endX: width * 0.4, 
+    endY: height * 0.6 
+  },
+  { 
+    name: 'diagonal-down', 
+    startX: MARGIN, 
+    startY: height * 0.25, 
+    endX: width - MARGIN - ITEM_SIZE, 
+    endY: height * 0.55 
+  },
+  { 
+    name: 'right-to-left', 
+    startX: width - MARGIN - ITEM_SIZE, 
+    startY: height * 0.4, 
+    endX: MARGIN, 
+    endY: height * 0.4 
+  },
+];
 
-  // -umut: Oyun başlatma ve TTS yapılandırma (28.10.2025)
+export default function StarTrackingLevel1({ navigation }: any) {
+  const route = useRoute();
+  const { child, gameSequence, currentGameIndex, categoryTitle } = (route.params as RouteParams) || {};
+
+  const [currentScenario, setCurrentScenario] = useState(0);
+  const [score, setScore] = useState(0);
+  const [gameStartTime] = useState(Date.now());
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const itemPosition = useRef(new Animated.ValueXY()).current;
+  const itemScale = useRef(new Animated.Value(1)).current;
+  const targetScale = useRef(new Animated.Value(1)).current;
+  const pathOpacity = useRef(new Animated.Value(0)).current;
+  const successAnim = useRef(new Animated.Value(0)).current;
+  
+  // Arkaplan dekorasyon animasyonları
+  const cloud1Anim = useRef(new Animated.Value(0)).current;
+  const cloud2Anim = useRef(new Animated.Value(0)).current;
+  const sparkleAnim = useRef(new Animated.Value(0)).current;
+
+  const scenario = TRACKING_SCENARIOS[currentScenario];
+  const direction = DIRECTIONS[currentScenario % DIRECTIONS.length];
+  const totalScenarios = TRACKING_SCENARIOS.length;
+
   useEffect(() => {
-    const initGame = async () => {
-      console.log('🌟 Star Tracking Game initializing...');
-      await configureTts();
-      setGameStartTime(Date.now());
-      
-      setTimeout(() => {
-        speakInstruction('Watch the sleepy baby go to bed!');
-      }, 500);
-    };
+    // Initialize TTS
+    Tts.setDefaultLanguage('en-US').catch(() => {});
+    Tts.setDefaultRate(0.3);
+    Tts.setDefaultPitch(1.0);
+    Tts.setIgnoreSilentSwitch('ignore');
 
-    initGame();
+    // Başlangıç mesajı
+    setTimeout(() => {
+      Tts.speak('Watch and follow with your eyes!');
+    }, 500);
+
+    // Arkaplan animasyonları
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(cloud1Anim, {
+          toValue: 1,
+          duration: 3000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(cloud1Anim, {
+          toValue: 0,
+          duration: 3000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(cloud2Anim, {
+          toValue: 1,
+          duration: 4000,
+          useNativeDriver: true,
+        }),
+        Animated.timing(cloud2Anim, {
+          toValue: 0,
+          duration: 4000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(sparkleAnim, {
+          toValue: 1,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+        Animated.timing(sparkleAnim, {
+          toValue: 0,
+          duration: 1500,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
 
     return () => {
       Tts.stop();
     };
   }, []);
 
-  // -umut: Her tur için animasyon (28.10.2025)
   useEffect(() => {
-    if (round >= TOTAL_ROUNDS) {
-      finishGame();
-      return;
-    }
+    // Her senaryo için animasyon başlat
+    itemPosition.setValue({ x: direction.startX, y: direction.startY });
+    itemScale.setValue(1);
+    pathOpacity.setValue(0);
+    setShowSuccess(false);
 
-    const config = DIRECTIONS_CONFIG[round % DIRECTIONS_CONFIG.length];
-    
-    pan.setValue(config.starStartPos);
-    setSleepyEmoji('😴'); // Uyuyan bebek
-
-    // -umut: Yön talimatı sesli söyle (28.10.2025)
-    const speakTimer = setTimeout(() => {
-      speakDirection(config.name);
-    }, 300);
-
-    // -umut: Uyuyan karakter animasyonu (28.10.2025)
-    const animation = Animated.timing(pan, {
-      toValue: config.starEndPos,
-      duration: 3500, // Yavaş hareket - takip etmesi kolay
-      useNativeDriver: false,
-    });
-    
-    animation.start(() => {
-      setSleepyEmoji('😴💤'); // Yatakta uyuyor
-      setCompletedRounds(prev => prev + 1);
-      
-      const roundTimer = setTimeout(() => {
-        setRound(prev => prev + 1);
-      }, 1500);
-    });
-
-    return () => {
-      clearTimeout(speakTimer);
-      animation.stop();
-    };
-  }, [round]);
-
-  // -umut: TTS yapılandırması (28.10.2025)
-  const configureTts = async () => {
-    console.log('🔧 Configuring TTS for Bedtime Journey...');
-    try {
-      const engines = await Tts.engines();
-      console.log('📱 Available TTS engines:', engines);
-      
-      await Tts.setDefaultLanguage('en-US');
-      await Tts.setDefaultRate(0.3); // Otizmli çocuklar için oldukça yavaş
-      await Tts.setDefaultPitch(1.0);
-      
-      Tts.addEventListener('tts-start', (event) => console.log('🔊 TTS started:', event));
-      Tts.addEventListener('tts-finish', (event) => console.log('🔊 TTS finished:', event));
-      
-      console.log('✅ TTS configured - testing...');
-      setTimeout(() => {
-        Tts.speak('Ready');
-      }, 300);
-    } catch (error) {
-      console.error('❌ TTS error:', error);
-    }
-  };
-
-  // -umut: Yön talimatı sesli söyle (28.10.2025)
-  const speakDirection = (direction: string) => {
-    const instructions: any = {
-      'LEFT_TO_RIGHT': 'Watch baby going to bed',
-      'TOP_TO_BOTTOM': 'Watch baby going to bed',
-      'RIGHT_TO_LEFT': 'Watch baby going to bed',
-      'BOTTOM_TO_TOP': 'Watch baby going to bed',
-    };
-    
-    const text = instructions[direction] || 'Watch baby';
-    console.log('🔊 Speaking:', text);
-    
-    try {
-      Tts.stop();
-      setTimeout(() => {
-        console.log('🔊 TTS.speak called with:', text);
-        Tts.speak(text);
-      }, 600);
-    } catch (error) {
-      console.error('❌ TTS speak error:', error);
-    }
-  };
-
-  // -umut: Genel talimat sesli söyle (28.10.2025)
-  const speakInstruction = (text: string) => {
-    console.log('🔊 Speaking instruction:', text);
-    try {
-      setTimeout(() => {
-        Tts.speak(text);
-      }, 300);
-    } catch (error) {
-      console.error('❌ TTS error:', error);
-    }
-  };
-
-  // -umut: Oyunu bitir ve database'e kaydet (28.10.2025)
-  const finishGame = () => {
-    const totalTime = Date.now() - gameStartTime;
-    
-    const gameResult = {
-      childId: child?.id || 0,
-      gameType: 'star_tracking',
-      level: 1,
-      totalQuestions: TOTAL_ROUNDS,
-      correctAnswers: completedRounds, // Tamamlanan turlar
-      successRate: Math.round((completedRounds / TOTAL_ROUNDS) * 100),
-      totalTime: totalTime,
-      completedAt: new Date().toISOString(),
-    };
-    
-    sendToDatabase(gameResult);
-    setGameFinished(true);
-    Tts.stop();
-    
-    setTimeout(() => {
-      speakInstruction('Great job! Baby is sleeping now!');
-    }, 500);
-  };
-
-  // -umut: Oyun sonuçlarını backend'e kaydet (28.10.2025)
-  const sendToDatabase = async (data: any) => {
-    if (!child?.id) {
-      console.warn('⚠️ Child ID not found, skipping score save.');
-      return;
-    }
-    
-    try {
-      const response = await fetch('http://10.0.2.2:3000/game-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          child_id: child.id,
-          game_type: 'star_tracking',
-          level: 1,
-          score: data.correctAnswers,
-          max_score: data.totalQuestions,
-          duration_seconds: Math.floor(data.totalTime / 1000),
-          completed: true,
+    // Target pulse animasyonu
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(targetScale, {
+          toValue: 1.15,
+          duration: 1000,
+          useNativeDriver: true,
         }),
+        Animated.timing(targetScale, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+
+    const timer = setTimeout(() => {
+      startTracking();
+    }, 1200);
+
+    return () => clearTimeout(timer);
+  }, [currentScenario]);
+
+  const startTracking = () => {
+    // TTS talimat
+    Tts.speak(scenario.message);
+
+    // Yolu göster
+    Animated.timing(pathOpacity, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
+
+    // Item hareketi - Çok yavaş ve takip edilebilir
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(itemPosition, {
+          toValue: { x: direction.endX, y: direction.endY },
+          duration: 4000, // Çok yavaş
+          useNativeDriver: true,
+        }),
+        Animated.sequence([
+          Animated.timing(itemScale, {
+            toValue: 1.2,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(itemScale, {
+            toValue: 0.9,
+            duration: 2000,
+            useNativeDriver: true,
+          }),
+        ]),
+      ]).start(() => {
+        // Başarı
+        setShowSuccess(true);
+        setScore(prevScore => prevScore + 1);
+
+        Animated.spring(successAnim, {
+          toValue: 1,
+          friction: 4,
+          tension: 40,
+          useNativeDriver: true,
+        }).start();
+
+        Tts.speak(`Perfect! The ${scenario.name} reached the ${scenario.targetName}!`);
+
+        // Yolu gizle
+        Animated.timing(pathOpacity, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }).start();
+
+        setTimeout(() => {
+          successAnim.setValue(0);
+          setShowSuccess(false);
+          
+          if (currentScenario < totalScenarios - 1) {
+            nextScenario();
+          } else {
+            // Son senaryo - oyunu bitir
+            setTimeout(() => {
+              completeGame();
+            }, 100);
+          }
+        }, 2500);
       });
+    }, 600);
+  };
 
-      if (!response.ok) {
-        console.error('❌ Backend error. Response status:', response.status);
-        return;
-      }
+  const nextScenario = () => {
+    setCurrentScenario(currentScenario + 1);
+  };
 
-      const result = await response.json();
-      if (result.success) {
-        console.log('✅ Star tracking game session saved!');
+  const completeGame = async () => {
+    const totalTime = Date.now() - gameStartTime;
+    const finalScore = totalScenarios; // Tüm senaryolar tamamlandı
+
+    if (child?.id) {
+      try {
+        const response = await fetch('http://10.0.2.2:3000/game-session', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            child_id: child.id,
+            game_type: 'bedtime_journey',
+            level: 1,
+            score: finalScore,
+            max_score: totalScenarios,
+            duration_seconds: Math.floor(totalTime / 1000),
+            completed: true,
+          }),
+        });
+
+        if (response.ok) {
+          console.log('✅ Bedtime Journey game session saved successfully!');
+        }
+      } catch (error) {
+        console.error('❌ Error sending data:', error);
       }
-    } catch (error) {
-      console.error('❌ Error sending data:', error instanceof Error ? error.message : 'Unknown error');
     }
+
+    const gameNavigation = createGameCompletionHandler({
+      navigation,
+      child,
+      gameSequence,
+      currentGameIndex,
+      categoryTitle,
+      resetGame: () => {
+        setCurrentScenario(0);
+        setScore(0);
+        setShowSuccess(false);
+        const firstDirection = DIRECTIONS[0];
+        itemPosition.setValue({ x: firstDirection.startX, y: firstDirection.startY });
+        itemScale.setValue(1);
+        pathOpacity.setValue(0);
+        successAnim.setValue(0);
+      },
+    });
+
+    gameNavigation.showCompletionMessage(
+      finalScore,
+      totalScenarios,
+      'Amazing tracking skills! You followed every journey! 🌟'
+    );
   };
 
-  // -umut: Oyunu yeniden başlat (28.10.2025)
-  const restartGame = () => {
-    setRound(0);
-    setCompletedRounds(0);
-    setGameFinished(false);
-    setGameStartTime(Date.now());
-    speakInstruction('Watch the sleepy baby go to bed!');
-  };
-
-  const currentConfig = DIRECTIONS_CONFIG[round % DIRECTIONS_CONFIG.length];
+  const sequenceInfo = gameSequence && currentGameIndex !== undefined
+    ? `Game ${currentGameIndex + 1}/${gameSequence.length}`
+    : '';
 
   return (
-    <View style={styles.container}>
-      <SafeAreaView style={{ flex: 1 }}>
-        {/* -umut: Başlık ve ilerleme (28.10.2025) */}
-        <View style={styles.header}>
-          <Text style={styles.title}>🌙 Bedtime Journey</Text>
-          <Text style={styles.subtitle}>Help baby get to bed!</Text>
-          <View style={styles.progressContainer}>
-            <Text style={styles.progressText}>
-              Round {round + 1} / {TOTAL_ROUNDS}
-            </Text>
-            <View style={styles.progressBar}>
-              <View 
-                style={[
-                  styles.progressFill,
-                  { width: `${((round + 1) / TOTAL_ROUNDS) * 100}%` }
-                ]}
-              />
-            </View>
-          </View>
+    <View style={[styles.container, { backgroundColor: scenario.color }]}>
+      {/* Header */}
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Text style={styles.backButtonText}>← Back</Text>
+        </TouchableOpacity>
+        <View style={styles.titleContainer}>
+          <Text style={styles.title}>👀 Bedtime Journey</Text>
+          {sequenceInfo ? <Text style={styles.sequenceText}>{sequenceInfo}</Text> : null}
         </View>
+        <View style={styles.scoreContainer}>
+          <Text style={styles.scoreText}>⭐ {score}/{totalScenarios}</Text>
+        </View>
+      </View>
 
-        {/* -umut: Oyun alanı - Gece gökyüzü (28.10.2025) */}
-        <View style={styles.gameArea}>
-          {/* -umut: Arkaplan yıldızları - dekoratif (28.10.2025) */}
-          {backgroundStars.map((star, index) => (
-            <View
-              key={index}
-              style={[
-                styles.backgroundStar,
+      {/* Progress Bar */}
+      <View style={styles.progressContainer}>
+        <View style={styles.progressBar}>
+          <View
+            style={[
+              styles.progressFill,
+              {
+                width: `${((currentScenario + 1) / totalScenarios) * 100}%`,
+                backgroundColor: scenario.accentColor,
+              },
+            ]}
+          />
+        </View>
+        <Text style={styles.progressText}>
+          Journey {currentScenario + 1} of {totalScenarios}
+        </Text>
+      </View>
+
+      {/* Game Area */}
+      <View style={styles.gameArea}>
+        {/* Arkaplan Dekorasyonları */}
+        <Animated.View
+          style={[
+            styles.decorCloud,
+            styles.decorCloud1,
+            {
+              opacity: cloud1Anim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.3, 0.6],
+              }),
+              transform: [
                 {
-                  left: star.left,
-                  top: star.top,
-                  width: star.size,
-                  height: star.size,
-                  opacity: star.opacity,
+                  translateX: cloud1Anim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 20],
+                  }),
                 },
-              ]}
-            />
-          ))}
+              ],
+            },
+          ]}
+        >
+          <Text style={styles.decorCloudText}>☁️</Text>
+        </Animated.View>
 
-          {/* Yol - yumuşak ışık */}
-          <View style={[styles.path, currentConfig.pathStyle]} />
-          
-          {/* -umut: Başlangıç noktası (boş) (28.10.2025) */}
-          <View style={[styles.bed, styles.startBed, currentConfig.startCloudStyle]}>
-            <Text style={styles.bedEmoji}>🌟</Text>
-            <Text style={styles.bedLabel}>Start</Text>
-          </View>
-          
-          {/* -umut: Hedef yatak (28.10.2025) */}
-          <View style={[styles.bed, styles.targetBed, currentConfig.endCloudStyle]}>
-            <Text style={styles.bedEmoji}>🛏️</Text>
-            <Text style={styles.bedLabel}>Bed</Text>
-          </View>
-          
-          {/* -umut: Hareketli uyuyan karakter (28.10.2025) */}
-          <Animated.View style={pan.getLayout()}>
-            <View style={styles.character}>
-              <Text style={styles.characterText}>{sleepyEmoji}</Text>
-            </View>
+        <Animated.View
+          style={[
+            styles.decorCloud,
+            styles.decorCloud2,
+            {
+              opacity: cloud2Anim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0.3, 0.6],
+              }),
+              transform: [
+                {
+                  translateX: cloud2Anim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, -20],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <Text style={styles.decorCloudText}>☁️</Text>
+        </Animated.View>
+
+        {/* Parlayan yıldızlar */}
+        <Animated.View
+          style={[
+            styles.sparkle,
+            styles.sparkle1,
+            {
+              opacity: sparkleAnim,
+              transform: [
+                {
+                  scale: sparkleAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.8, 1.2],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <Text style={styles.sparkleText}>✨</Text>
+        </Animated.View>
+
+        <Animated.View
+          style={[
+            styles.sparkle,
+            styles.sparkle2,
+            {
+              opacity: sparkleAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 1],
+              }),
+              transform: [
+                {
+                  scale: sparkleAnim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [1.2, 0.8],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <Text style={styles.sparkleText}>⭐</Text>
+        </Animated.View>
+
+        <Animated.View
+          style={[
+            styles.sparkle,
+            styles.sparkle3,
+            {
+              opacity: sparkleAnim,
+            },
+          ]}
+        >
+          <Text style={styles.sparkleText}>💫</Text>
+        </Animated.View>
+
+        {/* Instruction */}
+        <View style={[styles.instructionCard, { borderColor: scenario.accentColor }]}>
+          <Text style={styles.instructionEmoji}>👁️</Text>
+          <Text style={styles.instructionText}>{scenario.message}</Text>
+        </View>
+
+        {/* Path Line - Düzeltilmiş */}
+        {direction.name === 'left-to-right' || direction.name === 'right-to-left' ? (
+          <Animated.View
+            style={[
+              styles.pathLineHorizontal,
+              {
+                opacity: pathOpacity,
+                left: Math.min(direction.startX, direction.endX) + ITEM_SIZE / 2,
+                top: direction.startY + ITEM_SIZE / 2 - 2,
+                width: Math.abs(direction.endX - direction.startX),
+              },
+            ]}
+          >
+            <View style={[styles.dottedLineHorizontal, { borderColor: scenario.accentColor }]} />
           </Animated.View>
-        </View>
+        ) : direction.name === 'top-to-bottom' ? (
+          <Animated.View
+            style={[
+              styles.pathLineVertical,
+              {
+                opacity: pathOpacity,
+                left: direction.startX + ITEM_SIZE / 2 - 2,
+                top: direction.startY + ITEM_SIZE,
+                height: direction.endY - direction.startY - ITEM_SIZE,
+              },
+            ]}
+          >
+            <View style={[styles.dottedLineVertical, { borderColor: scenario.accentColor }]} />
+          </Animated.View>
+        ) : (
+          <Animated.View
+            style={[
+              styles.pathLineDiagonal,
+              {
+                opacity: pathOpacity,
+                left: direction.startX + ITEM_SIZE / 2,
+                top: direction.startY + ITEM_SIZE / 2,
+                width: Math.sqrt(
+                  Math.pow(direction.endX - direction.startX, 2) + 
+                  Math.pow(direction.endY - direction.startY, 2)
+                ),
+                transform: [
+                  {
+                    rotate: Math.atan2(
+                      direction.endY - direction.startY,
+                      direction.endX - direction.startX
+                    ) + 'rad',
+                  },
+                ],
+              },
+            ]}
+          >
+            <View style={[styles.dottedLineHorizontal, { borderColor: scenario.accentColor }]} />
+          </Animated.View>
+        )}
 
-        {/* -umut: Motivasyon mesajı (28.10.2025) */}
-        <View style={styles.footer}>
-          <Text style={styles.motivationText}>
-            {completedRounds > 0 && `Amazing! ${completedRounds} bedtimes! 🌙`}
-          </Text>
-        </View>
-      </SafeAreaView>
-
-      {/* -umut: Oyun sonu modal (28.10.2025) */}
-      <Modal
-        visible={gameFinished}
-        animationType="fade"
-        transparent={true}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>🌙 Sweet Dreams! 🌙</Text>
-            <Text style={styles.modalSubtitle}>Baby is sleeping now!</Text>
-            
-            <View style={styles.resultCard}>
-              <Text style={styles.resultEmoji}>😴</Text>
-              <Text style={styles.resultNumber}>{completedRounds}</Text>
-              <Text style={styles.resultLabel}>Bedtimes Complete</Text>
-            </View>
-
-            <Text style={styles.message}>
-              Perfect! You have amazing focus! 👀💫
-            </Text>
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.restartButton}
-                onPress={restartGame}
-              >
-                <Text style={styles.restartButtonText}>🔄 Play Again</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={() => navigation.navigate('Education', { child })}
-              >
-                <Text style={styles.backButtonText}>← Back to Categories</Text>
-              </TouchableOpacity>
-            </View>
+        {/* Moving Item */}
+        <Animated.View
+          style={[
+            styles.itemContainer,
+            {
+              transform: [
+                { translateX: itemPosition.x },
+                { translateY: itemPosition.y },
+                { scale: itemScale },
+              ],
+            },
+          ]}
+        >
+          <View style={[styles.itemCircle, { backgroundColor: scenario.accentColor + '30' }]}>
+            <Text style={styles.itemEmoji}>{scenario.emoji}</Text>
           </View>
-        </View>
-      </Modal>
+        </Animated.View>
+
+        {/* Target */}
+        <Animated.View
+          style={[
+            styles.targetContainer,
+            {
+              left: direction.endX,
+              top: direction.endY,
+              transform: [{ scale: targetScale }],
+            },
+          ]}
+        >
+          <View style={[styles.targetCircle, { borderColor: scenario.accentColor }]}>
+            <Text style={styles.targetEmoji}>{scenario.target}</Text>
+          </View>
+        </Animated.View>
+
+        {/* Success Message */}
+        {showSuccess && (
+          <Animated.View
+            style={[
+              styles.successMessage,
+              {
+                transform: [
+                  {
+                    scale: successAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.5, 1],
+                    }),
+                  },
+                ],
+                opacity: successAnim,
+              },
+            ]}
+          >
+            <Text style={styles.successText}>🌟 Perfect! 🌟</Text>
+          </Animated.View>
+        )}
+      </View>
+
+      {/* Footer */}
+      <View style={styles.footer}>
+        <Text style={styles.encouragementText}>
+          {currentScenario < 2 && 'Great focus! Keep watching! 👀'}
+          {currentScenario >= 2 && currentScenario < 4 && 'Amazing tracking! 🎯'}
+          {currentScenario >= 4 && 'Almost there! You are doing great! ⭐'}
+        </Text>
+      </View>
     </View>
   );
 }
 
-// -umut: Gece teması - otizmli çocuklar için sakinleştirici (28.10.2025)
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: COLORS.background,
+  container: {
+    flex: 1,
   },
-  // -umut: Arkaplan yıldızları (28.10.2025)
-  backgroundStar: {
-    position: 'absolute',
-    backgroundColor: COLORS.stars,
-    borderRadius: 10,
-  },
-  header: { 
-    alignItems: 'center', 
-    marginTop: 20,
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 20,
+    paddingTop: 50,
+    paddingBottom: 20,
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  title: {
-    fontSize: width * 0.055, // Responsive font size
-    fontWeight: '700',
-    color: COLORS.text,
-    marginBottom: 5,
-    textShadowColor: 'rgba(0, 0, 0, 0.3)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
+  backButton: {
+    padding: 10,
   },
-  subtitle: {
-    fontSize: width * 0.04, // Responsive font size
-    fontWeight: '500',
-    color: COLORS.text,
-    marginBottom: 15,
-    opacity: 0.9,
+  backButtonText: {
+    fontSize: 16,
+    color: '#64B5F6',
+    fontWeight: 'bold',
   },
-  progressContainer: {
-    width: '80%',
+  titleContainer: {
     alignItems: 'center',
   },
-  progressText: {
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  sequenceText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  scoreContainer: {
+    backgroundColor: '#64B5F6',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  scoreText: {
+    color: '#fff',
+    fontWeight: 'bold',
     fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.text,
-    marginBottom: 8,
+  },
+  progressContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    backgroundColor: '#fff',
   },
   progressBar: {
-    width: '100%',
-    height: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 10,
+    height: 10,
+    backgroundColor: '#E9ECEF',
+    borderRadius: 5,
     overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
-    backgroundColor: COLORS.successText,
-    borderRadius: 10,
+    borderRadius: 5,
+  },
+  progressText: {
+    textAlign: 'center',
+    marginTop: 8,
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '600',
   },
   gameArea: {
     flex: 1,
-    position: 'relative',
+    paddingHorizontal: 20,
+    paddingTop: 20,
   },
-  path: { 
-    position: 'absolute', 
-    backgroundColor: COLORS.path,
-  },
-  // -umut: Yatak stilleri (28.10.2025)
-  bed: { 
-    position: 'absolute', 
-    width: CLOUD_SIZE, 
-    height: CLOUD_SIZE, 
-    borderRadius: 20,
-    justifyContent: 'center', 
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 4,
-  },
-  startBed: {
-    backgroundColor: COLORS.startBed,
-    borderWidth: 2,
-    borderColor: '#FFD700',
-  },
-  targetBed: { 
-    backgroundColor: COLORS.endBed,
-    borderWidth: 2,
-    borderColor: '#85C1E2',
-  },
-  bedEmoji: {
-    fontSize: CLOUD_SIZE * 0.35, // Yatak büyüklüğüne göre responsive
-    marginBottom: 2,
-  },
-  bedLabel: {
-    fontSize: width * 0.028, // Responsive font size
-    fontWeight: '700',
-    color: '#2C3E50',
-  },
-  // -umut: Hareketli karakter (uyuyan bebek) (28.10.2025)
-  character: { 
-    width: STAR_SIZE, 
-    height: STAR_SIZE, 
-    justifyContent: 'center', 
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 50,
-    shadowColor: '#F39C12',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.6,
-    shadowRadius: 15,
-    elevation: 6,
-  },
-  characterText: { 
-    fontSize: STAR_SIZE * 0.6, // Karakter boyutuna göre responsive
-  },
-  footer: {
-    alignItems: 'center',
-    paddingBottom: 20,
-    minHeight: 50,
-  },
-  motivationText: {
-    fontSize: width * 0.042, // Responsive font size
-    fontWeight: '600',
-    color: COLORS.successText,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 26,
-    padding: 28,
-    width: '90%',
-    maxWidth: 380,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  modalTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#5DADE2',
-    marginBottom: 8,
-  },
-  modalSubtitle: {
-    fontSize: 16,
-    color: '#718096',
-    marginBottom: 25,
-  },
-  resultCard: {
-    backgroundColor: '#E8F4F8',
+  instructionCard: {
+    backgroundColor: '#fff',
     borderRadius: 20,
     padding: 20,
     alignItems: 'center',
-    marginBottom: 25,
-    width: '70%',
-    borderWidth: 2,
-    borderColor: '#85C1E2',
+    marginBottom: 50,
+    borderWidth: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  resultEmoji: {
-    fontSize: width * 0.12, // Responsive font size
+  instructionEmoji: {
+    fontSize: 36,
     marginBottom: 10,
   },
-  resultNumber: {
-    fontSize: width * 0.1, // Responsive font size
-    fontWeight: '700',
-    color: '#5DADE2',
-  },
-  resultLabel: {
-    fontSize: width * 0.035, // Responsive font size
-    color: '#718096',
-    marginTop: 5,
-  },
-  message: {
+  instructionText: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#2E7D32',
-    marginBottom: 25,
+    color: '#333',
     textAlign: 'center',
+    fontWeight: '600',
   },
-  modalButtons: {
+  pathLineHorizontal: {
+    position: 'absolute',
+    height: 4,
+    zIndex: 1,
+  },
+  pathLineVertical: {
+    position: 'absolute',
+    width: 4,
+    zIndex: 1,
+  },
+  pathLineDiagonal: {
+    position: 'absolute',
+    height: 4,
+    zIndex: 1,
+  },
+  dottedLineHorizontal: {
     width: '100%',
-    gap: 12,
+    height: 4,
+    borderStyle: 'dashed',
+    borderWidth: 2,
+    borderRadius: 1,
   },
-  restartButton: {
-    backgroundColor: '#5DADE2',
-    paddingHorizontal: 36,
-    paddingVertical: 14,
-    borderRadius: 20,
+  dottedLineVertical: {
+    height: '100%',
+    width: 4,
+    borderStyle: 'dashed',
+    borderWidth: 2,
+    borderRadius: 1,
+  },
+  itemContainer: {
+    position: 'absolute',
     alignItems: 'center',
-    shadowColor: '#5DADE2',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
+    zIndex: 2,
   },
-  restartButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  backButton: {
-    backgroundColor: '#51CF66',
-    paddingHorizontal: 36,
-    paddingVertical: 14,
-    borderRadius: 20,
+  itemCircle: {
+    width: ITEM_SIZE,
+    height: ITEM_SIZE,
+    borderRadius: ITEM_SIZE / 2,
+    justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#51CF66',
-    shadowOffset: { width: 0, height: 3 },
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  backButtonText: {
-    color: '#FFFFFF',
+  itemEmoji: {
+    fontSize: ITEM_SIZE * 0.55,
+  },
+  targetContainer: {
+    position: 'absolute',
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  targetCircle: {
+    width: TARGET_SIZE,
+    height: TARGET_SIZE,
+    borderRadius: TARGET_SIZE / 2,
+    backgroundColor: '#FFF',
+    borderWidth: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  targetEmoji: {
+    fontSize: TARGET_SIZE * 0.5,
+  },
+  successMessage: {
+    position: 'absolute',
+    top: '45%',
+    alignSelf: 'center',
+    backgroundColor: 'rgba(76, 175, 80, 0.95)',
+    paddingHorizontal: 40,
+    paddingVertical: 20,
+    borderRadius: 25,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+    zIndex: 10,
+  },
+  successText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#FFF',
+  },
+  footer: {
+    paddingHorizontal: 20,
+    paddingBottom: 30,
+    alignItems: 'center',
+  },
+  encouragementText: {
     fontSize: 16,
-    fontWeight: '700',
+    color: '#666',
+    textAlign: 'center',
+    fontStyle: 'italic',
+  },
+  decorCloud: {
+    position: 'absolute',
+    zIndex: 0,
+  },
+  decorCloud1: {
+    top: height * 0.15,
+    left: width * 0.1,
+  },
+  decorCloud2: {
+    top: height * 0.2,
+    right: width * 0.15,
+  },
+  decorCloudText: {
+    fontSize: 50,
+    opacity: 0.5,
+  },
+  sparkle: {
+    position: 'absolute',
+    zIndex: 0,
+  },
+  sparkle1: {
+    top: height * 0.3,
+    left: width * 0.2,
+  },
+  sparkle2: {
+    top: height * 0.35,
+    right: width * 0.25,
+  },
+  sparkle3: {
+    top: height * 0.5,
+    left: width * 0.15,
+  },
+  sparkleText: {
+    fontSize: 24,
   },
 });
-

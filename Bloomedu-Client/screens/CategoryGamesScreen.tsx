@@ -24,6 +24,7 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
         ],
         2: [
           { title: 'Color Objects', subtitle: 'Match colors with objects', screen: 'ColorObjectsLevel2', icon: '🎨' },
+          { title: 'Color Match Path', subtitle: 'Watch colors match', screen: 'ColorMatchPathLevel2', icon: '🎨' },
         ],
       },
     },
@@ -49,8 +50,11 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
       games: {
         1: [
           { title: 'Bedtime Journey', subtitle: 'Follow the stars home', screen: 'StarTrackingLevel1', icon: '🌙' },
+          { title: 'Fruit Basket', subtitle: 'Watch fruits go to basket', screen: 'FruitBasketLevel1', icon: '🍎' },
         ],
-        2: [],
+        2: [
+          { title: 'Sorting Baskets', subtitle: 'Sort items by category', screen: 'SortingBasketsLevel2', icon: '🧺' },
+        ],
       },
     },
     Animals: {
@@ -62,6 +66,19 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
           { title: 'Animal Sounds', subtitle: 'Learn animal sounds', screen: 'AnimalSoundsLevel1', icon: '🎵' },
         ],
         2: [],
+      },
+    },
+    Family: {
+      icon: '👨‍👩‍👧‍👦',
+      color: '#FF6B9A',
+      gradient: ['#FF6B9A', '#FF8FAB'],
+      games: {
+        1: [
+          { title: 'Meet My Family', subtitle: 'Learn about family members', screen: 'MeetMyFamilyLevel1', icon: '💕' },
+        ],
+        2: [
+          { title: 'Find Family Member', subtitle: 'Identify family members', screen: 'FindFamilyMemberLevel2', icon: '🤔' },
+        ],
       },
     },
   };
@@ -98,7 +115,7 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
     <View style={styles.container}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: categoryData?.color || '#4DABF7' }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity onPress={() => navigation.navigate('Education', { child })} style={styles.backButton}>
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
         <View style={styles.headerContent}>

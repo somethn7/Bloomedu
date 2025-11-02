@@ -56,10 +56,14 @@ const TeacherLoginScreen = ({ navigation }: any) => {
       if (response.ok && data.teacherId) {
         await AsyncStorage.setItem('loggedInTeacher', JSON.stringify({ id: data.teacherId }));
         await AsyncStorage.setItem('teacher_id', data.teacherId.toString());
-        Alert.alert('Welcome', 'Login successful!');
         console.log('👩‍🏫 Logged in as teacherId:', data.teacherId);
 
-        navigation.navigate('TeacherStudents', { teacherId: data.teacherId });
+        navigation.navigate('WelcomeSuccess', {
+          role: 'teacher',
+          nextScreen: 'TeacherStudents',
+          nextParams: { teacherId: data.teacherId },
+          name: data.name || 'Teacher',
+        });
 
       } else if (response.status === 401) {
         Alert.alert('Login Failed', data.message || 'Invalid email or password.');

@@ -1,19 +1,19 @@
 // Game Sequence Navigation Utility
 // Kategori oyunlarının sıralı oynanması için yardımcı fonksiyonlar
+import { Alert } from 'react-native';
 
 export interface GameSequenceParams {
   child?: { id: number; level: number; name?: string };
   gameSequence?: any[];
   currentGameIndex?: number;
   categoryTitle?: string;
+  resetGame?: () => void;
 }
 
 export const createGameCompletionHandler = (
-  navigation: any,
-  params: GameSequenceParams,
-  onPlayAgain: () => void
+  params: GameSequenceParams & { navigation: any }
 ) => {
-  const { child, gameSequence, currentGameIndex = -1, categoryTitle } = params;
+  const { navigation, child, gameSequence, currentGameIndex = -1, categoryTitle, resetGame } = params;
   
   const goToNextGame = () => {
     if (gameSequence && currentGameIndex >= 0 && currentGameIndex < gameSequence.length - 1) {
@@ -29,7 +29,7 @@ export const createGameCompletionHandler = (
     }
   };
 
-  const createCompletionButtons = () => {
+  const createCompletionButtons = (onPlayAgain: () => void) => {
     const isInSequence = gameSequence && currentGameIndex >= 0;
     const isLastGame = isInSequence && currentGameIndex === gameSequence.length - 1;
     
@@ -45,7 +45,27 @@ export const createGameCompletionHandler = (
       buttons.push({ text: 'Play Again', onPress: onPlayAgain });
     }
     
-    buttons.push({ text: 'Main Menu', onPress: () => navigation.goBack(), style: 'cancel' as const });
+    buttons.push({ 
+      text: 'Main Menu', 
+      onPress: () => {
+        // Stack'i Education -> CategoryGames şeklinde resetle
+        if (categoryTitle && child) {
+          navigation.reset({
+            index: 1,
+            routes: [
+              { name: 'Education', params: { child } },
+              { name: 'CategoryGames', params: { categoryTitle, child } },
+            ],
+          });
+        } else {
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'Education', params: { child } }],
+          });
+        }
+      }, 
+      style: 'cancel' as const 
+    });
     
     return buttons;
   };
@@ -65,10 +85,28 @@ export const createGameCompletionHandler = (
     return 'Great job! Want to play again?';
   };
 
+  const showCompletionMessage = (score: number, maxScore: number, customMessage?: string) => {
+    const message = customMessage || getCompletionMessage();
+    const scoreText = `Score: ${score}/${maxScore}`;
+    
+    const onPlayAgain = () => {
+      if (resetGame) {
+        resetGame();
+      }
+    };
+    
+    Alert.alert(
+      '🎉 Game Complete!',
+      `${message}\n\n${scoreText}`,
+      createCompletionButtons(onPlayAgain)
+    );
+  };
+
   return {
     goToNextGame,
     createCompletionButtons,
     getCompletionMessage,
+    showCompletionMessage,
     isInSequence: gameSequence && currentGameIndex >= 0,
     isLastGame: gameSequence && currentGameIndex === gameSequence.length - 1,
     sequenceProgress: gameSequence ? `${currentGameIndex + 1}/${gameSequence.length}` : null,

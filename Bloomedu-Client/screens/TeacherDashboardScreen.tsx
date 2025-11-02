@@ -135,6 +135,12 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity 
+          style={styles.backButton} 
+          onPress={() => navigation.navigate('Home')}
+        >
+          <Text style={styles.backButtonText}>←</Text>
+        </TouchableOpacity>
         <View>
           <Text style={styles.greeting}>Welcome Teacher! 👋</Text>
           <Text style={styles.title}>My Classroom</Text>
@@ -281,6 +287,19 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: '700',
     color: '#FFFFFF',
+  },
+  backButton: {
+    width: 45,
+    height: 45,
+    borderRadius: 23,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    fontSize: 24,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
   settingsButton: {
     width: 45,

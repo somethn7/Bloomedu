@@ -1,5 +1,5 @@
 // -umut: Education Screen - Modern ve renkli tasarım (28.10.2025)
-import React from 'react';
+import React, { useLayoutEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ScrollView } from 'react-native';
 
 // -umut: Kategoriler - Her birinin kendine özgü rengi var (28.10.2025)
@@ -32,12 +32,30 @@ const categories = [
     emoji: '🦁',
     description: 'Discover animals'
   },
+  { 
+    title: 'Family', 
+    image: require('./assets/child.png'), // Mevcut bir asset kullanıyoruz
+    gradient: ['#FF6B9A', '#FF8FAB'],
+    emoji: '👨‍👩‍👧‍👦',
+    description: 'Meet your family'
+  },
 ];
 
 // -umut: Child parametresi eklendi - oyunlara child bilgisini iletmek için (28.10.2025)
 const EducationScreen = ({ navigation, route }: any) => {
   const { child } = route.params || {};
   const childLevel = child?.level || 1; // -umut: Çocuğun seviyesi
+
+  // Header back davranışı: Parent Dashboard'a dön
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerLeft: () => (
+        <TouchableOpacity onPress={() => navigation.navigate('Dashboard')} style={{ paddingHorizontal: 12 }}>
+          <Text style={{ color: '#7a8a91', fontWeight: '700' }}>← Back</Text>
+        </TouchableOpacity>
+      ),
+    });
+  }, [navigation]);
 
   // -umut: Kategori seçimi - yeni CategoryGamesScreen'e yönlendir (31.10.2025)
   const handleCategoryPress = (categoryTitle: string) => {

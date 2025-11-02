@@ -138,6 +138,7 @@ const MissingNumbersLevel2 = ({ navigation }: any) => {
         }, 2000);
       } else {
         // Wrong answer
+        setScore(prev => (prev > 0 ? prev - 1 : 0));
         Animated.sequence([
           Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
           Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
@@ -211,11 +212,14 @@ const MissingNumbersLevel2 = ({ navigation }: any) => {
     
     sendToDatabase(gameResult);
     
-    const gameNav = createGameCompletionHandler(
+    const gameNav = createGameCompletionHandler({
       navigation,
-      { child, gameSequence, currentGameIndex, categoryTitle },
-      resetGame
-    );
+      child,
+      gameSequence,
+      currentGameIndex,
+      categoryTitle,
+      resetGame,
+    });
     
     Alert.alert(
       '🎉 Amazing! 🎉',

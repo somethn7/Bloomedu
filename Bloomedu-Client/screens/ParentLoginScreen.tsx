@@ -40,8 +40,12 @@ const ParentLoginScreen = ({ navigation }: any) => {
       if (response.ok) {
         if (data.parentId) {
           await AsyncStorage.setItem('parent_id', data.parentId.toString());
-          Alert.alert('Success', `Welcome!`);
-          navigation.navigate('Dashboard');
+          navigation.navigate('WelcomeSuccess', {
+            role: 'parent',
+            nextScreen: 'Dashboard',
+            nextParams: {},
+            name: data.name || 'Parent',
+          });
         } else {
           Alert.alert('Error', data.message || 'User not found.');
         }

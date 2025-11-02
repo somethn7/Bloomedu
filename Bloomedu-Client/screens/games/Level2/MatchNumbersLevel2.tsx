@@ -131,11 +131,14 @@ const MatchNumbersLevel2 = ({ navigation }: any) => {
       
       sendToDatabase(gameResult);
       
-      const gameNav = createGameCompletionHandler(
+      const gameNav = createGameCompletionHandler({
         navigation,
-        { child, gameSequence, currentGameIndex, categoryTitle },
-        resetGame
-      );
+        child,
+        gameSequence,
+        currentGameIndex,
+        categoryTitle,
+        resetGame,
+      });
       
       Alert.alert('🎉 Amazing!', gameNav.getCompletionMessage(), gameNav.createCompletionButtons());
     }

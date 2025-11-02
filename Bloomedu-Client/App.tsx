@@ -27,17 +27,23 @@ import StarTrackingLevel1 from './screens/games/Level1/StarTrackingLevel1';
 import LearnNumbersLevel1 from './screens/games/Level1/LearnNumbersLevel1';
 import SortNumbersLevel1 from './screens/games/Level1/SortNumbersLevel1';
 import AnimalSoundsLevel1 from './screens/games/Level1/AnimalSoundsLevel1';
+import FruitBasketLevel1 from './screens/games/Level1/FruitBasketLevel1';
+import MeetMyFamilyLevel1 from './screens/games/Level1/MeetMyFamilyLevel1';
 
 // -umut: Level 2 oyunları (28.10.2025)
 // Level 2 Games
 import ColorObjectsLevel2 from './screens/games/Level2/ColorObjectsLevel2';
 import MissingNumbersLevel2 from './screens/games/Level2/MissingNumbersLevel2';
 import MatchNumbersLevel2 from './screens/games/Level2/MatchNumbersLevel2';
+import ColorMatchPathLevel2 from './screens/games/Level2/ColorMatchPathLevel2';
+import SortingBasketsLevel2 from './screens/games/Level2/SortingBasketsLevel2';
+import FindFamilyMemberLevel2 from './screens/games/Level2/FindFamilyMemberLevel2';
 
 import TeacherLoginScreen from './screens/TeacherLoginScreen';
 import TeacherDashboardScreen from './screens/TeacherDashboardScreen';
 import TeacherAddChildScreen from './screens/TeacherAddChildScreen';
 import TeacherFeedbackScreen from './screens/TeacherFeedbackScreen';
+import WelcomeSuccessScreen from './screens/WelcomeSuccessScreen';
 
 // -umut: Çocuk gelişim ekranı (28.10.2025)
 import ChildProgressScreen from './screens/ChildProgressScreen';
@@ -80,6 +86,11 @@ export default function App() {
           <Stack.Screen name="ChildInfo" component={ChildInfoScreen} />
           <Stack.Screen name="Survey" component={SurveyScreen} />
           <Stack.Screen name="Result" component={ResultScreen} />
+          <Stack.Screen 
+            name="WelcomeSuccess" 
+            component={WelcomeSuccessScreen}
+            options={{ headerShown: false }}
+          />
           <Stack.Screen name="Education" component={EducationScreen} />
           <Stack.Screen 
             name="CategoryGames" 
@@ -137,6 +148,24 @@ export default function App() {
               headerStyle: { backgroundColor: '#FFF' }
             }}
           />
+          <Stack.Screen 
+            name="FruitBasketLevel1" 
+            component={FruitBasketLevel1}
+            options={{ 
+              title: '🍎 Fruit Basket - Focus', 
+              headerTintColor: '#81C784',
+              headerStyle: { backgroundColor: '#FFF' }
+            }}
+          />
+          <Stack.Screen 
+            name="MeetMyFamilyLevel1" 
+            component={MeetMyFamilyLevel1}
+            options={{ 
+              title: '👨‍👩‍👧‍👦 Meet My Family - Beginner', 
+              headerTintColor: '#FF6B9A',
+              headerStyle: { backgroundColor: '#FFF' }
+            }}
+          />
 
           {/* -umut: Level 2 oyunları (28.10.2025) */}
           {/* Renk + Nesne kombinasyonu oyunu */}
@@ -165,6 +194,33 @@ export default function App() {
             options={{ 
               title: '🔢 Match Numbers - Intermediate', 
               headerTintColor: '#96CEB4',
+              headerStyle: { backgroundColor: '#FFF' }
+            }}
+          />
+          <Stack.Screen 
+            name="ColorMatchPathLevel2" 
+            component={ColorMatchPathLevel2}
+            options={{ 
+              title: '🎨 Color Match Path - Intermediate', 
+              headerTintColor: '#4ECDC4',
+              headerStyle: { backgroundColor: '#FFF' }
+            }}
+          />
+          <Stack.Screen 
+            name="SortingBasketsLevel2" 
+            component={SortingBasketsLevel2}
+            options={{ 
+              title: '🧺 Sorting Baskets - Intermediate', 
+              headerTintColor: '#00796B',
+              headerStyle: { backgroundColor: '#FFF' }
+            }}
+          />
+          <Stack.Screen 
+            name="FindFamilyMemberLevel2" 
+            component={FindFamilyMemberLevel2}
+            options={{ 
+              title: '👨‍👩‍👧‍👦 Find Family Member - Intermediate', 
+              headerTintColor: '#FF6B9A',
               headerStyle: { backgroundColor: '#FFF' }
             }}
           />
