@@ -50,6 +50,7 @@ import ShapeMatchLevel3 from './screens/games/Level3/ShapeMatchLevel3';
 
 import TeacherLoginScreen from './screens/TeacherLoginScreen';
 import TeacherDashboardScreen from './screens/TeacherDashboardScreen';
+import TeacherStudentsOverviewScreen from './screens/TeacherStudentsOverviewScreen';
 import TeacherAddChildScreen from './screens/TeacherAddChildScreen';
 import TeacherFeedbackScreen from './screens/TeacherFeedbackScreen';
 import WelcomeSuccessScreen from './screens/WelcomeSuccessScreen';
@@ -272,6 +273,11 @@ export default function App() {
             name="TeacherStudents"
             component={TeacherDashboardScreen}
             options={{ title: 'Students', headerTintColor: 'grey' }}
+          />
+          <Stack.Screen
+            name="TeacherStudentsOverview"
+            component={TeacherStudentsOverviewScreen}
+            options={{ title: 'Students Overview', headerTintColor: 'grey' }}
           />
           <Stack.Screen
             name="TeacherAddChild"

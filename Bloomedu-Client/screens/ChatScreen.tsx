@@ -22,6 +22,7 @@ import RNFS from 'react-native-fs';
 interface Message {
   id: number;
   sender_id: number;
+  sender_type: 'parent' | 'teacher'; // -umut: (23.11.2025) Added for correct bubble placement
   receiver_id: number;
   message_text: string;
   created_at: string;
@@ -227,7 +228,11 @@ const ChatScreen = ({ route, navigation }: any) => {
 
   // === RENDER ITEM ===
   const renderItem = ({ item }: { item: Message }) => {
-    const isMe = item.sender_id === myUserId;
+    // -umut: (23.11.2025) Fixed: Use sender_type to determine message ownership
+    // Parent sees their messages on right (sender_type='parent'), teacher messages on left
+    // Teacher sees their messages on right (sender_type='teacher'), parent messages on left
+    const myType = isTeacher ? 'teacher' : 'parent';
+    const isMe = item.sender_type === myType;
     
     let content = <Text style={[styles.messageText, isMe ? styles.myText : styles.otherText]}>{item.message_text}</Text>;
 
