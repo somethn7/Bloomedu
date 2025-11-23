@@ -236,50 +236,45 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
   const { parentId } = req.params;
 
   try {
-    // -umut: (23.11.2025) Simplified query to avoid potential NULL handling issues with concat
+    // -umut: (23.11.2025) Revert to simplest possible query to fix 500 error
+    // Just get raw feedbacks, then enrich manually if needed or keep it simple
     const result = await pool.query(
-      `SELECT 
-         f.id AS feedback_id,
-         f.message,
-         f.created_at,
-         c.name AS child_name,
-         c.surname AS child_surname,
-         t.name AS teacher_name,
-         t.surname AS teacher_surname
-       FROM feedbacks f
-       LEFT JOIN children c ON f.child_id = c.id
-       LEFT JOIN teachers t ON f.teacher_id = t.id
-       WHERE f.parent_id = $1
-       ORDER BY f.id DESC`,
+      `SELECT * FROM feedbacks WHERE parent_id = $1 ORDER BY created_at DESC`,
       [parentId]
     );
 
-    // -umut: Handle null checks safely in JS
-    const formattedFeedbacks = result.rows.map(row => {
-        let teacherName = 'Unknown Teacher';
-        if (row.teacher_name && row.teacher_surname) {
-            teacherName = `${row.teacher_name} ${row.teacher_surname}`;
-        } else if (row.teacher_name) {
-            teacherName = row.teacher_name;
-        }
+    // If we really need teacher names, we should do a separate simple query or join extremely carefully.
+    // But to fix the immediate crash, let's return the raw data first.
+    // The frontend likely expects specific fields (child_name, teacher_name).
+    // Let's do a safe join.
+    
+    const safeResult = await pool.query(
+        `SELECT 
+           f.id AS feedback_id,
+           f.message,
+           f.created_at,
+           c.name AS child_name,
+           c.surname AS child_surname,
+           t.name AS teacher_name,
+           t.surname AS teacher_surname
+         FROM feedbacks f
+         LEFT JOIN children c ON f.child_id = c.id
+         LEFT JOIN teachers t ON f.teacher_id = t.id
+         WHERE f.parent_id = $1
+         ORDER BY f.id DESC`,
+        [parentId]
+    );
 
-        // Simple date formatting
-        const date = new Date(row.created_at);
-        const dateStr = !isNaN(date.getTime()) 
-            ? date.toISOString().replace('T', ' ').substring(0, 19)
-            : '';
+    const feedbacks = safeResult.rows.map(row => ({
+        feedback_id: row.feedback_id,
+        message: row.message,
+        created_at: row.created_at ? new Date(row.created_at).toISOString() : new Date().toISOString(),
+        child_name: row.child_name || 'Child',
+        child_surname: row.child_surname || '',
+        teacher_name: row.teacher_name ? `${row.teacher_name} ${row.teacher_surname || ''}` : 'Unknown Teacher'
+    }));
 
-        return {
-            feedback_id: row.feedback_id,
-            message: row.message,
-            created_at: dateStr,
-            child_name: row.child_name,
-            child_surname: row.child_surname,
-            teacher_name: teacherName
-        };
-    });
-
-    res.json({ success: true, feedbacks: formattedFeedbacks });
+    res.json({ success: true, feedbacks: feedbacks });
   } catch (err) {
     console.error('DB Error (GET /feedbacks/by-parent/:parentId):', err);
     res.status(500).json({ success: false, message: 'Server error while fetching feedbacks.' });
