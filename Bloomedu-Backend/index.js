@@ -239,7 +239,7 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
   }
 
   try {
-    // -umut: (23.11.2025) SAFE QUERY - Raw selection, processing in JS
+    // -umut: (23.11.2025) SAFE QUERY - Raw selection, processing in JS, using teacher full_name
     const result = await pool.query(
       `SELECT 
          f.id AS feedback_id,
@@ -247,8 +247,7 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
          f.created_at,
          c.name AS child_name,
          c.surname AS child_surname,
-         t.name AS teacher_name_first,
-         t.surname AS teacher_surname
+         t.full_name AS teacher_full_name
        FROM feedbacks f
        LEFT JOIN children c ON f.child_id = c.id
        LEFT JOIN teachers t ON f.teacher_id = t.id
@@ -259,34 +258,32 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
 
     // Process data in JS to avoid SQL errors
     const feedbacks = result.rows.map(row => {
-        // Format Teacher Name
-        let teacherName = 'Unknown Teacher';
-        if (row.teacher_name_first && row.teacher_surname) {
-            teacherName = `${row.teacher_name_first} ${row.teacher_surname}`;
-        } else if (row.teacher_name_first) {
-            teacherName = row.teacher_name_first;
-        }
+      // Format Teacher Name
+      let teacherName = 'Unknown Teacher';
+      if (row.teacher_full_name) {
+        teacherName = row.teacher_full_name;
+      }
 
-        // Format Date (Basic ISO string or formatted)
-        let dateStr = '';
-        if (row.created_at) {
-            try {
-                const d = new Date(row.created_at);
-                // Format: YYYY-MM-DD HH:mm:ss
-                dateStr = d.toISOString().replace('T', ' ').substring(0, 19);
-            } catch (e) {
-                dateStr = String(row.created_at);
-            }
+      // Format Date (Basic ISO string or formatted)
+      let dateStr = '';
+      if (row.created_at) {
+        try {
+          const d = new Date(row.created_at);
+          // Format: YYYY-MM-DD HH:mm:ss
+          dateStr = d.toISOString().replace('T', ' ').substring(0, 19);
+        } catch (e) {
+          dateStr = String(row.created_at);
         }
+      }
 
-        return {
-            feedback_id: row.feedback_id,
-            message: row.message,
-            created_at: dateStr,
-            child_name: row.child_name,
-            child_surname: row.child_surname,
-            teacher_name: teacherName
-        };
+      return {
+        feedback_id: row.feedback_id,
+        message: row.message,
+        created_at: dateStr,
+        child_name: row.child_name,
+        child_surname: row.child_surname,
+        teacher_name: teacherName,
+      };
     });
 
     res.json({ success: true, feedbacks });
