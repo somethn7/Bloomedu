@@ -228,8 +228,8 @@ const ChatScreen = ({ route, navigation }: any) => {
       if (granted !== PermissionsAndroid.RESULTS.GRANTED) return;
     }
 
-    // -umut: Use timestamp to create unique file names
-    const fileName = `voice_${Date.now()}.mp4`;
+    // -umut: Use .m4a (AAC) for better compatibility on Android
+    const fileName = `voice_${Date.now()}.m4a`;
     
     // -umut: Use ExternalCachesDirectoryPath for better access on Android
     const basePath = Platform.select({
@@ -325,23 +325,24 @@ const ChatScreen = ({ route, navigation }: any) => {
           onPress={async () => {
              if (item.content_url) {
                  try {
-                     const path = `${RNFS.CachesDirectoryPath}/temp_audio_${item.id}.mp4`;
-                     // Remove scheme if present
+                     // -umut: Use .m4a extension
+                     const path = `${RNFS.CachesDirectoryPath}/temp_audio_${item.id}.m4a`;
+                     
                      const parts = item.content_url.split(',');
                      const base64Data = parts.length > 1 ? parts[1] : parts[0];
                      
                      if(base64Data){
                         await RNFS.writeFile(path, base64Data, 'base64');
-                        console.log('Audio saved to temp path:', path);
-
-                        // -umut: Add file:// prefix for Android player if missing
-                        const playPath = Platform.OS === 'android' ? `file://${path}` : path;
+                        console.log('Audio saved to:', path);
                         
                         // Stop any current playback
                         await audioRecorderPlayer.stopPlayer();
                         audioRecorderPlayer.removePlayBackListener();
 
-                        // Add listener to ensure playback state is tracked
+                        // -umut: Try playing WITHOUT file:// prefix first on Android as some recent versions prefer raw path
+                        // If that fails, we can try with prefix. For now, raw path from CachesDirectoryPath usually works best.
+                        await audioRecorderPlayer.startPlayer(path);
+                        
                         audioRecorderPlayer.addPlayBackListener((e) => {
                             if (e.currentPosition === e.duration) {
                                 audioRecorderPlayer.stopPlayer();
@@ -349,9 +350,6 @@ const ChatScreen = ({ route, navigation }: any) => {
                             }
                             return;
                         });
-
-                        await audioRecorderPlayer.startPlayer(playPath);
-                        console.log('Started playing:', playPath);
                      }
                  } catch (e) {
                      console.error("Play error details:", e);

@@ -240,11 +240,11 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
       `SELECT 
          f.id AS feedback_id,
          f.message,
-         COALESCE(TO_CHAR(f.created_at, 'YYYY-MM-DD HH24:MI:SS'), '') AS created_at,
+         f.created_at,
          c.name AS child_name,
          c.surname AS child_surname,
-         -- -umut: (23.11.2025) Fixed string concatenation for PostgreSQL
-         COALESCE(t.name || ' ' || t.surname, 'Unknown Teacher') AS teacher_name
+         t.name AS teacher_name,
+         t.surname AS teacher_surname
        FROM feedbacks f
        LEFT JOIN children c ON f.child_id = c.id
        LEFT JOIN teachers t ON f.teacher_id = t.id
@@ -253,7 +253,19 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
       [parentId]
     );
 
-    res.json({ success: true, feedbacks: result.rows });
+    // -umut: Process data in JS to avoid SQL compatibility issues
+    const formattedFeedbacks = result.rows.map(row => ({
+        feedback_id: row.feedback_id,
+        message: row.message,
+        created_at: row.created_at, // Let frontend handle date formatting
+        child_name: row.child_name,
+        child_surname: row.child_surname,
+        teacher_name: row.teacher_name && row.teacher_surname 
+            ? `${row.teacher_name} ${row.teacher_surname}` 
+            : (row.teacher_name || 'Unknown Teacher')
+    }));
+
+    res.json({ success: true, feedbacks: formattedFeedbacks });
   } catch (err) {
     console.error('DB Error (GET /feedbacks/by-parent/:parentId):', err);
     res.status(500).json({ success: false, message: 'Server error while fetching feedbacks.' });
