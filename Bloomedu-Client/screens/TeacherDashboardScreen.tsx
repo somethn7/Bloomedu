@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -23,10 +23,9 @@ interface Student {
 }
 
 const TeacherDashboardScreen = ({ navigation }: any) => {
-  const [showProgress, setShowProgress] = useState(false);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState(''); // 🔍 Arama state
+  // -umut: (23.11.2025) We keep students here only for quick stats on the dashboard
 
   const fetchChildren = async () => {
     const teacherId = await AsyncStorage.getItem('teacher_id');
@@ -62,15 +61,10 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
     }
   };
 
-  const handleToggleProgress = () => {
-    setShowProgress(!showProgress);
-    if (!showProgress) fetchChildren();
-  };
-
-  // 🔎 Arama filtresi
-  const filteredStudents = students.filter(student =>
-    `${student.name} ${student.surname}`.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // -umut: (23.11.2025) Load students once for stats when dashboard mounts
+  useEffect(() => {
+    fetchChildren();
+  }, []);
 
   const renderStudent = ({ item }: { item: Student }) => (
     <View style={styles.studentCard}>
@@ -135,8 +129,8 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton} 
+        <TouchableOpacity
+          style={styles.backButton}
           onPress={() => navigation.navigate('Home')}
         >
           <Text style={styles.backButtonText}>←</Text>
@@ -145,13 +139,30 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
           <Text style={styles.greeting}>Welcome Teacher! 👋</Text>
           <Text style={styles.title}>My Classroom</Text>
         </View>
-        <TouchableOpacity 
-          style={styles.settingsButton} 
+        <TouchableOpacity
+          style={styles.settingsButton}
           onPress={() => navigation.navigate('Settings')}
         >
           <Text style={styles.settingsIcon}>⚙️</Text>
         </TouchableOpacity>
       </View>
+
+      {/* -umut: (23.11.2025) Official Parent Messages banner for teachers */}
+      <TouchableOpacity
+        style={styles.parentMessagesBanner}
+        onPress={() => navigation.navigate('TeacherChatList')}
+      >
+        <View style={styles.bannerContent}>
+          <View style={styles.bannerIconContainer}>
+            <Text style={styles.bannerIcon}>💬</Text>
+          </View>
+          <View style={styles.bannerTextContainer}>
+            <Text style={styles.bannerTitle}>Parent Messages</Text>
+            <Text style={styles.bannerSubtitle}>Official communication channel</Text>
+          </View>
+          <Text style={styles.bannerArrow}>→</Text>
+        </View>
+      </TouchableOpacity>
 
       {/* Quick Stats */}
       <View style={styles.quickStatsContainer}>
@@ -178,21 +189,6 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
 
       {/* Action Cards */}
       <View style={styles.actionsContainer}>
-        {/* -umut: (22.11.2025) Added Messages Button for Teacher */}
-        <TouchableOpacity
-          style={[styles.actionCard, { backgroundColor: '#6C5CE7' }]} // Purple for messages
-          onPress={() => navigation.navigate('TeacherChatList')}
-        >
-          <View style={styles.actionIconContainer}>
-            <Text style={styles.actionIcon}>💬</Text>
-          </View>
-          <View style={styles.actionContent}>
-            <Text style={styles.actionTitle}>Parent Messages</Text>
-            <Text style={styles.actionSubtitle}>View conversations</Text>
-          </View>
-          <Text style={styles.actionArrow}>→</Text>
-        </TouchableOpacity>
-
         <TouchableOpacity
           style={[styles.actionCard, styles.primaryAction]}
           onPress={() => navigation.navigate('TeacherAddChild')}
@@ -207,64 +203,21 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
           <Text style={styles.actionArrow}>→</Text>
         </TouchableOpacity>
 
+        {/* -umut: (23.11.2025) View Progress navigates to full-screen overview screen */}
         <TouchableOpacity
           style={[styles.actionCard, styles.secondaryAction]}
-          onPress={handleToggleProgress}
+          onPress={() => navigation.navigate('TeacherStudentsOverview')}
         >
           <View style={styles.actionIconContainer}>
-            <Text style={styles.actionIcon}>
-              {showProgress ? '👁️' : '📊'}
-            </Text>
+            <Text style={styles.actionIcon}>📊</Text>
           </View>
           <View style={styles.actionContent}>
-            <Text style={styles.actionTitle}>
-              {showProgress ? 'Hide Progress' : 'View Progress'}
-            </Text>
+            <Text style={styles.actionTitle}>View Progress</Text>
             <Text style={styles.actionSubtitle}>Track student learning</Text>
           </View>
-          <Text style={styles.actionArrow}>
-            {showProgress ? '▼' : '→'}
-          </Text>
+          <Text style={styles.actionArrow}>→</Text>
         </TouchableOpacity>
       </View>
-
-      {/* Students List */}
-      {showProgress && (
-        <View style={styles.studentsSection}>
-          <Text style={styles.sectionTitle}>📚 Students Overview</Text>
-          
-          {/* Search Input */}
-          <TextInput
-            style={styles.searchInput}
-            placeholder="🔍 Search student..."
-            placeholderTextColor="#9ca3af"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#4ECDC4" />
-              <Text style={styles.loadingText}>Loading students...</Text>
-            </View>
-          ) : filteredStudents.length > 0 ? (
-            <FlatList
-              data={filteredStudents}
-              keyExtractor={(item) => item.id.toString()}
-              renderItem={renderStudent}
-              showsVerticalScrollIndicator={false}
-            />
-          ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>🎓</Text>
-              <Text style={styles.emptyTitle}>No Students Found</Text>
-              <Text style={styles.emptyText}>
-                {searchQuery ? 'Try a different search term' : 'Add a student to get started!'}
-              </Text>
-            </View>
-          )}
-        </View>
-      )}
     </View>
   );
 };
@@ -279,7 +232,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#4ECDC4',
     paddingTop: 50,
-    paddingBottom: 30,
+    paddingBottom: 25,
     paddingHorizontal: 20,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
@@ -327,18 +280,68 @@ const styles = StyleSheet.create({
   settingsIcon: {
     fontSize: 22,
   },
+  // -umut: (23.11.2025) Official Parent Messages banner styles
+  parentMessagesBanner: {
+    marginHorizontal: 20,
+    marginTop: 15,
+    marginBottom: 15,
+    backgroundColor: '#4A148C',
+    borderRadius: 20,
+    padding: 16,
+    shadowColor: '#4A148C',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  bannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bannerIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  bannerIcon: {
+    fontSize: 26,
+  },
+  bannerTextContainer: {
+    flex: 1,
+  },
+  bannerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+  bannerSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.85)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  bannerArrow: {
+    fontSize: 24,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
   quickStatsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    marginTop: -20,
+    marginTop: 0,
     gap: 12,
   },
   quickStatCard: {
     flex: 1,
     backgroundColor: '#DBEAFE',
-    borderRadius: 20,
-    padding: 18,
+    borderRadius: 18,
+    padding: 16,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -347,30 +350,30 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   quickStatIcon: {
-    fontSize: 28,
-    marginBottom: 8,
+    fontSize: 26,
+    marginBottom: 6,
   },
   quickStatValue: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '700',
     color: '#2D3748',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   quickStatLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#718096',
     fontWeight: '600',
   },
   actionsContainer: {
     paddingHorizontal: 20,
-    marginTop: 30,
+    marginTop: 20,
   },
   actionCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 20,
-    padding: 18,
-    marginBottom: 15,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.1,
@@ -384,39 +387,39 @@ const styles = StyleSheet.create({
     backgroundColor: '#64B5F6',
   },
   actionIconContainer: {
-    width: 55,
-    height: 55,
-    borderRadius: 28,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: 'rgba(255, 255, 255, 0.3)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 15,
+    marginRight: 14,
   },
   actionIcon: {
-    fontSize: 26,
+    fontSize: 24,
   },
   actionContent: {
     flex: 1,
   },
   actionTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 3,
+    marginBottom: 2,
   },
   actionSubtitle: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#FFFFFF',
     opacity: 0.85,
   },
   actionArrow: {
-    fontSize: 24,
+    fontSize: 22,
     color: '#FFFFFF',
     fontWeight: '700',
   },
   studentsSection: {
     paddingHorizontal: 20,
-    marginTop: 30,
+    marginTop: 20,
     flex: 1,
   },
   sectionTitle: {
@@ -424,6 +427,22 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#2D3748',
     marginBottom: 15,
+  },
+  studentsHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  closeOverviewButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    backgroundColor: '#E5E7EB',
+  },
+  closeOverviewText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
   },
   searchInput: {
     backgroundColor: '#FFFFFF',
