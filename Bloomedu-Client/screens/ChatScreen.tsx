@@ -18,9 +18,8 @@ import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import { launchImageLibrary } from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
 
-// -umut: (22.11.2025) Added comments and offline support
-// This screen handles real-time messaging with offline caching capabilities.
-// It supports Text, Audio, and Image messages.
+// -umut: (22.11.2025) Updated ChatScreen to support both Teacher and Parent roles
+// Now dynamically handles sender/receiver based on route params.
 
 interface Message {
   id: number;
@@ -42,17 +41,22 @@ const BASE_URL = 'https://bloomedu-production.up.railway.app';
 // For local testing (Emulator): 'http://10.0.2.2:8080'
 
 const ChatScreen = ({ route, navigation }: any) => {
-  const { category, categoryTitle, categoryColor } = route.params;
+  const { category, categoryTitle, categoryColor, otherUserId, isTeacher } = route.params;
+  
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
-  const [parentId, setParentId] = useState<number | null>(null);
+  const [myUserId, setMyUserId] = useState<number | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordTime, setRecordTime] = useState('00:00');
   const [showWorkHoursWarning, setShowWorkHoursWarning] = useState(false);
+  // -umut: Store the recording path to ensure we read from the correct location on Android
+  const audioPathRef = useRef<string>('');
   
-  const TEACHER_ID = 1; 
+  // If I am parent, I talk to Teacher(1). If I am Teacher, I talk to Parent(otherUserId)
+  // -umut: Dynamic ID assignment
+  const receiverId = isTeacher ? otherUserId : 1; 
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -63,13 +67,25 @@ const ChatScreen = ({ route, navigation }: any) => {
   }, [navigation]);
 
   useEffect(() => {
-    loadParentAndMessages();
-    checkWorkHours();
+    loadUserAndMessages();
+    if (!isTeacher) checkWorkHours(); // Only show warning to parents
+    
+    // Mark messages as read on mount
+    if (myUserId) {
+      markMessagesAsRead();
+    }
+
     return () => {
       audioRecorderPlayer.stopRecorder();
       audioRecorderPlayer.removeRecordBackListener();
     };
   }, []);
+
+  useEffect(() => {
+    if (myUserId) {
+      markMessagesAsRead();
+    }
+  }, [myUserId]);
 
   const checkWorkHours = () => {
     const now = new Date();
@@ -80,24 +96,44 @@ const ChatScreen = ({ route, navigation }: any) => {
     }
   };
 
-  const loadParentAndMessages = async () => {
+  const markMessagesAsRead = async () => {
+    if (!myUserId) return;
     try {
-      const idString = await AsyncStorage.getItem('parent_id');
-      if (idString) {
-        const pid = parseInt(idString, 10);
-        setParentId(pid);
-        fetchMessages(pid);
-      }
-    } catch (error) {
-      console.error('Error loading parent ID:', error);
+      await fetch(`${BASE_URL}/messages/mark-read`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sender_id: receiverId, // Mark messages FROM the other person
+          receiver_id: myUserId, // TO me
+          category: category
+        }),
+      });
+    } catch (e) {
+      console.error('Failed to mark read', e);
     }
   };
 
-  const fetchMessages = async (pid: number) => {
+  const loadUserAndMessages = async () => {
+    try {
+      // -umut: Determine my ID based on role
+      const key = isTeacher ? 'teacher_id' : 'parent_id';
+      const idString = await AsyncStorage.getItem(key);
+      
+      if (idString) {
+        const pid = parseInt(idString, 10);
+        setMyUserId(pid);
+        fetchMessages(pid);
+      }
+    } catch (error) {
+      console.error('Error loading user ID:', error);
+    }
+  };
+
+  const fetchMessages = async (myId: number) => {
     setLoading(true);
     
     // -umut: (22.11.2025) Offline Logic: Load from cache first
-    const cacheKey = `messages_${pid}_${TEACHER_ID}_${category}`;
+    const cacheKey = `messages_${myId}_${receiverId}_${category}`;
     try {
         const cached = await AsyncStorage.getItem(cacheKey);
         if (cached) {
@@ -110,10 +146,9 @@ const ChatScreen = ({ route, navigation }: any) => {
 
     try {
       const response = await fetch(
-        `${BASE_URL}/messages?user1_id=${pid}&user2_id=${TEACHER_ID}&category=${category}`
+        `${BASE_URL}/messages?user1_id=${myId}&user2_id=${receiverId}&category=${category}`
       );
       
-      // -umut: (22.11.2025) Safe parsing to handle 404/500 HTML errors gracefully
       const text = await response.text();
       try {
         const json = JSON.parse(text);
@@ -124,25 +159,23 @@ const ChatScreen = ({ route, navigation }: any) => {
         }
       } catch (e) {
         console.warn('Invalid JSON response:', text.substring(0, 100));
-        // Don't alert here to avoid disturbing the user if cache is visible
       }
 
     } catch (error) {
       console.error('Error fetching messages:', error);
-      // If network fails, we already showed cached messages
     } finally {
       setLoading(false);
     }
   };
 
   const handleSend = async (type: 'text' | 'audio' | 'image', content: string, url?: string) => {
-    if (!parentId) return;
+    if (!myUserId) return;
 
     setSending(true);
     const payload = {
-      sender_id: parentId,
-      sender_type: 'parent',
-      receiver_id: TEACHER_ID,
+      sender_id: myUserId,
+      sender_type: isTeacher ? 'teacher' : 'parent',
+      receiver_id: receiverId,
       category: category,
       message_text: content,
       content_type: type,
@@ -162,7 +195,7 @@ const ChatScreen = ({ route, navigation }: any) => {
         
         if (json.success) {
           setInputText('');
-          fetchMessages(parentId);
+          fetchMessages(myUserId);
         } else {
           Alert.alert('Error', 'Message could not be sent.');
         }
@@ -200,6 +233,10 @@ const ChatScreen = ({ route, navigation }: any) => {
       android: `${RNFS.CachesDirectoryPath}/hello.mp4`,
     });
 
+    if (path) {
+        audioPathRef.current = path;
+    }
+
     await audioRecorderPlayer.startRecorder(path);
     audioRecorderPlayer.addRecordBackListener((e: any) => {
       setRecordTime(audioRecorderPlayer.mmssss(Math.floor(e.currentPosition)));
@@ -209,36 +246,96 @@ const ChatScreen = ({ route, navigation }: any) => {
   };
 
   const onStopRecord = async () => {
-    const result = await audioRecorderPlayer.stopRecorder();
+    await audioRecorderPlayer.stopRecorder();
     audioRecorderPlayer.removeRecordBackListener();
     setIsRecording(false);
     setRecordTime('00:00');
     
-    // Send the audio file path as content_url
-    handleSend('audio', '🎤 Voice Message', result);
+    // -umut: Convert audio file to Base64 for sending
+    try {
+      // Use the stored path instead of the result from stopRecorder()
+      const filePath = audioPathRef.current;
+      
+      // Check if file exists before reading
+      const exists = await RNFS.exists(filePath);
+      if (!exists) {
+          console.error('Audio file not found at:', filePath);
+          Alert.alert('Error', 'Recording failed (file not found).');
+          return;
+      }
+
+      const base64Audio = await RNFS.readFile(filePath, 'base64');
+      // Add data URI scheme prefix
+      const dataUri = `data:audio/mp4;base64,${base64Audio}`;
+      handleSend('audio', '🎤 Voice Message', dataUri);
+    } catch (err) {
+      console.error('Error reading audio file:', err);
+      Alert.alert('Error', 'Could not process audio recording.');
+    }
   };
 
   // === IMAGE PICKER ===
   const onPickImage = async () => {
-    const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.5 });
+    const result = await launchImageLibrary({ 
+      mediaType: 'photo', 
+      quality: 0.5, // Compress image to reduce Base64 size
+      includeBase64: true // Request Base64 directly from picker
+    });
+
     if (result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
-      handleSend('image', '📷 Photo', asset.uri);
+      if (asset.base64) {
+        const dataUri = `data:${asset.type};base64,${asset.base64}`;
+        handleSend('image', '📷 Photo', dataUri);
+      } else {
+        // Fallback if picker doesn't return base64 (shouldn't happen with includeBase64: true)
+        if (asset.uri) {
+             try {
+                const base64Img = await RNFS.readFile(asset.uri, 'base64');
+                const dataUri = `data:${asset.type || 'image/jpeg'};base64,${base64Img}`;
+                handleSend('image', '📷 Photo', dataUri);
+             } catch(e) {
+                 console.error("Image read error", e);
+             }
+        }
+      }
     }
   };
 
   // === RENDER ITEM ===
   const renderItem = ({ item }: { item: Message }) => {
-    const isMe = item.sender_id === parentId;
+    const isMe = item.sender_id === myUserId;
     
     let content = <Text style={[styles.messageText, isMe ? styles.myText : styles.otherText]}>{item.message_text}</Text>;
 
     if (item.content_type === 'audio') {
       content = (
-        <View style={styles.audioContainer}>
+        <TouchableOpacity 
+          style={styles.audioContainer}
+          onPress={async () => {
+             if (item.content_url) {
+                 // To play base64 audio, we might need to save it to a temp file first
+                 // Or use a player that supports data URI. 
+                 // audio-recorder-player supports playing from URL/Path.
+                 // Workaround: Save base64 to temp file and play.
+                 try {
+                     const path = `${RNFS.CachesDirectoryPath}/temp_audio_${item.id}.mp4`;
+                     // Remove scheme
+                     const base64Data = item.content_url.split(',')[1];
+                     if(base64Data){
+                        await RNFS.writeFile(path, base64Data, 'base64');
+                        await audioRecorderPlayer.startPlayer(path);
+                     }
+                 } catch (e) {
+                     console.error("Play error", e);
+                     Alert.alert("Error", "Could not play audio.");
+                 }
+             }
+          }}
+        >
           <Text style={styles.audioIcon}>▶️</Text>
-          <Text style={[styles.messageText, isMe ? styles.myText : styles.otherText]}>Voice Note</Text>
-        </View>
+          <Text style={[styles.messageText, isMe ? styles.myText : styles.otherText]}>Voice Note (Tap to Play)</Text>
+        </TouchableOpacity>
       );
     } else if (item.content_type === 'image' && item.content_url) {
       content = (
@@ -272,7 +369,9 @@ const ChatScreen = ({ route, navigation }: any) => {
         </TouchableOpacity>
         <View style={styles.headerInfo}>
           <Text style={styles.headerTitle}>{categoryTitle}</Text>
-          <Text style={styles.headerSubtitle}>Teacher Chat</Text>
+          <Text style={styles.headerSubtitle}>
+            {isTeacher ? 'Parent Chat' : 'Teacher Chat'}
+          </Text>
         </View>
         <View style={{ width: 40 }} />
       </View>

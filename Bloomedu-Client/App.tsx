@@ -22,6 +22,8 @@ import ColorsMatchingGameScreen from './screens/ColorsMatchingGameScreen';
 
 import ParentMessageCategoriesScreen from './screens/ParentMessageCategoriesScreen';
 import ChatScreen from './screens/ChatScreen';
+// -umut: (22.11.2025) Added TeacherChatListScreen
+import TeacherChatListScreen from './screens/TeacherChatListScreen';
 
 // -umut: Level 1 oyunları için yeni import eklendi (28.10.2025)
 // Oyun skor takibi sisteminin bir parçası
@@ -275,6 +277,12 @@ export default function App() {
             name="TeacherAddChild"
             component={TeacherAddChildScreen}
             options={{ title: 'Add Student', headerTintColor: 'grey' }}
+          />
+          {/* -umut: (22.11.2025) Added Teacher Chat List */}
+          <Stack.Screen
+            name="TeacherChatList"
+            component={TeacherChatListScreen}
+            options={{ title: 'Messages', headerTintColor: 'grey' }}
           />
           <Stack.Screen
             name="TeacherFeedback"

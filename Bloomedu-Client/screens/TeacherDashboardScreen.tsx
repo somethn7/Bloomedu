@@ -178,6 +178,21 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
 
       {/* Action Cards */}
       <View style={styles.actionsContainer}>
+        {/* -umut: (22.11.2025) Added Messages Button for Teacher */}
+        <TouchableOpacity
+          style={[styles.actionCard, { backgroundColor: '#6C5CE7' }]} // Purple for messages
+          onPress={() => navigation.navigate('TeacherChatList')}
+        >
+          <View style={styles.actionIconContainer}>
+            <Text style={styles.actionIcon}>💬</Text>
+          </View>
+          <View style={styles.actionContent}>
+            <Text style={styles.actionTitle}>Parent Messages</Text>
+            <Text style={styles.actionSubtitle}>View conversations</Text>
+          </View>
+          <Text style={styles.actionArrow}>→</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           style={[styles.actionCard, styles.primaryAction]}
           onPress={() => navigation.navigate('TeacherAddChild')}
