@@ -228,13 +228,20 @@ const ChatScreen = ({ route, navigation }: any) => {
       if (granted !== PermissionsAndroid.RESULTS.GRANTED) return;
     }
 
-    const path = Platform.select({
-      ios: 'hello.m4a',
-      android: `${RNFS.CachesDirectoryPath}/hello.mp4`,
+    // -umut: Use timestamp to create unique file names
+    const fileName = `voice_${Date.now()}.mp4`;
+    
+    // -umut: Use ExternalCachesDirectoryPath for better access on Android
+    const basePath = Platform.select({
+        ios: RNFS.DocumentDirectoryPath,
+        android: RNFS.ExternalCachesDirectoryPath || RNFS.CachesDirectoryPath
     });
+    
+    const path = `${basePath}/${fileName}`;
 
     if (path) {
         audioPathRef.current = path;
+        console.log('Recording to path:', path);
     }
 
     await audioRecorderPlayer.startRecorder(path);
@@ -253,14 +260,17 @@ const ChatScreen = ({ route, navigation }: any) => {
     
     // -umut: Convert audio file to Base64 for sending
     try {
-      // Use the stored path instead of the result from stopRecorder()
-      const filePath = audioPathRef.current;
+      // Use the stored path
+      let filePath = audioPathRef.current;
       
+      console.log('Attempting to read audio from:', filePath); // Debug log
+
       // Check if file exists before reading
       const exists = await RNFS.exists(filePath);
+      
       if (!exists) {
           console.error('Audio file not found at:', filePath);
-          Alert.alert('Error', 'Recording failed (file not found).');
+          Alert.alert('Error', `Recording failed. File not found.`);
           return;
       }
 
@@ -314,20 +324,37 @@ const ChatScreen = ({ route, navigation }: any) => {
           style={styles.audioContainer}
           onPress={async () => {
              if (item.content_url) {
-                 // To play base64 audio, we might need to save it to a temp file first
-                 // Or use a player that supports data URI. 
-                 // audio-recorder-player supports playing from URL/Path.
-                 // Workaround: Save base64 to temp file and play.
                  try {
                      const path = `${RNFS.CachesDirectoryPath}/temp_audio_${item.id}.mp4`;
-                     // Remove scheme
-                     const base64Data = item.content_url.split(',')[1];
+                     // Remove scheme if present
+                     const parts = item.content_url.split(',');
+                     const base64Data = parts.length > 1 ? parts[1] : parts[0];
+                     
                      if(base64Data){
                         await RNFS.writeFile(path, base64Data, 'base64');
-                        await audioRecorderPlayer.startPlayer(path);
+                        console.log('Audio saved to temp path:', path);
+
+                        // -umut: Add file:// prefix for Android player if missing
+                        const playPath = Platform.OS === 'android' ? `file://${path}` : path;
+                        
+                        // Stop any current playback
+                        await audioRecorderPlayer.stopPlayer();
+                        audioRecorderPlayer.removePlayBackListener();
+
+                        // Add listener to ensure playback state is tracked
+                        audioRecorderPlayer.addPlayBackListener((e) => {
+                            if (e.currentPosition === e.duration) {
+                                audioRecorderPlayer.stopPlayer();
+                                audioRecorderPlayer.removePlayBackListener();
+                            }
+                            return;
+                        });
+
+                        await audioRecorderPlayer.startPlayer(playPath);
+                        console.log('Started playing:', playPath);
                      }
                  } catch (e) {
-                     console.error("Play error", e);
+                     console.error("Play error details:", e);
                      Alert.alert("Error", "Could not play audio.");
                  }
              }

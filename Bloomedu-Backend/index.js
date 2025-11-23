@@ -243,7 +243,8 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
          COALESCE(TO_CHAR(f.created_at, 'YYYY-MM-DD HH24:MI:SS'), '') AS created_at,
          c.name AS child_name,
          c.surname AS child_surname,
-         COALESCE(CONCAT(t.name, ' ', t.surname), 'Unknown Teacher') AS teacher_name
+         -- -umut: (23.11.2025) Fixed string concatenation for PostgreSQL
+         COALESCE(t.name || ' ' || t.surname, 'Unknown Teacher') AS teacher_name
        FROM feedbacks f
        LEFT JOIN children c ON f.child_id = c.id
        LEFT JOIN teachers t ON f.teacher_id = t.id
