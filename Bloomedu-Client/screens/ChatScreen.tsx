@@ -10,16 +10,14 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
-  PermissionsAndroid,
   Image,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import { launchImageLibrary } from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
 
-// -umut: (22.11.2025) Updated ChatScreen to support both Teacher and Parent roles
-// Now dynamically handles sender/receiver based on route params.
+// -umut: (23.11.2025) Removed Audio Support per request
+// Only text and image messages are supported now.
 
 interface Message {
   id: number;
@@ -28,13 +26,10 @@ interface Message {
   message_text: string;
   created_at: string;
   category: string;
-  content_type: 'text' | 'audio' | 'image';
+  content_type: 'text' | 'image'; // Removed 'audio'
   content_url?: string;
   is_read?: boolean;
 }
-
-// Correct instantiation for the updated version of the library
-const audioRecorderPlayer = new AudioRecorderPlayer();
 
 // -umut: (22.11.2025) Base URL
 const BASE_URL = 'https://bloomedu-production.up.railway.app';
@@ -48,14 +43,9 @@ const ChatScreen = ({ route, navigation }: any) => {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [myUserId, setMyUserId] = useState<number | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordTime, setRecordTime] = useState('00:00');
   const [showWorkHoursWarning, setShowWorkHoursWarning] = useState(false);
-  // -umut: Store the recording path to ensure we read from the correct location on Android
-  const audioPathRef = useRef<string>('');
   
   // If I am parent, I talk to Teacher(1). If I am Teacher, I talk to Parent(otherUserId)
-  // -umut: Dynamic ID assignment
   const receiverId = isTeacher ? otherUserId : 1; 
 
   const flatListRef = useRef<FlatList>(null);
@@ -74,11 +64,6 @@ const ChatScreen = ({ route, navigation }: any) => {
     if (myUserId) {
       markMessagesAsRead();
     }
-
-    return () => {
-      audioRecorderPlayer.stopRecorder();
-      audioRecorderPlayer.removeRecordBackListener();
-    };
   }, []);
 
   useEffect(() => {
@@ -168,7 +153,7 @@ const ChatScreen = ({ route, navigation }: any) => {
     }
   };
 
-  const handleSend = async (type: 'text' | 'audio' | 'image', content: string, url?: string) => {
+  const handleSend = async (type: 'text' | 'image', content: string, url?: string) => {
     if (!myUserId) return;
 
     setSending(true);
@@ -212,78 +197,6 @@ const ChatScreen = ({ route, navigation }: any) => {
     }
   };
 
-  // === AUDIO RECORDING ===
-  const onStartRecord = async () => {
-    if (Platform.OS === 'android') {
-      const granted = await PermissionsAndroid.request(
-        PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
-        {
-          title: 'Microphone Permission',
-          message: 'Bloomedu needs access to your microphone to send voice notes.',
-          buttonNeutral: 'Ask Me Later',
-          buttonNegative: 'Cancel',
-          buttonPositive: 'OK',
-        },
-      );
-      if (granted !== PermissionsAndroid.RESULTS.GRANTED) return;
-    }
-
-    // -umut: Use .m4a (AAC) for better compatibility on Android
-    const fileName = `voice_${Date.now()}.m4a`;
-    
-    // -umut: Use ExternalCachesDirectoryPath for better access on Android
-    const basePath = Platform.select({
-        ios: RNFS.DocumentDirectoryPath,
-        android: RNFS.ExternalCachesDirectoryPath || RNFS.CachesDirectoryPath
-    });
-    
-    const path = `${basePath}/${fileName}`;
-
-    if (path) {
-        audioPathRef.current = path;
-        console.log('Recording to path:', path);
-    }
-
-    await audioRecorderPlayer.startRecorder(path);
-    audioRecorderPlayer.addRecordBackListener((e: any) => {
-      setRecordTime(audioRecorderPlayer.mmssss(Math.floor(e.currentPosition)));
-      return;
-    });
-    setIsRecording(true);
-  };
-
-  const onStopRecord = async () => {
-    await audioRecorderPlayer.stopRecorder();
-    audioRecorderPlayer.removeRecordBackListener();
-    setIsRecording(false);
-    setRecordTime('00:00');
-    
-    // -umut: Convert audio file to Base64 for sending
-    try {
-      // Use the stored path
-      let filePath = audioPathRef.current;
-      
-      console.log('Attempting to read audio from:', filePath); // Debug log
-
-      // Check if file exists before reading
-      const exists = await RNFS.exists(filePath);
-      
-      if (!exists) {
-          console.error('Audio file not found at:', filePath);
-          Alert.alert('Error', `Recording failed. File not found.`);
-          return;
-      }
-
-      const base64Audio = await RNFS.readFile(filePath, 'base64');
-      // Add data URI scheme prefix
-      const dataUri = `data:audio/mp4;base64,${base64Audio}`;
-      handleSend('audio', '🎤 Voice Message', dataUri);
-    } catch (err) {
-      console.error('Error reading audio file:', err);
-      Alert.alert('Error', 'Could not process audio recording.');
-    }
-  };
-
   // === IMAGE PICKER ===
   const onPickImage = async () => {
     const result = await launchImageLibrary({ 
@@ -318,51 +231,7 @@ const ChatScreen = ({ route, navigation }: any) => {
     
     let content = <Text style={[styles.messageText, isMe ? styles.myText : styles.otherText]}>{item.message_text}</Text>;
 
-    if (item.content_type === 'audio') {
-      content = (
-        <TouchableOpacity 
-          style={styles.audioContainer}
-          onPress={async () => {
-             if (item.content_url) {
-                 try {
-                     // -umut: Use .m4a extension
-                     const path = `${RNFS.CachesDirectoryPath}/temp_audio_${item.id}.m4a`;
-                     
-                     const parts = item.content_url.split(',');
-                     const base64Data = parts.length > 1 ? parts[1] : parts[0];
-                     
-                     if(base64Data){
-                        await RNFS.writeFile(path, base64Data, 'base64');
-                        console.log('Audio saved to:', path);
-                        
-                        // Stop any current playback
-                        await audioRecorderPlayer.stopPlayer();
-                        audioRecorderPlayer.removePlayBackListener();
-
-                        // -umut: Try playing WITHOUT file:// prefix first on Android as some recent versions prefer raw path
-                        // If that fails, we can try with prefix. For now, raw path from CachesDirectoryPath usually works best.
-                        await audioRecorderPlayer.startPlayer(path);
-                        
-                        audioRecorderPlayer.addPlayBackListener((e) => {
-                            if (e.currentPosition === e.duration) {
-                                audioRecorderPlayer.stopPlayer();
-                                audioRecorderPlayer.removePlayBackListener();
-                            }
-                            return;
-                        });
-                     }
-                 } catch (e) {
-                     console.error("Play error details:", e);
-                     Alert.alert("Error", "Could not play audio.");
-                 }
-             }
-          }}
-        >
-          <Text style={styles.audioIcon}>▶️</Text>
-          <Text style={[styles.messageText, isMe ? styles.myText : styles.otherText]}>Voice Note (Tap to Play)</Text>
-        </TouchableOpacity>
-      );
-    } else if (item.content_type === 'image' && item.content_url) {
+    if (item.content_type === 'image' && item.content_url) {
       content = (
         <Image source={{ uri: item.content_url }} style={styles.chatImage} resizeMode="cover" />
       );
@@ -429,48 +298,30 @@ const ChatScreen = ({ route, navigation }: any) => {
 
         {/* Input Area */}
         <View style={styles.inputContainer}>
-          {isRecording ? (
-            <View style={styles.recordingContainer}>
-              <Text style={styles.recordingText}>🔴 Recording... {recordTime}</Text>
-              <TouchableOpacity onPress={onStopRecord} style={styles.stopButton}>
-                <Text style={styles.stopButtonText}>■</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <>
-              <TouchableOpacity onPress={onPickImage} style={styles.attachButton}>
-                <Text style={styles.attachIcon}>📎</Text>
-              </TouchableOpacity>
-              
-              <TextInput
-                style={styles.input}
-                value={inputText}
-                onChangeText={setInputText}
-                placeholder="Type a message..."
-                placeholderTextColor="#999"
-                multiline
-              />
-              
-              {inputText.trim().length > 0 ? (
-                <TouchableOpacity
-                  style={[styles.sendButton, { backgroundColor: categoryColor }]}
-                  onPress={() => handleSend('text', inputText.trim())}
-                  disabled={sending}
-                >
-                  {sending ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.sendButtonText}>→</Text>}
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={[styles.micButton, { backgroundColor: categoryColor }]}
-                  onLongPress={onStartRecord}
-                  onPressOut={onStopRecord}
-                  delayLongPress={300}
-                >
-                  <Text style={styles.micIcon}>🎤</Text>
-                </TouchableOpacity>
-              )}
-            </>
-          )}
+          <TouchableOpacity onPress={onPickImage} style={styles.attachButton}>
+            <Text style={styles.attachIcon}>📎</Text>
+          </TouchableOpacity>
+          
+          <TextInput
+            style={styles.input}
+            value={inputText}
+            onChangeText={setInputText}
+            placeholder="Type a message..."
+            placeholderTextColor="#999"
+            multiline
+          />
+          
+          <TouchableOpacity
+            style={[styles.sendButton, { backgroundColor: categoryColor }]}
+            onPress={() => {
+                if (inputText.trim().length > 0) {
+                    handleSend('text', inputText.trim());
+                }
+            }}
+            disabled={sending || inputText.trim().length === 0}
+          >
+            {sending ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.sendButtonText}>→</Text>}
+          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
     </View>
@@ -639,54 +490,10 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#666',
   },
-  micButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  micIcon: {
-    fontSize: 20,
-    color: '#FFF',
-  },
-  recordingContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 10,
-  },
-  recordingText: {
-    color: '#E53E3E',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  stopButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#E53E3E',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  stopButtonText: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
   chatImage: {
     width: 200,
     height: 150,
     borderRadius: 10,
     marginBottom: 5,
-  },
-  audioContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  audioIcon: {
-    fontSize: 20,
-    marginRight: 8,
   },
 });

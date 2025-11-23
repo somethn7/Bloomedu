@@ -1,8 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- -umut: (22.11.2025) Added permissions for Chat Module (Audio/Image) -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- -umut: (22.11.2025) Added permissions for Chat Module (Image) -->
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.CAMERA" />
