@@ -8,10 +8,9 @@ const sendStudentCredentials = require('./utils/sendMail');
 
 const app = express();
 
-// === ROUTES ===
-// Messages Route
+// === NEW ROUTES (Integrated cleanly) ===
+// Messages Route for Chat System
 const messagesRouter = require('./routes/messages');
-
 
 // === FIREBASE INIT ===
 const serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
@@ -20,10 +19,10 @@ admin.initializeApp({
 });
 
 app.use(cors());
-app.use(express.json());
+// -umut: (23.11.2025) Increased payload limit to 50mb to support Base64 images
+app.use(express.json({ limit: '50mb' }));
 
-// Use Routes
-// -umut: (22.11.2025) Mounted messages router for offline chat system
+// === MOUNT ROUTES ===
 app.use('/', messagesRouter);
 
 // === LOG MIDDLEWARE ===
@@ -236,15 +235,24 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
   const { parentId } = req.params;
 
   try {
-    // -umut: (23.11.2025) REVERT TO SIMPLEST QUERY
-    // Removed all joins and complex formatting to guarantee it works.
+    // -umut: (23.11.2025) Using SAFE string concatenation for teacher name
+    // This prevents 'column does not exist' errors if t.full_name is missing
     const result = await pool.query(
-      `SELECT * FROM feedbacks WHERE parent_id = $1 ORDER BY id DESC`,
+      `SELECT 
+         f.id AS feedback_id,
+         f.message,
+         COALESCE(TO_CHAR(f.created_at, 'YYYY-MM-DD HH24:MI:SS'), '') AS created_at,
+         c.name AS child_name,
+         c.surname AS child_surname,
+         COALESCE(CONCAT(t.name, ' ', t.surname), 'Unknown Teacher') AS teacher_name
+       FROM feedbacks f
+       LEFT JOIN children c ON f.child_id = c.id
+       LEFT JOIN teachers t ON f.teacher_id = t.id
+       WHERE f.parent_id = $1
+       ORDER BY f.id DESC`,
       [parentId]
     );
 
-    // We will return basic data. If teacher name is needed, we will solve it later.
-    // First priority is to STOP THE CRASH.
     res.json({ success: true, feedbacks: result.rows });
   } catch (err) {
     console.error('DB Error (GET /feedbacks/by-parent/:parentId):', err);
@@ -325,8 +333,6 @@ app.post('/parent/login', async (req, res) => {
 });
 
 // === SAVE GAME SESSION ===
-// -umut: Oyun skorlarını ve istatistiklerini database'e kaydetmek için yeni endpoint eklendi (28.10.2025)
-// Bu endpoint çocukların oynadığı oyunların skorlarını, süresini ve tamamlanma durumunu kaydeder
 app.post('/game-session', async (req, res) => {
   const { child_id, game_type, level, score, max_score, duration_seconds, completed } = req.body;
 
@@ -350,17 +356,34 @@ app.post('/game-session', async (req, res) => {
 });
 
 // === SAVE VIDEO SESSION ===
-// Video içerikleri de game_sessions tablosunda tutulur (game_type ile ayırt edilir)
-// Artık ayrı bir video_sessions tablosu kullanılmıyor
+app.post('/video-session', async (req, res) => {
+  const { child_id, video_title, category, level, watch_duration_seconds, completed } = req.body;
+
+  if (!child_id || !video_title || !category) {
+    return res.status(400).json({ success: false, message: 'Missing required fields.' });
+  }
+
+  try {
+    await pool.query(
+      `INSERT INTO video_sessions 
+       (child_id, video_title, category, level, watch_duration_seconds, completed) 
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [child_id, video_title, category, level, watch_duration_seconds, completed]
+    );
+
+    res.json({ success: true, message: 'Video session saved successfully.' });
+  } catch (err) {
+    console.error('Error (POST /video-session):', err);
+    res.status(500).json({ success: false, message: 'Server error while saving video session.' });
+  }
+});
 
 // === GET CHILD PROGRESS ===
-// -umut: Çocuğun tüm gelişim verilerini (oyun skorları, video izleme, aktiviteler) getiren endpoint (28.10.2025)
-// Öğretmen dashboard'unda çocuğun ilerlemesini göstermek için kullanılacak
 app.get('/progress/:childId', async (req, res) => {
   const { childId } = req.params;
 
   try {
-    // Tüm aktiviteler (oyunlar ve videolar) game_sessions tablosunda
+    // Oyun istatistikleri
     const gameStats = await pool.query(
       `SELECT game_type, level, COUNT(*) as play_count, 
        AVG(score) as avg_score, MAX(score) as best_score,
@@ -369,6 +392,17 @@ app.get('/progress/:childId', async (req, res) => {
        WHERE child_id = $1 
        GROUP BY game_type, level
        ORDER BY game_type, level`,
+      [childId]
+    );
+
+    // Video istatistikleri
+    const videoStats = await pool.query(
+      `SELECT category, level, COUNT(*) as watch_count,
+       SUM(watch_duration_seconds) as total_watch_time
+       FROM video_sessions 
+       WHERE child_id = $1 
+       GROUP BY category, level
+       ORDER BY category, level`,
       [childId]
     );
 
@@ -385,6 +419,7 @@ app.get('/progress/:childId', async (req, res) => {
     res.json({
       success: true,
       gameStats: gameStats.rows,
+      videoStats: videoStats.rows,
       recentGames: recentGames.rows,
     });
   } catch (err) {
@@ -393,8 +428,8 @@ app.get('/progress/:childId', async (req, res) => {
   }
 });
 
-// === AI CHAT BOT (MOCK) ===
-// -umut: Ebeveynlerin yapay zeka rehber ile konuşması için endpoint (Mock Data)
+// === NEW: AI CHAT BOT (Integrated) ===
+// -umut: (23.11.2025) Added AI Chat Endpoint for the new Pedagogue Bot
 app.post('/ai-chat', async (req, res) => {
   const { message } = req.body;
 
@@ -402,27 +437,24 @@ app.post('/ai-chat', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Message is required.' });
   }
 
-  // Mock Yanıt Üretici (Basit Kural Tabanlı)
+  // Mock AI Response Logic
   let aiResponse = "";
   const lowerMsg = message.toLowerCase();
 
   if (lowerMsg.includes("merhaba") || lowerMsg.includes("selam")) {
-    aiResponse = "Merhaba! Ben Bloomedu Pedagog Asistanıyım. Size ve çocuğunuza nasıl yardımcı olabilirim?";
-  } else if (lowerMsg.includes("oyun")) {
-    aiResponse = "Oyun oynamak çocuğunuzun gelişimi için harika! Bloomedu içindeki **'Eşleştirme'** ve **'Renkler'** oyunlarını denediniz mi? Bu oyunlar dikkat ve bilişsel becerileri destekler. Ayrıca evde basit nesnelerle 'bu ne renk?' oyunu oynayabilirsiniz.";
-  } else if (lowerMsg.includes("konuş") || lowerMsg.includes("iletişim")) {
-    aiResponse = "İletişim becerilerini desteklemek için çocuğunuzla bol bol göz teması kurun. Kısa ve net cümleler kullanın. İstediği bir şeyi işaret ettiğinde, o nesnenin adını söyleyerek ona verin. Sabırlı olun, her çocuk kendi hızında ilerler.";
-  } else if (lowerMsg.includes("öfke") || lowerMsg.includes("kriz") || lowerMsg.includes("ağla")) {
-    aiResponse = "Öfke nöbetleri zorlayıcı olabilir. Böyle anlarda sakin kalmaya çalışın. Çocuğunuzun duygusunu isimlendirin: 'Şu an üzgünsün, seni anlıyorum.' Güvenli bir alanda sakinleşmesini bekleyin. Sarılmak bazen en iyi ilaçtır.";
-  } else if (lowerMsg.includes("uyku")) {
-    aiResponse = "Uyku rutinleri çok önemlidir. Yatmadan önce ekranları kapatın, ılık bir duş ve masal okuma gibi sakinleştirici aktiviteler yapın. Odayı karanlık ve sessiz tutmak da uykuya geçişi kolaylaştırır.";
-  } else if (lowerMsg.includes("yemek") || lowerMsg.includes("iştah")) {
-    aiResponse = "Yemek konusunda ısrarcı olmayın. Farklı tatları ve dokuları oyunlaştırarak sunmayı deneyin. Birlikte yemek hazırlamak da ilgisini çekebilir. Ancak ciddi beslenme sorunları için doktorunuza danışmayı ihmal etmeyin.";
+    aiResponse = "Hello! I am your Bloomedu Pedagogue Assistant. How can I help you and your child today?";
+  } else if (lowerMsg.includes("oyun") || lowerMsg.includes("game")) {
+    aiResponse = "Playing games is great for your child's development! Have you tried the **'Matching'** and **'Colors'** games in Bloomedu? These support attention and cognitive skills. You can also play simple 'what color is this?' games with objects at home.";
+  } else if (lowerMsg.includes("konuş") || lowerMsg.includes("speak") || lowerMsg.includes("iletişim")) {
+    aiResponse = "To support communication skills, make plenty of eye contact with your child. Use short and clear sentences. When they point to something they want, name the object before giving it to them. Be patient, every child progresses at their own pace.";
+  } else if (lowerMsg.includes("öfke") || lowerMsg.includes("angry") || lowerMsg.includes("cry")) {
+    aiResponse = "Tantrums can be challenging. Try to stay calm in such moments. Name your child's emotion: 'You are sad right now, I understand.' Wait for them to calm down in a safe space. Sometimes a hug is the best medicine.";
+  } else if (lowerMsg.includes("uyku") || lowerMsg.includes("sleep")) {
+    aiResponse = "Sleep routines are very important. Turn off screens before bed, try calming activities like a warm bath and reading a story. Keeping the room dark and quiet also makes it easier to fall asleep.";
   } else {
-    aiResponse = "Sizi anlıyorum. Bu konuda daha detaylı bilgi verebilmem için sorunuzu biraz daha açabilir misiniz? Genel olarak çocuk gelişiminde tutarlılık, sevgi ve sabır en önemli anahtarlardır. Ayrıca Bloomedu'daki gelişim raporlarını incelemeyi unutmayın.";
+    aiResponse = "I understand. Could you please elaborate on your question so I can give you more detailed information? Generally, consistency, love, and patience are the most important keys in child development.";
   }
 
-  // Yapay zeka gibi hissettirmek için biraz gecikme ekleyelim (isteğe bağlı, burada doğrudan dönüyoruz)
   res.json({ success: true, reply: aiResponse });
 });
 

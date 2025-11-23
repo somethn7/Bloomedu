@@ -86,7 +86,9 @@ const ParentFeedbacksScreen = () => {
       ) : (
         <FlatList
           data={feedbacks}
-          keyExtractor={(item) => String(item.feedback_id)}
+          keyExtractor={(item, index) => 
+            item.feedback_id ? String(item.feedback_id) : String(index)
+          }
           renderItem={({ item }) => {
             const created = item.created_at;
             return (
