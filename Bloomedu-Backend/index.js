@@ -236,6 +236,7 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
   const { parentId } = req.params;
 
   try {
+    // -umut: (23.11.2025) Simplified query to avoid potential NULL handling issues with concat
     const result = await pool.query(
       `SELECT 
          f.id AS feedback_id,
@@ -253,17 +254,30 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
       [parentId]
     );
 
-    // -umut: Process data in JS to avoid SQL compatibility issues
-    const formattedFeedbacks = result.rows.map(row => ({
-        feedback_id: row.feedback_id,
-        message: row.message,
-        created_at: row.created_at, // Let frontend handle date formatting
-        child_name: row.child_name,
-        child_surname: row.child_surname,
-        teacher_name: row.teacher_name && row.teacher_surname 
-            ? `${row.teacher_name} ${row.teacher_surname}` 
-            : (row.teacher_name || 'Unknown Teacher')
-    }));
+    // -umut: Handle null checks safely in JS
+    const formattedFeedbacks = result.rows.map(row => {
+        let teacherName = 'Unknown Teacher';
+        if (row.teacher_name && row.teacher_surname) {
+            teacherName = `${row.teacher_name} ${row.teacher_surname}`;
+        } else if (row.teacher_name) {
+            teacherName = row.teacher_name;
+        }
+
+        // Simple date formatting
+        const date = new Date(row.created_at);
+        const dateStr = !isNaN(date.getTime()) 
+            ? date.toISOString().replace('T', ' ').substring(0, 19)
+            : '';
+
+        return {
+            feedback_id: row.feedback_id,
+            message: row.message,
+            created_at: dateStr,
+            child_name: row.child_name,
+            child_surname: row.child_surname,
+            teacher_name: teacherName
+        };
+    });
 
     res.json({ success: true, feedbacks: formattedFeedbacks });
   } catch (err) {
