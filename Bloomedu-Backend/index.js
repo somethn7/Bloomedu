@@ -234,17 +234,21 @@ app.post('/feedback', async (req, res) => {
 app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
   const { parentId } = req.params;
 
+  if (!parentId || isNaN(parentId)) {
+    return res.status(400).json({ success: false, message: 'Invalid Parent ID' });
+  }
+
   try {
-    // -umut: (23.11.2025) Using SAFE string concatenation for teacher name
-    // This prevents 'column does not exist' errors if t.full_name is missing
+    // -umut: (23.11.2025) SAFE QUERY - Raw selection, processing in JS
     const result = await pool.query(
       `SELECT 
          f.id AS feedback_id,
          f.message,
-         COALESCE(TO_CHAR(f.created_at, 'YYYY-MM-DD HH24:MI:SS'), '') AS created_at,
+         f.created_at,
          c.name AS child_name,
          c.surname AS child_surname,
-         COALESCE(CONCAT(t.name, ' ', t.surname), 'Unknown Teacher') AS teacher_name
+         t.name AS teacher_name_first,
+         t.surname AS teacher_surname
        FROM feedbacks f
        LEFT JOIN children c ON f.child_id = c.id
        LEFT JOIN teachers t ON f.teacher_id = t.id
@@ -253,7 +257,39 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
       [parentId]
     );
 
-    res.json({ success: true, feedbacks: result.rows });
+    // Process data in JS to avoid SQL errors
+    const feedbacks = result.rows.map(row => {
+        // Format Teacher Name
+        let teacherName = 'Unknown Teacher';
+        if (row.teacher_name_first && row.teacher_surname) {
+            teacherName = `${row.teacher_name_first} ${row.teacher_surname}`;
+        } else if (row.teacher_name_first) {
+            teacherName = row.teacher_name_first;
+        }
+
+        // Format Date (Basic ISO string or formatted)
+        let dateStr = '';
+        if (row.created_at) {
+            try {
+                const d = new Date(row.created_at);
+                // Format: YYYY-MM-DD HH:mm:ss
+                dateStr = d.toISOString().replace('T', ' ').substring(0, 19);
+            } catch (e) {
+                dateStr = String(row.created_at);
+            }
+        }
+
+        return {
+            feedback_id: row.feedback_id,
+            message: row.message,
+            created_at: dateStr,
+            child_name: row.child_name,
+            child_surname: row.child_surname,
+            teacher_name: teacherName
+        };
+    });
+
+    res.json({ success: true, feedbacks });
   } catch (err) {
     console.error('DB Error (GET /feedbacks/by-parent/:parentId):', err);
     res.status(500).json({ success: false, message: 'Server error while fetching feedbacks.' });
