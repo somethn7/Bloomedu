@@ -20,4 +20,24 @@ buildscript {
     }
 }
 
+// -umut: (22.11.2025) Force all subprojects to use Java 17 to fix JVM target incompatibility
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty("android")) {
+            project.android {
+                compileOptions {
+                    sourceCompatibility JavaVersion.VERSION_17
+                    targetCompatibility JavaVersion.VERSION_17
+                }
+            }
+            // Force Kotlin to use JVM 17
+            project.tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+                kotlinOptions {
+                    jvmTarget = "17"
+                }
+            }
+        }
+    }
+}
+
 apply plugin: "com.facebook.react.rootproject"

@@ -168,121 +168,150 @@ const ParentDashboardScreen = ({ navigation }: any) => {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Header */}
-      <View style={styles.header}>
+    <View style={styles.container}>
+      <ScrollView contentContainerStyle={styles.contentContainer}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={() => navigation.navigate('Home')}
+          >
+            <Text style={styles.backButtonText}>←</Text>
+          </TouchableOpacity>
+          <View style={styles.headerCenter}>
+            <Text style={styles.greeting}>Welcome back! 👋</Text>
+            <Text style={styles.parentName}>{parentName}</Text>
+          </View>
+          <TouchableOpacity style={styles.settingsButton} onPress={() => navigation.navigate('Settings')}>
+            <Text style={styles.settingsIcon}>⚙️</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* -umut: (22.11.2025) Teacher Communication Banner - Official & Prominent */}
         <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={() => navigation.navigate('Home')}
+          style={styles.teacherChatBanner}
+          onPress={() => navigation.navigate('ParentMessageCategories')}
         >
-          <Text style={styles.backButtonText}>←</Text>
-        </TouchableOpacity>
-        <View style={styles.headerCenter}>
-          <Text style={styles.greeting}>Welcome back! 👋</Text>
-          <Text style={styles.parentName}>{parentName}</Text>
-        </View>
-        <TouchableOpacity style={styles.settingsButton} onPress={() => navigation.navigate('Settings')}>
-          <Text style={styles.settingsIcon}>⚙️</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Quick Stats */}
-      <View style={styles.quickStatsContainer}>
-        <View style={styles.quickStatCard}>
-          <Text style={styles.quickStatIcon}>👶</Text>
-          <Text style={styles.quickStatValue}>{childrenList.length}</Text>
-          <Text style={styles.quickStatLabel}>Children</Text>
-        </View>
-        <View style={[styles.quickStatCard, { backgroundColor: '#FEF3C7' }]}>
-          <Text style={styles.quickStatIcon}>📊</Text>
-          <Text style={styles.quickStatValue}>
-            {childrenList.filter((c) => c.survey_completed).length}
-          </Text>
-          <Text style={styles.quickStatLabel}>Surveys</Text>
-        </View>
-        <View style={[styles.quickStatCard, { backgroundColor: '#D1FAE5' }]}>
-          <Text style={styles.quickStatIcon}>🎓</Text>
-          <Text style={styles.quickStatValue}>
-            {childrenList.filter((c) => c.survey_completed).length}
-          </Text>
-          <Text style={styles.quickStatLabel}>Active</Text>
-        </View>
-      </View>
-
-      {/* Action Cards */}
-      <View style={styles.actionsContainer}>
-        <TouchableOpacity
-          style={[styles.actionCard, styles.primaryAction]}
-          onPress={() => navigation.navigate('AddChild')}
-        >
-          <View style={styles.actionIconContainer}>
-            <Text style={styles.actionIcon}>➕</Text>
-          </View>
-          <View style={styles.actionContent}>
-            <Text style={styles.actionTitle}>Add a Child</Text>
-            <Text style={styles.actionSubtitle}>Register a new student</Text>
-          </View>
-          <Text style={styles.actionArrow}>→</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionCard, styles.secondaryAction]}
-          onPress={toggleChildrenProgress}
-        >
-          <View style={styles.actionIconContainer}>
-            <Text style={styles.actionIcon}>
-              {showChildrenProgress ? '👁️' : '📊'}
-            </Text>
-          </View>
-          <View style={styles.actionContent}>
-            <Text style={styles.actionTitle}>
-              {showChildrenProgress ? 'Hide Progress' : 'View Progress'}
-            </Text>
-            <Text style={styles.actionSubtitle}>Track learning journey</Text>
-          </View>
-          <Text style={styles.actionArrow}>
-            {showChildrenProgress ? '▼' : '→'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.actionCard, styles.tertiaryAction]}
-          onPress={() => navigation.navigate('ParentFeedbacks')}
-        >
-          <View style={styles.actionIconContainer}>
-            <Text style={styles.actionIcon}>💬</Text>
-          </View>
-          <View style={styles.actionContent}>
-            <Text style={styles.actionTitle}>View Feedbacks</Text>
-            <Text style={styles.actionSubtitle}>Teacher messages</Text>
-          </View>
-          <Text style={styles.actionArrow}>→</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Children List */}
-      {showChildrenProgress && (
-        <View style={styles.childrenSection}>
-          <Text style={styles.sectionTitle}>📚 Your Children</Text>
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#FF6B9A" />
-              <Text style={styles.loadingText}>Loading...</Text>
+          <View style={styles.bannerContent}>
+            <View style={styles.bannerIconContainer}>
+              <Text style={styles.bannerIcon}>👨‍🏫</Text>
             </View>
-          ) : childrenList.length > 0 ? (
-            childrenList.map((child) => (
-              <View key={child.id}>{renderChild(child)}</View>
-            ))
-          ) : (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyIcon}>👶</Text>
-              <Text style={styles.emptyTitle}>No Children Yet</Text>
-              <Text style={styles.emptyText}>Add a child to start tracking their learning progress!</Text>
+            <View style={styles.bannerTextContainer}>
+              <Text style={styles.bannerTitle}>Teacher Communication</Text>
+              <Text style={styles.bannerSubtitle}>Official Message Channel</Text>
             </View>
-          )}
+            <Text style={styles.bannerArrow}>→</Text>
+          </View>
+        </TouchableOpacity>
+
+        {/* Quick Stats */}
+        <View style={styles.quickStatsContainer}>
+          <View style={styles.quickStatCard}>
+            <Text style={styles.quickStatIcon}>👶</Text>
+            <Text style={styles.quickStatValue}>{childrenList.length}</Text>
+            <Text style={styles.quickStatLabel}>Children</Text>
+          </View>
+          <View style={[styles.quickStatCard, { backgroundColor: '#FEF3C7' }]}>
+            <Text style={styles.quickStatIcon}>📊</Text>
+            <Text style={styles.quickStatValue}>
+              {childrenList.filter((c) => c.survey_completed).length}
+            </Text>
+            <Text style={styles.quickStatLabel}>Surveys</Text>
+          </View>
+          <View style={[styles.quickStatCard, { backgroundColor: '#D1FAE5' }]}>
+            <Text style={styles.quickStatIcon}>🎓</Text>
+            <Text style={styles.quickStatValue}>
+              {childrenList.filter((c) => c.survey_completed).length}
+            </Text>
+            <Text style={styles.quickStatLabel}>Active</Text>
+          </View>
         </View>
-      )}
-    </ScrollView>
+
+        {/* Action Cards */}
+        <View style={styles.actionsContainer}>
+          <TouchableOpacity
+            style={[styles.actionCard, styles.primaryAction]}
+            onPress={() => navigation.navigate('AddChild')}
+          >
+            <View style={styles.actionIconContainer}>
+              <Text style={styles.actionIcon}>➕</Text>
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>Add a Child</Text>
+              <Text style={styles.actionSubtitle}>Register a new student</Text>
+            </View>
+            <Text style={styles.actionArrow}>→</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionCard, styles.secondaryAction]}
+            onPress={toggleChildrenProgress}
+          >
+            <View style={styles.actionIconContainer}>
+              <Text style={styles.actionIcon}>
+                {showChildrenProgress ? '👁️' : '📊'}
+              </Text>
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>
+                {showChildrenProgress ? 'Hide Progress' : 'View Progress'}
+              </Text>
+              <Text style={styles.actionSubtitle}>Track learning journey</Text>
+            </View>
+            <Text style={styles.actionArrow}>
+              {showChildrenProgress ? '▼' : '→'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionCard, styles.tertiaryAction]}
+            onPress={() => navigation.navigate('ParentFeedbacks')}
+          >
+            <View style={styles.actionIconContainer}>
+              <Text style={styles.actionIcon}>📋</Text>
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>View Feedbacks</Text>
+              <Text style={styles.actionSubtitle}>Old Feedbacks</Text>
+            </View>
+            <Text style={styles.actionArrow}>→</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Children List */}
+        {showChildrenProgress && (
+          <View style={styles.childrenSection}>
+            <Text style={styles.sectionTitle}>📚 Your Children</Text>
+            {loading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#FF6B9A" />
+                <Text style={styles.loadingText}>Loading...</Text>
+              </View>
+            ) : childrenList.length > 0 ? (
+              childrenList.map((child) => (
+                <View key={child.id}>{renderChild(child)}</View>
+              ))
+            ) : (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyIcon}>👶</Text>
+                <Text style={styles.emptyTitle}>No Children Yet</Text>
+                <Text style={styles.emptyText}>Add a child to start tracking their learning progress!</Text>
+              </View>
+            )}
+          </View>
+        )}
+      </ScrollView>
+
+      {/* -umut: (22.11.2025) Pedagog AI Floating Action Button */}
+      <TouchableOpacity 
+        style={styles.aiFab} 
+        onPress={() => navigation.navigate('ParentAIChat')}
+      >
+        <View style={styles.aiFabInner}>
+          <Text style={styles.aiFabIcon}>🤖</Text>
+        </View>
+      </TouchableOpacity>
+    </View>
   );
 };
 
@@ -294,7 +323,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
   },
   contentContainer: {
-    paddingBottom: 40,
+    paddingBottom: 80, // Extra padding for FAB
   },
   header: {
     backgroundColor: '#FF6B9A',
@@ -311,6 +340,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+    zIndex: 10,
   },
   backButton: {
     width: 45,
@@ -351,11 +381,62 @@ const styles = StyleSheet.create({
   settingsIcon: {
     fontSize: 22,
   },
+  // New Banner Styles
+  teacherChatBanner: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 10,
+    backgroundColor: '#4A148C', // Deep Purple / Official Color
+    borderRadius: 20,
+    padding: 15,
+    shadowColor: '#4A148C',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  bannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  bannerIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  bannerIcon: {
+    fontSize: 24,
+  },
+  bannerTextContainer: {
+    flex: 1,
+  },
+  bannerTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 4,
+  },
+  bannerSubtitle: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  bannerArrow: {
+    fontSize: 24,
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
+  // End Banner Styles
   quickStatsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    marginTop: -20,
+    marginTop: 15,
     gap: 12,
   },
   quickStatCard: {
@@ -387,7 +468,7 @@ const styles = StyleSheet.create({
   },
   actionsContainer: {
     paddingHorizontal: 20,
-    marginTop: 30,
+    marginTop: 20,
   },
   actionCard: {
     flexDirection: 'row',
@@ -443,7 +524,7 @@ const styles = StyleSheet.create({
   },
   childrenSection: {
     paddingHorizontal: 20,
-    marginTop: 30,
+    marginTop: 10,
   },
   sectionTitle: {
     fontSize: 22,
@@ -629,5 +710,34 @@ const styles = StyleSheet.create({
     color: '#718096',
     textAlign: 'center',
     lineHeight: 22,
+  },
+  // FAB Styles
+  aiFab: {
+    position: 'absolute',
+    bottom: 30,
+    right: 20,
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#7E57C2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+    zIndex: 100,
+  },
+  aiFabInner: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#7E57C2',
+  },
+  aiFabIcon: {
+    fontSize: 32,
   },
 });

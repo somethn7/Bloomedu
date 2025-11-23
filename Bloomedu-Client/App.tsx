@@ -11,6 +11,7 @@ import ParentDashboardScreen from './screens/ParentDashboardScreen';
 import ParentAddChildScreen from './screens/ParentAddChildScreen';
 import ParentForgotPasswordScreen from './screens/ParentForgotPasswordScreen';
 import ParentFeedbacksScreen from './screens/ParentFeedbacksScreen';
+import ParentAIChatScreen from './screens/ParentAIChatScreen';
 import ChildInfoScreen from './screens/ChildInfoScreen';
 import SurveyScreen from './screens/SurveyScreen';
 import ResultScreen from './screens/ResultScreen';
@@ -18,6 +19,9 @@ import EducationScreen from './screens/EducationScreen';
 import CategoryGamesScreen from './screens/CategoryGamesScreen';
 import ColorsGameScreen from './screens/ColorsGameScreen';
 import ColorsMatchingGameScreen from './screens/ColorsMatchingGameScreen';
+
+import ParentMessageCategoriesScreen from './screens/ParentMessageCategoriesScreen';
+import ChatScreen from './screens/ChatScreen';
 
 // -umut: Level 1 oyunları için yeni import eklendi (28.10.2025)
 // Oyun skor takibi sisteminin bir parçası
@@ -85,6 +89,23 @@ export default function App() {
             name="ParentFeedbacks"
             component={ParentFeedbacksScreen}
             options={{ title: 'Feedbacks', headerTintColor: '#7a8a91' }}
+          />
+          {/* -umut: (22.11.2025) Added ParentAIChatScreen to navigation */}
+          <Stack.Screen 
+            name="ParentAIChat" 
+            component={ParentAIChatScreen} 
+            options={{ headerShown: false }}
+          />
+          {/* -umut: (22.11.2025) Added Advanced Communication Screens */}
+          <Stack.Screen 
+            name="ParentMessageCategories" 
+            component={ParentMessageCategoriesScreen} 
+            options={{ title: 'Communication Board' }}
+          />
+          <Stack.Screen 
+            name="ChatScreen" 
+            component={ChatScreen} 
+            options={{ headerShown: false }}
           />
           <Stack.Screen name="ChildInfo" component={ChildInfoScreen} />
           <Stack.Screen name="Survey" component={SurveyScreen} />
