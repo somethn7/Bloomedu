@@ -6,9 +6,11 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 
 const ParentSignupScreen = ({ navigation }: any) => {
+  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');

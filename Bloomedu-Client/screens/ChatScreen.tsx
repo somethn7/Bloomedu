@@ -11,10 +11,10 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary } from 'react-native-image-picker';
-import RNFS from 'react-native-fs';
 
 // -umut: (23.11.2025) Removed Audio Support per request
 // Only text and image messages are supported now.
@@ -37,6 +37,7 @@ const BASE_URL = 'https://bloomedu-production.up.railway.app';
 // For local testing (Emulator): 'http://10.0.2.2:8080'
 
 const ChatScreen = ({ route, navigation }: any) => {
+  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const { category, categoryTitle, categoryColor, otherUserId, isTeacher } = route.params;
   
   const [messages, setMessages] = useState<Message[]>([]);
@@ -212,16 +213,7 @@ const ChatScreen = ({ route, navigation }: any) => {
         const dataUri = `data:${asset.type};base64,${asset.base64}`;
         handleSend('image', '📷 Photo', dataUri);
       } else {
-        // Fallback if picker doesn't return base64 (shouldn't happen with includeBase64: true)
-        if (asset.uri) {
-             try {
-                const base64Img = await RNFS.readFile(asset.uri, 'base64');
-                const dataUri = `data:${asset.type || 'image/jpeg'};base64,${base64Img}`;
-                handleSend('image', '📷 Photo', dataUri);
-             } catch(e) {
-                 console.error("Image read error", e);
-             }
-        }
+        Alert.alert('Error', 'Could not load image. Please try again.');
       }
     }
   };

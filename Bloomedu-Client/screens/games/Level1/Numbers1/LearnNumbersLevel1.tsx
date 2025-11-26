@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, useWindowDimensions, Alert } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import Tts from 'react-native-tts';
-import { createGameCompletionHandler, GameSequenceParams } from '../../../utils/gameNavigation';
-import { sendGameResult } from '../../../config/api';
+import { createGameCompletionHandler, GameSequenceParams } from '../../../../utils/gameNavigation';
+import { API_BASE_URL, API_ENDPOINTS } from '../../../api';
 
 interface RouteParams {
   child?: { id: number; level: number; name?: string };
@@ -29,6 +29,7 @@ const LearnNumbersLevel1 = ({ navigation }: any) => {
 
   const [currentNumber, setCurrentNumber] = useState(1);
   const [score, setScore] = useState(0);
+  const [wrongAnswers, setWrongAnswers] = useState(0); // Yanlış cevap sayısını takip et
   const [streak, setStreak] = useState(0);
   const [showCelebration, setShowCelebration] = useState(false);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -121,6 +122,7 @@ const LearnNumbersLevel1 = ({ navigation }: any) => {
       }, 800);
     } else {
       setStreak(0);
+      setWrongAnswers(prev => prev + 1); // Yanlış cevap sayısını artır
       try { Tts.speak('Please try again.'); } catch {}
       Animated.sequence([
         Animated.timing(rotateAnim, { toValue: 10, duration: 100, useNativeDriver: true }),
@@ -130,47 +132,56 @@ const LearnNumbersLevel1 = ({ navigation }: any) => {
     }
   };
 
-  const sendToDatabase = async (data: { correctAnswers: number; totalQuestions: number; totalTime: number; }) => {
+  const sendToDatabase = async (data: { correctAnswers: number; totalQuestions: number; totalTime: number; wrongAnswers: number; }) => {
     if (!child?.id) {
       console.warn('⚠️ Child ID not found, skipping score save.');
       return;
     }
-    
-    await sendGameResult({
-      child_id: child.id,
-      game_type: 'numbers-learn',
-      level: 1,
-      score: data.correctAnswers,
-      max_score: data.totalQuestions,
-      duration_seconds: Math.floor(data.totalTime / 1000),
-      completed: true,
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.GAME_SESSION}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          child_id: child.id,
+          game_type: 'numbers-learn',
+          level: 1,
+          score: data.correctAnswers,
+          max_score: data.totalQuestions,
+          duration_seconds: Math.floor(data.totalTime / 1000),
+          completed: true,
+          wrong_answers: data.wrongAnswers,
+        }),
+      });
+      if (!response.ok) {
+        console.error('❌ Backend error. Response status:', response.status);
+        return;
+      }
+      const result = await response.json();
+      if (result?.success) {
+        console.log('✅ Learn Numbers game session saved successfully!');
+      } else {
+        console.warn('⚠️ Failed to save game session:', result?.message);
+      }
+    } catch (error: any) {
+      console.error('❌ Error sending data:', error?.message || 'Unknown error');
+    }
   };
 
   const showCompletionMessage = () => {
     const totalTime = Date.now() - gameStartTime;
-    const gameResult = { correctAnswers: score, totalQuestions: 10, totalTime };
+    const gameResult = { correctAnswers: score, totalQuestions: 10, totalTime, wrongAnswers };
     sendToDatabase(gameResult);
     
-    const gameNavigation = createGameCompletionHandler({
+    const gameNavigation = createGameCompletionHandler(
       navigation,
-      child,
-      gameSequence,
-      currentGameIndex,
-      categoryTitle,
-      resetGame: () => {
-        setCurrentNumber(1);
-        setScore(0);
-        setStreak(0);
-        setIsPlaying(true);
-        setGameStartTime(Date.now());
-      },
-    });
-
-    gameNavigation.showCompletionMessage(
-      score,
-      10,
-      gameNavigation.getCompletionMessage()
+      { child, gameSequence, currentGameIndex, categoryTitle },
+      () => { setCurrentNumber(1); setScore(0); setWrongAnswers(0); setStreak(0); setIsPlaying(true); setGameStartTime(Date.now()); }
+    );
+    
+    Alert.alert(
+      '🎉 Amazing! 🎉',
+      gameNavigation.getCompletionMessage(),
+      gameNavigation.createCompletionButtons()
     );
   };
 

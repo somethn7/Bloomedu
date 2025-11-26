@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
@@ -13,6 +14,7 @@ type Props = {
 };
 
 const HomeScreen = ({ navigation }: Props) => {
+  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   useLayoutEffect(() => {
     navigation.setOptions({
       headerShown: false,

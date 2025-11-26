@@ -5,15 +5,13 @@ import {
   TouchableOpacity,
   StyleSheet,
   Animated,
-  Dimensions,
+  useWindowDimensions,
   ScrollView,
 } from "react-native";
 import { useRoute } from "@react-navigation/native";
 import Tts from 'react-native-tts';
 import { createGameCompletionHandler } from "../../../utils/gameNavigation";
 import { sendGameResult } from "../../../config/api";
-
-const { width } = Dimensions.get("window");
 
 const SHAPES = [
   { id: 1, type: "circle", color: "#FFD1DC" },
@@ -36,6 +34,7 @@ interface RouteParams {
 }
 
 const ShapeMatchLevel3 = ({ navigation }: any) => {
+  const { width } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const route = useRoute();
   const { child, gameSequence, currentGameIndex, categoryTitle } =
     (route.params as RouteParams) || {};

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, BackHandler, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, BackHandler, Alert, useWindowDimensions } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { API_ENDPOINTS } from '../config/api';
 
@@ -9,6 +9,7 @@ interface ResultScreenParams {
 }
 
 const ResultScreen = () => {
+  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { answers, child } = route.params as ResultScreenParams;

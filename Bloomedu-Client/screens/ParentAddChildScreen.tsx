@@ -10,14 +10,13 @@ import {
   TouchableOpacity,
   SafeAreaView,
   ScrollView,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { width } = Dimensions.get('window');
-
 // -umut: (22.11.2025) Redesigned Parent Add Child screen to match dashboard style
 function ParentAddChildScreen({ navigation }: any) {
+  const { width } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [studentCode, setStudentCode] = useState('');

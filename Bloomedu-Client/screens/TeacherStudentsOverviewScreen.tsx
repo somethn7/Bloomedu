@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   TextInput,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -24,6 +25,7 @@ interface Student {
 
 // -umut: (23.11.2025) Full-screen Students Overview screen for teachers
 const TeacherStudentsOverviewScreen = ({ navigation }: any) => {
+  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');

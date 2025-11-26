@@ -1,8 +1,7 @@
-// -umut: LEVEL 2 RENK + NESNE EŞLEŞTIRME OYUNU - EMOJİ İLE (28.10.2025)
-// Bu oyun, otizmli çocukların iki özelliği birden tanıma becerilerini geliştirir
-// Renkli kutular + emoji kullanılır - Basit, garantili ve evrensel çözüm
-// RENK = Kutu rengi, NESNE = Emoji
-// Oyun sonuçları database'e kaydedilir
+// -umut: LEVEL 1 RENK EŞLEŞTIRME OYUNU - YENİDEN DÜZENLEME (28.10.2025)
+// Bu oyun, otizmli çocukların renk tanıma becerilerini geliştirmek için tasarlanmıştır
+// Oyun sonuçları database'e kaydedilir ve öğretmenler bu verileri takip edebilir
+// Özellikler: 10 soru, 6 renk, skorlama, süre takibi, sesli okuma
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -16,29 +15,23 @@ import {
   Platform,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-import Tts from 'react-native-tts';
-import { sendGameResult } from '../../../config/api';
+import Tts from 'react-native-tts'; // -umut: Text-to-Speech için eklendi
+import { API_BASE_URL, API_ENDPOINTS } from '../../../api';
 
-// -umut: Temel günlük nesneler - Emoji ile (28.10.2025)
-const OBJECTS = [
-  { id: 1, name: 'CAR', emoji: '🚗', label: 'Araba' },
-  { id: 2, name: 'BALL', emoji: '⚽', label: 'Top' },
-  { id: 3, name: 'BALLOON', emoji: '🎈', label: 'Balon' },
-  { id: 4, name: 'APPLE', emoji: '🍎', label: 'Elma' },
-  { id: 5, name: 'BOOK', emoji: '📚', label: 'Kitap' },
-  { id: 6, name: 'CUP', emoji: '🥤', label: 'Bardak' },
-];
-
-// -umut: Temel renkler (28.10.2025)
+// -umut: Level 1 için 6 temel renk (28.10.2025)
+// Her renk: ID, isim, kod, emoji ve pastel arkaplan rengi içerir
 const COLORS = [
-  { id: 1, name: 'RED', code: '#FF6B6B', pastelBg: '#FFE5E5' },
-  { id: 2, name: 'BLUE', code: '#4DABF7', pastelBg: '#E7F5FF' },
-  { id: 3, name: 'YELLOW', code: '#FFD43B', pastelBg: '#FFF9DB' },
-  { id: 4, name: 'GREEN', code: '#51CF66', pastelBg: '#EBFBEE' },
+  { id: 1, name: 'RED', code: '#FF6B6B', emoji: '🔴', pastelBg: '#FFE5E5' },
+  { id: 2, name: 'BLUE', code: '#4DABF7', emoji: '🔵', pastelBg: '#E7F5FF' },
+  { id: 3, name: 'YELLOW', code: '#FFD43B', emoji: '🟡', pastelBg: '#FFF9DB' },
+  { id: 4, name: 'GREEN', code: '#51CF66', emoji: '🟢', pastelBg: '#EBFBEE' },
+  { id: 5, name: 'BLACK', code: '#495057', emoji: '⚫', pastelBg: '#E9ECEF' },
+  { id: 6, name: 'WHITE', code: '#F8F9FA', emoji: '⚪', pastelBg: '#FFFFFF', border: true },
 ];
 
-const TOTAL_QUESTIONS = 10;
+const TOTAL_QUESTIONS = 10; // -umut: Toplam soru sayısı
 
+// -umut: Child parametresi için tip tanımı (28.10.2025)
 interface RouteParams {
   child?: {
     id: number;
@@ -47,49 +40,54 @@ interface RouteParams {
   };
 }
 
-export default function ColorObjectsLevel2() {
-  const { width } = useWindowDimensions(); // Responsive: ekran döndürme desteği
+export default function ColorsRecognitionLevel1() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { child } = (route.params || {}) as RouteParams;
+  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
+  const { child } = (route.params || {}) as RouteParams; // -umut: Child bilgisi route'tan alınıyor
 
-  const [targetColorObject, setTargetColorObject] = useState<any>(null);
+  // -umut: Oyun state'leri (28.10.2025)
+  const [targetColor, setTargetColor] = useState<any>(null);
   const [options, setOptions] = useState<any[]>([]);
   const [feedback, setFeedback] = useState('');
   const [animValue] = useState(new Animated.Value(0));
   const [confettiAnim] = useState(new Animated.Value(0));
   
+  // -umut: Skorlama state'leri (28.10.2025)
   const [correctCount, setCorrectCount] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState(1);
   const [gameFinished, setGameFinished] = useState(false);
   
+  // -umut: Süre takibi (28.10.2025)
   const [gameStartTime, setGameStartTime] = useState<number>(0);
   const [questionStartTime, setQuestionStartTime] = useState<number>(0);
   const [detailedResults, setDetailedResults] = useState<any[]>([]);
 
+  // -umut: Text-to-Speech ayarları (28.10.2025)
   useEffect(() => {
     const initGame = async () => {
-      console.log('🎮 Level 2 Game initializing...');
+      console.log('🎮 Level 1 Colors - Initializing...');
       await configureTts();
       setGameStartTime(Date.now());
+      // -umut: TTS hazır olduktan sonra oyunu başlat (28.10.2025)
       setTimeout(() => {
         newQuestion();
-      }, 500);
+      }, 800);
     };
 
     initGame();
 
     return () => {
-      console.log('🎮 Game cleanup - stopping TTS');
+      console.log('🎮 Cleanup - stopping TTS');
       Tts.stop();
     };
   }, []);
 
+  // -umut: TTS yapılandırması - yavaş ve net konuşma (28.10.2025)
   const configureTts = async () => {
-    console.log('🔧 Configuring TTS for Level 2...');
+    console.log('🔧 Configuring TTS for Level 1 Colors...');
     try {
-      // -umut: Android TTS engine'ini kontrol et (28.10.2025)
       const engines = await Tts.engines();
       console.log('📱 Available TTS engines:', engines);
       
@@ -97,12 +95,11 @@ export default function ColorObjectsLevel2() {
       await Tts.setDefaultRate(0.3); // Otizmli çocuklar için oldukça yavaş
       await Tts.setDefaultPitch(1.0);
       
-      // -umut: Event listeners (28.10.2025)
+      // -umut: Event listeners ekle (28.10.2025)
       Tts.addEventListener('tts-start', (event) => console.log('🔊 TTS started:', event));
       Tts.addEventListener('tts-finish', (event) => console.log('🔊 TTS finished:', event));
       Tts.addEventListener('tts-cancel', (event) => console.log('🔊 TTS cancelled:', event));
       
-      // -umut: İlk test konuşması (28.10.2025)
       console.log('✅ TTS configured - testing...');
       setTimeout(() => {
         Tts.speak('Ready');
@@ -112,8 +109,9 @@ export default function ColorObjectsLevel2() {
     }
   };
 
-  const speakColorObject = (colorName: string, objectName: string) => {
-    const text = `Find ${colorName} ${objectName}`;
+  // -umut: Renk adını sesli söyle (28.10.2025)
+  const speakColorName = (colorName: string) => {
+    const text = `Find this color. ${colorName}`;
     console.log('🔊 Speaking:', text);
     
     try {
@@ -121,64 +119,43 @@ export default function ColorObjectsLevel2() {
       setTimeout(() => {
         console.log('🔊 TTS.speak called with:', text);
         Tts.speak(text);
-      }, 700);
+      }, 500);
     } catch (error) {
       console.error('❌ TTS speak error:', error);
     }
   };
 
+  // -umut: Yeni soru oluştur (28.10.2025)
   const newQuestion = () => {
     console.log('❓ Creating new question...');
     setFeedback('');
     setQuestionStartTime(Date.now());
     
-    const randomColor = COLORS[Math.floor(Math.random() * COLORS.length)];
-    const randomObject = OBJECTS[Math.floor(Math.random() * OBJECTS.length)];
+    // Rastgele hedef renk seç
+    const target = COLORS[Math.floor(Math.random() * COLORS.length)];
+    console.log('🎯 Target color:', target.name);
+    setTargetColor(target);
     
-    console.log('🎯 Target:', randomColor.name, randomObject.name);
-    
-    const target = {
-      color: randomColor,
-      object: randomObject,
-      id: `${randomColor.id}-${randomObject.id}`,
-    };
-    
-    setTargetColorObject(target);
-    
-    const optionsList = [target];
-    
-    while (optionsList.length < 4) {
-      const wrongColor = COLORS[Math.floor(Math.random() * COLORS.length)];
-      const wrongObject = OBJECTS[Math.floor(Math.random() * OBJECTS.length)];
-      const wrongOption = {
-        color: wrongColor,
-        object: wrongObject,
-        id: `${wrongColor.id}-${wrongObject.id}`,
-      };
-      
-      if (!optionsList.find(opt => opt.id === wrongOption.id)) {
-        optionsList.push(wrongOption);
-      }
-    }
-    
-    const shuffled = optionsList.sort(() => Math.random() - 0.5);
-    setOptions(shuffled);
+    // Tüm 6 rengi karıştırılmış şekilde göster
+    const shuffledColors = [...COLORS].sort(() => Math.random() - 0.5);
+    setOptions(shuffledColors);
 
+    // -umut: Renk adını sesli söyle (28.10.2025)
     setTimeout(() => {
-      speakColorObject(randomColor.name, randomObject.name);
+      speakColorName(target.name);
     }, 1000);
   };
 
-  const selectOption = (selectedOption: any) => {
+  // -umut: Renk seçildiğinde (28.10.2025)
+  const selectColor = (selectedColor: any) => {
     const questionTime = Date.now() - questionStartTime;
-    const isCorrect = selectedOption.id === targetColorObject.id;
+    const isCorrect = selectedColor.id === targetColor.id;
     
+    // -umut: Detaylı sonucu kaydet (28.10.2025)
     const questionResult = {
       questionNo: currentQuestion,
-      targetColor: targetColorObject.color.name,
-      targetObject: targetColorObject.object.name,
-      selectedColor: selectedOption.color.name,
-      selectedObject: selectedOption.object.name,
+      targetColor: targetColor.name,
+      selectedColor: selectedColor.name,
       correct: isCorrect,
       time: questionTime,
       timestamp: new Date().toISOString(),
@@ -187,9 +164,11 @@ export default function ColorObjectsLevel2() {
     setDetailedResults([...detailedResults, questionResult]);
 
     if (isCorrect) {
+      // -umut: DOĞRU CEVAP (28.10.2025)
       setFeedback('correct');
       setCorrectCount(correctCount + 1);
       
+      // Kutlama animasyonu
       Animated.parallel([
         Animated.sequence([
           Animated.timing(animValue, {
@@ -221,9 +200,11 @@ export default function ColorObjectsLevel2() {
         nextStep();
       }, 1500);
     } else {
+      // -umut: YANLIŞ CEVAP (28.10.2025)
       setFeedback('wrong');
       setWrongCount(wrongCount + 1);
       
+      // Sallama animasyonu
       Animated.sequence([
         Animated.timing(animValue, {
           toValue: 1,
@@ -248,6 +229,7 @@ export default function ColorObjectsLevel2() {
     }
   };
 
+  // -umut: Sonraki adıma geç (28.10.2025)
   const nextStep = () => {
     if (currentQuestion >= TOTAL_QUESTIONS) {
       finishGame();
@@ -257,14 +239,16 @@ export default function ColorObjectsLevel2() {
     }
   };
 
+  // -umut: Oyunu bitir ve database'e kaydet (28.10.2025)
   const finishGame = () => {
     const totalTime = Date.now() - gameStartTime;
     const successRate = Math.round((correctCount / TOTAL_QUESTIONS) * 100);
 
+    // -umut: Database'e gönderilecek veri (28.10.2025)
     const gameResult = {
       childId: child?.id || 0,
-      gameType: 'color_objects',
-      level: 2,
+      gameType: 'colors_recognition',
+      level: 1,
       totalQuestions: TOTAL_QUESTIONS,
       correctAnswers: correctCount,
       wrongAnswers: wrongCount,
@@ -277,26 +261,51 @@ export default function ColorObjectsLevel2() {
     
     sendToDatabase(gameResult);
     setGameFinished(true);
-    Tts.stop();
+    Tts.stop(); // -umut: Oyun bitince TTS'i durdur
   };
 
+  // -umut: Oyun sonuçlarını backend'e kaydet (28.10.2025)
+  // POST /game-session endpoint'ine istek gönderir
   const sendToDatabase = async (data: any) => {
     if (!child?.id) {
       console.warn('⚠️ Child ID not found, skipping score save.');
       return;
     }
     
-    await sendGameResult({
-      child_id: child.id,
-      game_type: 'color_objects',
-      level: 2,
-      score: data.correctAnswers,
-      max_score: data.totalQuestions,
-      duration_seconds: Math.floor(data.totalTime / 1000),
-      completed: true,
-    });
+    try {
+      // -umut: Android emulator için local backend URL'i (28.10.2025)
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.GAME_SESSION}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          child_id: child.id,
+          game_type: 'colors_recognition',
+          level: 1,
+          score: data.correctAnswers,
+          max_score: data.totalQuestions,
+          duration_seconds: Math.floor(data.totalTime / 1000),
+          completed: true,
+        }),
+      });
+
+      // -umut: Yanıtı kontrol et (28.10.2025)
+      if (!response.ok) {
+        console.error('❌ Backend error. Response status:', response.status);
+        return;
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        console.log('✅ Game session saved successfully!');
+      } else {
+        console.warn('⚠️ Failed to save game session:', result.message);
+      }
+    } catch (error) {
+      console.error('❌ Error sending data:', error instanceof Error ? error.message : 'Unknown error');
+    }
   };
 
+  // -umut: Oyunu yeniden başlat (28.10.2025)
   const restartGame = () => {
     setCorrectCount(0);
     setWrongCount(0);
@@ -307,6 +316,7 @@ export default function ColorObjectsLevel2() {
     newQuestion();
   };
 
+  // -umut: Animasyon stilleri (28.10.2025)
   const targetAnimStyle = {
     transform: [
       {
@@ -348,6 +358,7 @@ export default function ColorObjectsLevel2() {
 
   return (
     <View style={styles.container}>
+      {/* -umut: Dekoratif arkaplan çemberleri (28.10.2025) */}
       <View style={styles.bgCircle1} />
       <View style={styles.bgCircle2} />
       <View style={styles.bgCircle3} />
@@ -356,10 +367,11 @@ export default function ColorObjectsLevel2() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
+        {/* -umut: Başlık ve ilerleme çubuğu (28.10.2025) */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.title}>🎨 Color Objects</Text>
-            <Text style={styles.subtitle}>Level 2</Text>
+            <Text style={styles.title}>🎨 Color Match</Text>
+            <Text style={styles.subtitle}>Level 1</Text>
           </View>
           <View style={styles.progressBox}>
             <Text style={styles.questionCounter}>
@@ -376,6 +388,7 @@ export default function ColorObjectsLevel2() {
           </View>
         </View>
 
+        {/* -umut: Skor kartları (Doğru, Yanlış, Başarı oranı) (28.10.2025) */}
         <View style={styles.scoreCards}>
           <View style={[styles.scoreCard, styles.correctCard]}>
             <View style={styles.scoreIconCircle}>
@@ -402,23 +415,33 @@ export default function ColorObjectsLevel2() {
           </View>
         </View>
 
-        {/* -umut: Hedef - RENKLİ KUTU + BÜYÜK EMOJİ (28.10.2025) */}
+        {/* -umut: Hedef renk (bulunması gereken renk) (28.10.2025) */}
         <View style={styles.targetSection}>
-          <Text style={styles.questionText}>Find this! 👇</Text>
-          {targetColorObject && (
+          <Text style={styles.questionText}>Find this color! 👇</Text>
+          {targetColor && (
             <Animated.View style={targetAnimStyle}>
               <View style={[
-                styles.targetBox,
-                { backgroundColor: targetColorObject.color.code }
+                styles.targetColorBox,
+                { backgroundColor: targetColor.pastelBg }
               ]}>
-                <Text style={styles.targetEmoji}>{targetColorObject.object.emoji}</Text>
-                <Text style={styles.targetName}>
-                  {targetColorObject.color.name} {targetColorObject.object.name}
-                </Text>
+                <View
+                  style={[
+                    styles.targetColor,
+                    { 
+                      backgroundColor: targetColor.code,
+                      borderWidth: targetColor.border ? 2 : 0,
+                      borderColor: '#C0C0C0',
+                    },
+                  ]}
+                >
+                  <Text style={styles.colorEmoji}>{targetColor.emoji}</Text>
+                </View>
+                <Text style={styles.colorName}>{targetColor.name}</Text>
               </View>
             </Animated.View>
           )}
 
+          {/* -umut: Konfeti efekti (doğru cevap için) (28.10.2025) */}
           {feedback === 'correct' && (
             <Animated.View style={[styles.confetti, confettiStyle]}>
               <Text style={styles.confettiText}>✨🎉✨</Text>
@@ -426,12 +449,13 @@ export default function ColorObjectsLevel2() {
           )}
         </View>
 
+        {/* -umut: Geri bildirim mesajı (28.10.2025) */}
         {feedback && (
           <View style={styles.feedbackSection}>
             {feedback === 'correct' ? (
               <View style={styles.correctFeedback}>
                 <Text style={styles.feedbackEmoji}>🌟</Text>
-                <Text style={styles.feedbackText}>Perfect!</Text>
+                <Text style={styles.feedbackText}>Great Job!</Text>
               </View>
             ) : (
               <View style={styles.wrongFeedback}>
@@ -442,28 +466,34 @@ export default function ColorObjectsLevel2() {
           </View>
         )}
 
-        {/* -umut: Seçenekler - RENKLİ KUTULAR + EMOJİ (28.10.2025) */}
+        {/* -umut: Renk seçenekleri - 6 renk 2 sütun halinde (28.10.2025) */}
         <View style={styles.optionsSection}>
           <View style={styles.optionsGrid}>
-            {options.map((option, index) => (
+            {options.map((color) => (
               <TouchableOpacity
-                key={index}
+                key={color.id}
                 style={[styles.optionContainer, { width: (width - 42) / 2 }]}
-                onPress={() => selectOption(option)}
+                onPress={() => selectColor(color)}
                 activeOpacity={0.7}
                 disabled={feedback !== ''}
               >
                 <View style={[
                   styles.optionBox,
-                  { backgroundColor: option.color.code }
+                  { backgroundColor: color.pastelBg }
                 ]}>
-                  <Text style={styles.optionEmoji}>{option.object.emoji}</Text>
-                  <Text style={styles.optionLabelWhite}>
-                    {option.color.name}
-                  </Text>
-                  <Text style={styles.optionLabelWhite}>
-                    {option.object.name}
-                  </Text>
+                  <View
+                    style={[
+                      styles.colorButton,
+                      { 
+                        backgroundColor: color.code,
+                        borderWidth: color.border ? 2 : 0,
+                        borderColor: '#C0C0C0',
+                      },
+                    ]}
+                  >
+                    <Text style={styles.buttonEmoji}>{color.emoji}</Text>
+                  </View>
+                  <Text style={styles.optionName}>{color.name}</Text>
                 </View>
               </TouchableOpacity>
             ))}
@@ -471,6 +501,7 @@ export default function ColorObjectsLevel2() {
         </View>
       </ScrollView>
 
+      {/* -umut: Oyun bitişi modal'ı (28.10.2025) */}
       <Modal
         visible={gameFinished}
         animationType="fade"
@@ -478,9 +509,10 @@ export default function ColorObjectsLevel2() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { maxWidth: Math.min(380, width * 0.9) }]}>
-            <Text style={styles.modalTitle}>🎉 Great Job! 🎉</Text>
-            <Text style={styles.modalSubtitle}>Level 2 Complete!</Text>
+            <Text style={styles.modalTitle}>🎉 Congratulations! 🎉</Text>
+            <Text style={styles.modalSubtitle}>You completed the game!</Text>
             
+            {/* -umut: Sonuç kartları (28.10.2025) */}
             <View style={styles.resultCards}>
               <View style={styles.resultCard}>
                 <Text style={styles.resultEmoji}>✓</Text>
@@ -503,12 +535,14 @@ export default function ColorObjectsLevel2() {
               </View>
             </View>
 
+            {/* -umut: Motivasyon mesajı (28.10.2025) */}
             <Text style={styles.message}>
-              {correctCount >= 8 ? "Amazing! 🌟" : 
-               correctCount >= 6 ? "Well Done! 👏" : 
-               "Keep Practicing! 💪"}
+              {correctCount >= 8 ? "Perfect! 🌟" : 
+               correctCount >= 6 ? "Great! 👏" : 
+               "Keep Going! 💪"}
             </Text>
 
+            {/* -umut: Butonlar (28.10.2025) */}
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={styles.restartButton}
@@ -531,6 +565,7 @@ export default function ColorObjectsLevel2() {
   );
 }
 
+// -umut: Stil tanımlamaları (28.10.2025)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -541,6 +576,7 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingBottom: 30,
   },
+  // Dekoratif arkaplan çemberleri
   bgCircle1: {
     position: 'absolute',
     width: 150,
@@ -678,33 +714,32 @@ const styles = StyleSheet.create({
     color: '#5A5A5A',
     marginBottom: 14,
   },
-  targetBox: {
+  targetColorBox: {
     borderRadius: 20,
-    padding: 24,
+    padding: 16,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 5,
-    minWidth: 200,
-    minHeight: 200,
+    elevation: 4,
+  },
+  targetColor: {
+    width: 100,
+    height: 100,
+    borderRadius: 16,
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  targetEmoji: {
-    fontSize: 100,
-    marginBottom: 15,
-    textAlign: 'center',
+  colorEmoji: {
+    fontSize: 46,
   },
-  targetName: {
-    fontSize: 20,
+  colorName: {
+    fontSize: 18,
     fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 1,
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 4,
+    color: '#4A4A4A',
+    marginTop: 10,
+    letterSpacing: 0.8,
   },
   confetti: {
     position: 'absolute',
@@ -761,30 +796,30 @@ const styles = StyleSheet.create({
   },
   optionBox: {
     borderRadius: 16,
-    padding: 16,
+    padding: 12,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.05,
     shadowRadius: 5,
-    elevation: 4,
-    minHeight: 150,
+    elevation: 2,
+  },
+  colorButton: {
+    width: 75,
+    height: 75,
+    borderRadius: 14,
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  optionEmoji: {
-    fontSize: 56,
-    marginBottom: 10,
-    textAlign: 'center',
+  buttonEmoji: {
+    fontSize: 36,
   },
-  optionLabelWhite: {
+  optionName: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: '#4A4A4A',
+    marginTop: 7,
     letterSpacing: 0.5,
-    textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.4)',
-    textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
   },
   modalOverlay: {
     flex: 1,
@@ -851,6 +886,7 @@ const styles = StyleSheet.create({
     color: '#4A4A4A',
     marginBottom: 24,
   },
+  // -umut: Modal butonları için yeni stiller (28.10.2025)
   modalButtons: {
     width: '100%',
     gap: 12,

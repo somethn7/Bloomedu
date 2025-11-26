@@ -6,12 +6,13 @@ import {
   TouchableOpacity,
   Animated,
   Alert,
+  Vibration,
   useWindowDimensions,
 } from 'react-native';
 import Tts from 'react-native-tts';
 import { useRoute } from '@react-navigation/native';
-import { createGameCompletionHandler } from '../../../utils/gameNavigation';
-import { sendGameResult } from '../../../config/api';
+import { API_BASE_URL, API_ENDPOINTS } from '../../../api';
+import { createGameCompletionHandler } from '../../../../utils/gameNavigation';
 
 interface RouteParams {
   child?: {
@@ -74,13 +75,10 @@ const generateSequence = (): NumberSequence => {
   };
 };
 
-const MissingNumbersLevel2 = ({ navigation }: any) => {
+const MissingNumbers = ({ navigation }: any) => {
   const { width } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const route = useRoute();
-  const child = (route.params as RouteParams)?.child;
-  const gameSequence = (route.params as RouteParams)?.gameSequence;
-  const currentGameIndex = (route.params as RouteParams)?.currentGameIndex ?? -1;
-  const categoryTitle = (route.params as RouteParams)?.categoryTitle;
+  const { child, gameSequence, currentGameIndex, categoryTitle } = (route.params as RouteParams) || {};
   
   const [sequence, setSequence] = useState<NumberSequence>(() => generateSequence());
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -88,23 +86,17 @@ const MissingNumbersLevel2 = ({ navigation }: any) => {
   const [pulseAnim] = useState(new Animated.Value(1));
   const [shakeAnim] = useState(new Animated.Value(0));
   const [score, setScore] = useState(0);
+  const [wrongAnswers, setWrongAnswers] = useState(0); // Yanlış cevap sayısını takip et
   const [currentRound, setCurrentRound] = useState(1);
   const [gameStartTime, setGameStartTime] = useState(Date.now());
   const maxRounds = 5;
 
   useEffect(() => {
-    const initTts = async () => {
-      try {
-        await Tts.setDefaultLanguage('en-US');
-        await Tts.setDefaultRate(0.3); // Otizmli çocuklar için oldukça yavaş
-        await Tts.setDefaultPitch(1.0);
-        
-        setTimeout(() => {
-          Tts.speak('Which number is missing?');
-        }, 800);
-      } catch {}
-    };
-    initTts();
+    Tts.setDefaultLanguage('en-US').catch(() => {});
+    Tts.setDefaultRate(0.8);
+    Tts.setDefaultPitch(1.2);
+    Tts.setDefaultVoice('en-US');
+    Tts.setIgnoreSilentSwitch('ignore');
     
     // Start pulse animation for missing spot
     const pulse = Animated.loop(
@@ -114,6 +106,12 @@ const MissingNumbersLevel2 = ({ navigation }: any) => {
       ])
     );
     pulse.start();
+    
+    setTimeout(() => {
+      try {
+        Tts.speak('Which number is missing?');
+      } catch {}
+    }, 1000);
     
     return () => pulse.stop();
   }, [sequence]);
@@ -125,6 +123,9 @@ const MissingNumbersLevel2 = ({ navigation }: any) => {
       
       if (correct) {
         setScore(score + 1);
+        try {
+          Vibration.vibrate(100);
+        } catch {}
         try {
           Tts.speak(`Yes, ${selectedOption} was missing!`);
         } catch {}
@@ -138,7 +139,7 @@ const MissingNumbersLevel2 = ({ navigation }: any) => {
         }, 2000);
       } else {
         // Wrong answer
-        setScore(prev => (prev > 0 ? prev - 1 : 0));
+        setWrongAnswers(prev => prev + 1); // Yanlış cevap sayısını artır
         Animated.sequence([
           Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
           Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
@@ -146,6 +147,9 @@ const MissingNumbersLevel2 = ({ navigation }: any) => {
           Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
         ]).start();
         
+        try {
+          Vibration.vibrate([0, 50, 100, 50]);
+        } catch {}
         try {
           Tts.speak('Please try again');
         } catch {}
@@ -171,15 +175,36 @@ const MissingNumbersLevel2 = ({ navigation }: any) => {
       return;
     }
     
-    await sendGameResult({
-      child_id: child.id,
-      game_type: 'numbers-missing',
-      level: 2,
-      score: data.correctAnswers,
-      max_score: data.totalQuestions,
-      duration_seconds: Math.floor(data.totalTime / 1000),
-      completed: true,
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.GAME_SESSION}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          child_id: child.id,
+          game_type: 'missing_numbers',
+          level: 1,
+          score: data.correctAnswers,
+          max_score: data.totalQuestions,
+          duration_seconds: Math.floor(data.totalTime / 1000),
+          completed: true,
+          wrong_answers: data.wrongAnswers || 0,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('❌ Backend error. Response status:', response.status);
+        return;
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        console.log('✅ Missing Numbers game session saved successfully!');
+      } else {
+        console.warn('⚠️ Failed to save game session:', result.message);
+      }
+    } catch (error) {
+      console.error('❌ Error sending data:', error instanceof Error ? error.message : 'Unknown error');
+    }
   };
 
   const showCompletion = () => {
@@ -188,18 +213,17 @@ const MissingNumbersLevel2 = ({ navigation }: any) => {
       correctAnswers: score,
       totalQuestions: maxRounds,
       totalTime: totalTime,
+      wrongAnswers: wrongAnswers,
     };
     
+    // Send to database
     sendToDatabase(gameResult);
     
-    const gameNav = createGameCompletionHandler({
+    const gameNav = createGameCompletionHandler(
       navigation,
-      child,
-      gameSequence,
-      currentGameIndex,
-      categoryTitle,
-      resetGame,
-    });
+      { child, gameSequence, currentGameIndex, categoryTitle },
+      resetGame
+    );
     
     Alert.alert(
       '🎉 Amazing! 🎉',
@@ -213,6 +237,7 @@ const MissingNumbersLevel2 = ({ navigation }: any) => {
     setSelectedOption(null);
     setIsCorrect(null);
     setScore(0);
+    setWrongAnswers(0);
     setCurrentRound(1);
     setGameStartTime(Date.now());
   };
@@ -220,15 +245,6 @@ const MissingNumbersLevel2 = ({ navigation }: any) => {
   const handleOptionPress = (option: number) => {
     if (selectedOption !== null) return;
     setSelectedOption(option);
-  };
-
-  const handleHearAgain = () => {
-    try {
-      Tts.stop();
-      setTimeout(() => {
-        Tts.speak('Which number is missing?');
-      }, 200);
-    } catch {}
   };
 
   const renderNumber = (num: number, index: number) => {
@@ -282,9 +298,9 @@ const MissingNumbersLevel2 = ({ navigation }: any) => {
         <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
-        <Text style={styles.title}>🔢 Find Missing Number</Text>
+        <Text style={styles.title}>Level 4 — Find Missing Number</Text>
         <TouchableOpacity style={styles.reset} onPress={resetGame}>
-          <Text style={styles.resetText}>🔄 Reset</Text>
+          <Text style={styles.resetText}>Reset</Text>
         </TouchableOpacity>
       </View>
 
@@ -294,10 +310,6 @@ const MissingNumbersLevel2 = ({ navigation }: any) => {
       </View>
 
       <Text style={styles.subtitle}>Which number is missing? 👇</Text>
-
-      <TouchableOpacity style={styles.replayButton} onPress={handleHearAgain}>
-        <Text style={styles.replayButtonText}>🔊 Hear again</Text>
-      </TouchableOpacity>
 
       {/* Number Sequence */}
       <View style={styles.sequenceContainer}>
@@ -377,31 +389,20 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 16,
   },
-  replayButton: {
-    alignSelf: 'center',
-    backgroundColor: '#EAF7F5',
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#B8EAE2',
-  },
-  replayButtonText: { color: '#2E7D74', fontWeight: '700' },
   sequenceContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
     marginVertical: 30,
-    gap: 10,
+    gap: 15,
   },
   numberContainer: {
     alignItems: 'center',
   },
   numberBox: {
-    width: 70,
-    height: 70,
+    width: 80,
+    height: 80,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -428,11 +429,11 @@ const styles = StyleSheet.create({
     color: '#85C1E9',
   },
   numberEmoji: {
-    fontSize: 18,
+    fontSize: 20,
     marginBottom: 2,
   },
   numberText: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
     textShadowColor: 'rgba(0,0,0,0.25)',
@@ -489,5 +490,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default MissingNumbersLevel2;
-
+export default MissingNumbers;

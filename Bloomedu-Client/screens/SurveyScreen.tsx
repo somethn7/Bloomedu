@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, BackHandler } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert, BackHandler, useWindowDimensions } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 
 const questions = [
@@ -26,6 +26,7 @@ const questions = [
 ];
 
 const SurveyScreen = () => {
+  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const child = route.params?.child;

@@ -7,11 +7,13 @@ import {
   StyleSheet,
   ActivityIndicator,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // -umut: (22.11.2025) New screen for teachers to see parent messages
 const TeacherChatListScreen = ({ navigation }: any) => {
+  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading] = useState(true);
 

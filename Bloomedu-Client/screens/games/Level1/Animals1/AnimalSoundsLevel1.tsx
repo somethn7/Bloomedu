@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,11 +6,11 @@ import {
   StyleSheet,
   Animated,
   useWindowDimensions,
+  Alert,
 } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import Tts from 'react-native-tts';
-import { createGameCompletionHandler } from '../../../utils/gameNavigation';
-import { sendGameResult } from '../../../config/api';
+import { API_BASE_URL, API_ENDPOINTS } from '../../../api';
 
 interface RouteParams {
   child?: {
@@ -18,9 +18,6 @@ interface RouteParams {
     level: number;
     name?: string;
   };
-  gameSequence?: any[];
-  currentGameIndex?: number;
-  categoryTitle?: string;
 }
 
 // 7 Animals for Level 1
@@ -102,7 +99,7 @@ const ANIMALS = [
 export default function AnimalSoundsLevel1({ navigation }: any) {
   const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const route = useRoute();
-  const { child, gameSequence, currentGameIndex, categoryTitle } = (route.params as RouteParams) || {};
+  const child = (route.params as RouteParams)?.child;
 
   const [currentAnimal, setCurrentAnimal] = useState(0);
   const [showSound, setShowSound] = useState(false);
@@ -110,24 +107,9 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
   const [soundAnim] = useState(new Animated.Value(0));
   const [mouthAnim] = useState(new Animated.Value(0));
   const [hopAnim] = useState(new Animated.Value(0));
-  const [autoPlay, setAutoPlay] = useState(true); // Başlangıçta otomatik
+  const [autoPlay, setAutoPlay] = useState(false);
   const [completedAnimals, setCompletedAnimals] = useState<number[]>([]);
   const [gameStartTime] = useState(Date.now());
-  const [introAnim] = useState(new Animated.Value(0));
-  const [showIntro, setShowIntro] = useState(true);
-  const isFinishedRef = useRef(false);
-  const autoTimerRef = useRef<any>(null);
-
-  // Intro bittiğinde ilk sesi otomatik başlat
-  useEffect(() => {
-    if (!showIntro && autoPlay && !showSound) {
-      // Küçük bir bekleme ile başlat
-      const t = setTimeout(() => {
-        if (!isFinishedRef.current) playSound();
-      }, 600);
-      return () => clearTimeout(t);
-    }
-  }, [showIntro]);
 
   const animal = ANIMALS[currentAnimal];
 
@@ -140,26 +122,6 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
       } catch {}
     };
     initTts();
-
-    // Giriş animasyonu
-    Animated.spring(introAnim, {
-      toValue: 1,
-      friction: 6,
-      tension: 40,
-      useNativeDriver: true,
-    }).start();
-
-    // Giriş mesajı
-    setTimeout(() => {
-      Tts.speak('Welcome! Let\'s learn animal sounds together!');
-    }, 800);
-
-    // Giriş ekranını kaldır ve oyunu başlat
-    const introTimer = setTimeout(() => {
-      setShowIntro(false);
-    }, 3500);
-
-    return () => clearTimeout(introTimer);
   }, []);
 
   useEffect(() => {
@@ -174,15 +136,10 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
 
   useEffect(() => {
     if (autoPlay && !showSound) {
-      if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
-      autoTimerRef.current = setTimeout(() => {
-        if (!isFinishedRef.current) {
-          playSound();
-        }
-      }, 1200);
-      return () => {
-        if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
-      };
+      const timer = setTimeout(() => {
+        playSound();
+      }, 1800);
+      return () => clearTimeout(timer);
     }
   }, [autoPlay, currentAnimal, showSound]);
 
@@ -239,17 +196,17 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
         soundAnim.setValue(0);
       });
     } else {
-      // Normal sound (hızı biraz yavaşlatıldı)
+      // Normal sound
       Animated.parallel([
         Animated.sequence([
           Animated.timing(soundAnim, {
             toValue: 1,
-            duration: 450,
+            duration: 350,
             useNativeDriver: true,
           }),
           Animated.timing(soundAnim, {
             toValue: 0,
-            duration: 450,
+            duration: 350,
             useNativeDriver: true,
           }),
         ]),
@@ -257,12 +214,12 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
           Animated.sequence([
             Animated.timing(mouthAnim, {
               toValue: 1,
-              duration: 350,
+              duration: 250,
               useNativeDriver: true,
             }),
             Animated.timing(mouthAnim, {
               toValue: 0,
-              duration: 350,
+              duration: 250,
               useNativeDriver: true,
             }),
           ]),
@@ -272,12 +229,9 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
     }
 
     if (autoPlay) {
-      if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
-      autoTimerRef.current = setTimeout(() => {
-        if (!isFinishedRef.current) {
-          nextAnimal();
-        }
-      }, 3500);
+      setTimeout(() => {
+        nextAnimal();
+      }, 2500);
     }
   };
 
@@ -287,48 +241,47 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
       return;
     }
     
-    const totalTime = Date.now() - gameStartTime;
-    await sendGameResult({
-      child_id: child.id,
-      game_type: 'animals-sounds',
-      level: 1,
-      score: completedAnimals.length,
-      max_score: ANIMALS.length,
-      duration_seconds: Math.floor(totalTime / 1000),
-      completed: true,
-    });
+    try {
+      const totalTime = Date.now() - gameStartTime;
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.GAME_SESSION}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          child_id: child.id,
+          game_type: 'animals-sounds',
+          level: 1,
+          score: completedAnimals.length,
+          max_score: ANIMALS.length,
+          duration_seconds: Math.floor(totalTime / 1000),
+          completed: true,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('❌ Backend error. Response status:', response.status);
+        return;
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        console.log('✅ Animal Sounds game session saved successfully!');
+      } else {
+        console.warn('⚠️ Failed to save game session:', result.message);
+      }
+    } catch (error) {
+      console.error('❌ Error sending data:', error instanceof Error ? error.message : 'Unknown error');
+    }
   };
 
   const finishGame = () => {
-    isFinishedRef.current = true;
-    setAutoPlay(false);
-    try { Tts.stop(); } catch {}
-    if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
     sendToDatabase();
-    
-    const gameNavigation = createGameCompletionHandler({
-      navigation,
-      child,
-      gameSequence,
-      currentGameIndex,
-      categoryTitle,
-      resetGame: () => {
-        setCurrentAnimal(0);
-        setCompletedAnimals([]);
-        setShowSound(false);
-        setAutoPlay(true); // Auto play'i tekrar aç
-        soundAnim.setValue(0);
-        mouthAnim.setValue(0);
-        hopAnim.setValue(0);
-        bounceAnim.setValue(0);
-        isFinishedRef.current = false;
-      },
-    });
-
-    gameNavigation.showCompletionMessage(
-      ANIMALS.length,
-      ANIMALS.length,
-      'Amazing! You learned about all the animals! 🎵🦁'
+    Alert.alert(
+      '🎉 Amazing! 🎉',
+      `You learned about ${completedAnimals.length} animals!`,
+      [
+        { text: 'Play Again', onPress: () => { setCurrentAnimal(0); setCompletedAnimals([]); } },
+        { text: 'Main Menu', onPress: () => navigation.goBack() },
+      ]
     );
   };
 
@@ -339,10 +292,12 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
     hopAnim.setValue(0);
     
     if (currentAnimal === ANIMALS.length - 1) {
-      // Son hayvan - oyunu bitir
-      setTimeout(() => {
+      // Completed all animals
+      if (completedAnimals.length >= ANIMALS.length - 1) {
         finishGame();
-      }, 500);
+      } else {
+        setCurrentAnimal(0);
+      }
     } else {
       setCurrentAnimal(currentAnimal + 1);
     }
@@ -383,89 +338,6 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
 
   return (
     <View style={[styles.container, { backgroundColor: animal.bgColor }]}>
-      {/* Intro Screen */}
-      {showIntro && (
-        <Animated.View
-          style={[
-            styles.introOverlay,
-            {
-              opacity: introAnim,
-              transform: [
-                {
-                  scale: introAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.8, 1],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <View style={styles.introContent}>
-            <Text style={styles.introTitle}>🎵 Animal Sounds 🎵</Text>
-            <View style={styles.introAnimalsRow}>
-              {ANIMALS.slice(0, 4).map((a, i) => (
-                <Animated.Text
-                  key={i}
-                  style={[
-                    styles.introAnimalEmoji,
-                    {
-                      opacity: introAnim,
-                      transform: [
-                        {
-                          translateY: introAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [50, 0],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                >
-                  {a.emoji}
-                </Animated.Text>
-              ))}
-            </View>
-            <View style={styles.introAnimalsRow}>
-              {ANIMALS.slice(4, 7).map((a, i) => (
-                <Animated.Text
-                  key={i}
-                  style={[
-                    styles.introAnimalEmoji,
-                    {
-                      opacity: introAnim,
-                      transform: [
-                        {
-                          translateY: introAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [50, 0],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                >
-                  {a.emoji}
-                </Animated.Text>
-              ))}
-            </View>
-            <Animated.Text
-              style={[
-                styles.introSubtitle,
-                {
-                  opacity: introAnim.interpolate({
-                    inputRange: [0, 0.5, 1],
-                    outputRange: [0, 0, 1],
-                  }),
-                },
-              ]}
-            >
-              Let's learn together! 🌟
-            </Animated.Text>
-          </View>
-        </Animated.View>
-      )}
-
       {/* Animated background circles */}
       <Animated.View 
         style={[
@@ -520,6 +392,14 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
           <Text style={styles.levelText}>Level 1</Text>
         </View>
         <View style={styles.headerRight}>
+          <TouchableOpacity 
+            style={[styles.autoPlayButton, autoPlay && styles.autoPlayActive]}
+            onPress={toggleAutoPlay}
+          >
+            <Text style={[styles.autoPlayText, autoPlay && styles.autoPlayTextActive]}>
+              {autoPlay ? '⏸ Pause' : '▶ Auto'}
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
             <Text style={styles.backBtnText}>←</Text>
           </TouchableOpacity>
@@ -650,7 +530,12 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
         </TouchableOpacity>
       </View>
 
-      {/* Finish Button kaldırıldı - otomatik bitiş */}
+      {/* Finish Button */}
+      {completedAnimals.length >= 5 && (
+        <TouchableOpacity style={styles.finishButton} onPress={finishGame}>
+          <Text style={styles.finishButtonText}>✅ Finish Game</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -659,43 +544,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-  },
-  introOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.98)',
-    zIndex: 100,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  introContent: {
-    alignItems: 'center',
-    padding: 30,
-  },
-  introTitle: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: '#4A4A4A',
-    marginBottom: 40,
-    textAlign: 'center',
-  },
-  introAnimalsRow: {
-    flexDirection: 'row',
-    gap: 15,
-    marginBottom: 20,
-  },
-  introAnimalEmoji: {
-    fontSize: 60,
-  },
-  introSubtitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#81C784',
-    marginTop: 20,
-    textAlign: 'center',
   },
   bgCircle1: {
     position: 'absolute',

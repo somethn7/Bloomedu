@@ -4,19 +4,13 @@ import {
   Text,
   StyleSheet,
   Animated,
-  Dimensions,
+  useWindowDimensions,
   TouchableOpacity,
 } from 'react-native';
 import Tts from 'react-native-tts';
 import { useRoute } from '@react-navigation/native';
 import { createGameCompletionHandler } from '../../../utils/gameNavigation';
 import { sendGameResult } from '../../../config/api';
-
-const { width, height } = Dimensions.get('window');
-
-// Responsive sizing
-const FRUIT_SIZE = width * 0.18;
-const BASKET_SIZE = width * 0.22;
 
 interface RouteParams {
   child?: {
@@ -45,6 +39,7 @@ const FRUITS: FruitData[] = [
 ];
 
 const FruitBasketLevel1 = ({ navigation }: any) => {
+  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const route = useRoute();
   const { child, gameSequence, currentGameIndex, categoryTitle } = (route.params as RouteParams) || {};
 
@@ -52,6 +47,10 @@ const FruitBasketLevel1 = ({ navigation }: any) => {
   const [score, setScore] = useState(0);
   const [gameStartTime] = useState(Date.now());
   const [showSuccess, setShowSuccess] = useState(false);
+
+  // Responsive sizing
+  const FRUIT_SIZE = width * 0.18;
+  const BASKET_SIZE = width * 0.22;
 
   // Pozisyonlar - Daha yumuşak yerleşim
   const startX = width * 0.1;

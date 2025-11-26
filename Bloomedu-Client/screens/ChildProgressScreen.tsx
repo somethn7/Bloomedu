@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { API_ENDPOINTS } from '../config/api';
 import { useRoute } from '@react-navigation/native';
@@ -33,6 +34,7 @@ interface RecentGame {
 }
 
 const ChildProgressScreen = () => {
+  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const route = useRoute<any>();
   const { childId, childName, childSurname } = route.params || {};
 

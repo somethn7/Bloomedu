@@ -5,10 +5,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
-
-const { width } = Dimensions.get('window');
 
 // -umut: (22.11.2025) Updated categories to English for consistency
 const categories = [
@@ -21,6 +19,7 @@ const categories = [
 ];
 
 const ParentMessageCategoriesScreen = ({ navigation }: any) => {
+  const { width } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   
   useLayoutEffect(() => {
     navigation.setOptions({

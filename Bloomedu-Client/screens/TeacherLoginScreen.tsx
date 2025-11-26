@@ -9,10 +9,12 @@ import {
   Platform,
   KeyboardAvoidingView,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const TeacherLoginScreen = ({ navigation }: any) => {
+  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 

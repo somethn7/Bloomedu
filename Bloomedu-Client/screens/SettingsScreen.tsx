@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  Dimensions,
+  useWindowDimensions,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -16,10 +16,9 @@ type Props = {
   navigation: NativeStackNavigationProp<any>;
 };
 
-const { width } = Dimensions.get('window');
-
 // -umut: (22.11.2025) Redesigned Settings screen with modern UI and card layout
 const SettingsScreen = ({ navigation }: Props) => {
+  const { width } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [screenTimeLimit, setScreenTimeLimit] = useState(20);
   const [language, setLanguage] = useState('en');

@@ -1,7 +1,9 @@
 import React, { useEffect } from 'react';
-import { View, Image, StyleSheet, Dimensions } from 'react-native';
+import { View, Image, StyleSheet, useWindowDimensions } from 'react-native';
 
 export default function SplashScreen({ navigation }: any) {
+  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
+  
   useEffect(() => {
     const timer = setTimeout(() => {
       navigation.replace('Home');
@@ -13,21 +15,18 @@ export default function SplashScreen({ navigation }: any) {
     <View style={styles.container}>
       <Image
         source={require('./assets/enterence.png')}
-        style={styles.fullscreenImage}
+        style={[styles.fullscreenImage, { width, height }]}
         resizeMode="cover" 
       />
     </View>
   );
 }
 
-const { width, height } = Dimensions.get('window');
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
   fullscreenImage: {
-    width: width,
-    height: height,
+    // width ve height dinamik olarak inline style'dan geliyor
   },
 });

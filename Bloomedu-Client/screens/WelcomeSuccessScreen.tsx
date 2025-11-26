@@ -4,13 +4,11 @@ import {
   Text,
   StyleSheet,
   Animated,
-  Dimensions,
+  useWindowDimensions,
   TouchableOpacity,
   StatusBar,
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
-
-const { width, height } = Dimensions.get('window');
 
 type Params = {
   role: 'parent' | 'teacher';
@@ -41,6 +39,7 @@ const THEME = {
 };
 
 export default function WelcomeSuccessScreen() {
+  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { role = 'parent', nextScreen, nextParams, name } = (route.params || {}) as Params;

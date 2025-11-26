@@ -7,7 +7,7 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Dimensions,
+  useWindowDimensions,
   SafeAreaView,
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -16,21 +16,23 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import uuid from 'react-native-uuid';
 import { Picker } from '@react-native-picker/picker';
-
-const { width } = Dimensions.get('window');
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 // -umut: (22.11.2025) Redesigned Teacher Add Child screen with organized cards
 const TeacherAddChildScreen = ({ navigation }: any) => {
+  const { width } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const [name, setName] = useState('');
   const [surname, setSurname] = useState('');
-  const [birthdate, setBirthdate] = useState('');
+  const [birthdate, setBirthdate] = useState<Date | null>(null);
   const [birthplace, setBirthplace] = useState('');
   const [gender, setGender] = useState('');
-  const [diagnosisDate, setDiagnosisDate] = useState('');
+  const [diagnosisDate, setDiagnosisDate] = useState<Date | null>(null);
   const [communicationNotes, setCommunicationNotes] = useState('');
   const [parentEmail, setParentEmail] = useState('');
   const [teacherId, setTeacherId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showBirthdatePicker, setShowBirthdatePicker] = useState(false);
+  const [showDiagnosisDatePicker, setShowDiagnosisDatePicker] = useState(false);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -72,9 +74,69 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
 
   const generateCode = () => uuid.v4().toString().slice(0, 8);
 
-  const formatDateForBackend = (dateStr: string) => {
-    const [day, month, year] = dateStr.split('-');
-    return `${year}-${month}-${day}`; 
+  const formatDateForBackend = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  const formatDateForDisplay = (date: Date) => {
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+
+  const getMaxBirthdate = () => {
+    // Maksimum 2017 doğumlu (2017, 2018, 2019, 2020, 2021)
+    return new Date(2021, 11, 31); // 31 Aralık 2021
+  };
+
+  const getMinBirthdate = () => {
+    // Minimum 2017 doğumlu
+    return new Date(2017, 0, 1); // 1 Ocak 2017
+  };
+
+  const getMinDiagnosisDate = () => {
+    // Diagnosis date, doğum tarihinden sonra olmalı
+    if (birthdate) {
+      const minDate = new Date(birthdate);
+      minDate.setDate(minDate.getDate() + 1); // Doğum tarihinden 1 gün sonra
+      return minDate;
+    }
+    return new Date(2017, 0, 1);
+  };
+
+  const onBirthdateChange = (event: any, selectedDate?: Date) => {
+    setShowBirthdatePicker(false);
+    if (selectedDate) {
+      // Seçilen tarihin 2017-2021 arasında olduğunu kontrol et
+      const year = selectedDate.getFullYear();
+      if (year >= 2017 && year <= 2021) {
+        setBirthdate(selectedDate);
+        // Eğer diagnosis date, yeni doğum tarihinden önceyse, sıfırla
+        if (diagnosisDate && diagnosisDate <= selectedDate) {
+          setDiagnosisDate(null);
+        }
+      } else {
+        Alert.alert('Invalid Date', 'Birthdate must be between 2017 and 2021.');
+      }
+    }
+  };
+
+  const onDiagnosisDateChange = (event: any, selectedDate?: Date) => {
+    setShowDiagnosisDatePicker(false);
+    if (selectedDate && birthdate) {
+      // Diagnosis date, doğum tarihinden sonra olmalı
+      if (selectedDate > birthdate) {
+        setDiagnosisDate(selectedDate);
+      } else {
+        Alert.alert('Invalid Date', 'Diagnosis date must be after birthdate.');
+      }
+    } else if (selectedDate && !birthdate) {
+      Alert.alert('Error', 'Please select birthdate first.');
+    }
   };
 
   const handleSave = async () => {
@@ -85,6 +147,11 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
 
     if (!name || !surname || !birthdate || !birthplace || !gender || !diagnosisDate || !parentEmail) {
       Alert.alert('Missing Fields', 'Please fill in all required fields.');
+      return;
+    }
+
+    if (!birthdate || !diagnosisDate) {
+      Alert.alert('Missing Fields', 'Please select both birthdate and diagnosis date.');
       return;
     }
 
@@ -130,10 +197,10 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
         
         setName('');
         setSurname('');
-        setBirthdate('');
+        setBirthdate(null);
         setBirthplace('');
         setGender('');
-        setDiagnosisDate('');
+        setDiagnosisDate(null);
         setCommunicationNotes('');
         setParentEmail('');
       } else {
@@ -195,15 +262,26 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Birthdate (DD-MM-YYYY)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. 15-08-2010"
-                  value={birthdate}
-                  onChangeText={setBirthdate}
-                  keyboardType="numeric"
-                  placeholderTextColor="#A0AEC0"
-                />
+                <Text style={styles.label}>Birthdate</Text>
+                <TouchableOpacity
+                  style={styles.dateButton}
+                  onPress={() => setShowBirthdatePicker(true)}
+                >
+                  <Text style={styles.dateButtonText}>
+                    {birthdate ? formatDateForDisplay(birthdate) : 'Select Birthdate (2017-2021)'}
+                  </Text>
+                  <Text style={styles.dateButtonIcon}>📅</Text>
+                </TouchableOpacity>
+                {showBirthdatePicker && (
+                  <DateTimePicker
+                    value={birthdate || new Date(2019, 0, 1)}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={onBirthdateChange}
+                    maximumDate={getMaxBirthdate()}
+                    minimumDate={getMinBirthdate()}
+                  />
+                )}
               </View>
 
               <View style={styles.row}>
@@ -245,15 +323,37 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
               <Text style={styles.cardTitle}>🏥 Clinical Info</Text>
               
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Diagnosis Date (DD-MM-YYYY)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. 01-01-2020"
-                  value={diagnosisDate}
-                  onChangeText={setDiagnosisDate}
-                  keyboardType="numeric"
-                  placeholderTextColor="#A0AEC0"
-                />
+                <Text style={styles.label}>Diagnosis Date</Text>
+                <TouchableOpacity
+                  style={styles.dateButton}
+                  onPress={() => {
+                    if (!birthdate) {
+                      Alert.alert('Error', 'Please select birthdate first.');
+                    } else {
+                      setShowDiagnosisDatePicker(true);
+                    }
+                  }}
+                  disabled={!birthdate}
+                >
+                  <Text style={[styles.dateButtonText, !birthdate && styles.dateButtonTextDisabled]}>
+                    {diagnosisDate 
+                      ? formatDateForDisplay(diagnosisDate) 
+                      : birthdate 
+                        ? 'Select Diagnosis Date' 
+                        : 'Select Birthdate First'}
+                  </Text>
+                  <Text style={[styles.dateButtonIcon, !birthdate && styles.dateButtonIconDisabled]}>📅</Text>
+                </TouchableOpacity>
+                {showDiagnosisDatePicker && birthdate && (
+                  <DateTimePicker
+                    value={diagnosisDate || new Date(birthdate.getTime() + 86400000)}
+                    mode="date"
+                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                    onChange={onDiagnosisDateChange}
+                    minimumDate={getMinDiagnosisDate()}
+                    maximumDate={new Date()}
+                  />
+                )}
               </View>
 
               <View style={styles.inputGroup}>
@@ -451,5 +551,32 @@ const styles = StyleSheet.create({
   },
   saveButtonIcon: {
     fontSize: 22,
+  },
+  dateButton: {
+    backgroundColor: '#F7FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    minHeight: 50,
+  },
+  dateButtonText: {
+    fontSize: 16,
+    color: '#2D3748',
+    flex: 1,
+  },
+  dateButtonTextDisabled: {
+    color: '#A0AEC0',
+  },
+  dateButtonIcon: {
+    fontSize: 20,
+    color: '#4DABF7',
+  },
+  dateButtonIconDisabled: {
+    color: '#A0AEC0',
   },
 });

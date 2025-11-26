@@ -8,9 +8,11 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  useWindowDimensions,
 } from 'react-native';
 
 const ParentForgotPasswordScreen = ({ navigation }: any) => {
+  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const [email, setEmail] = useState('');
   const [codeSent, setCodeSent] = useState(false);
   const [verificationCode, setVerificationCode] = useState('');

@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
+  useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -23,6 +24,7 @@ interface Student {
 }
 
 const TeacherDashboardScreen = ({ navigation }: any) => {
+  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(false);
   // -umut: (23.11.2025) We keep students here only for quick stats on the dashboard

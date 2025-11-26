@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert, useWindowDimensions } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type Feedback = {
@@ -12,6 +12,7 @@ type Feedback = {
 };
 
 const ParentFeedbacksScreen = () => {
+  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(false);
 

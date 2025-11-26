@@ -10,8 +10,8 @@ import {
 } from 'react-native';
 import Tts from 'react-native-tts';
 import { useRoute } from '@react-navigation/native';
-import { createGameCompletionHandler } from '../../../utils/gameNavigation';
-import { sendGameResult } from '../../../config/api';
+import { createGameCompletionHandler } from '../../../../utils/gameNavigation';
+import { API_BASE_URL, API_ENDPOINTS } from '../../../api';
 
 interface RouteParams {
   child?: {
@@ -41,21 +41,20 @@ const COLORS = [
 ];
 
 const generateNumbers = (count: number): NumberItem[] => {
-  // 5 uzunluğunda artan ardışık bir aralık seç (ör: 1-5, 3-7, 5-9, 6-10)
-  const startNum = Math.floor(Math.random() * (10 - count + 1)) + 1; // 1..6
-  const range = Array.from({ length: count }, (_, i) => startNum + i);
-
-  // Shuffle for initial cards layout
-  const shuffled = range.sort(() => Math.random() - 0.5);
-
+  // For Level 1, use consecutive numbers starting from 1-5
+  const selected = Array.from({ length: count }, (_, i) => i + 1);
+  
+  // Shuffle the selected numbers
+  const shuffled = selected.sort(() => Math.random() - 0.5);
+  
   return shuffled.map((num, idx) => ({
     id: `num-${num}-${Math.random()}`,
     value: num,
     color: COLORS[(num - 1) % COLORS.length].color,
     emoji: COLORS[(num - 1) % COLORS.length].emoji,
     position: {
-      x: 0,
-      y: 0,
+      x: 50 + (idx % 3) * 100,
+      y: 200 + Math.floor(idx / 3) * 120,
     },
   }));
 };
@@ -67,15 +66,10 @@ const SortNumbersLevel1 = ({ navigation }: any) => {
   const gameSequence = (route.params as RouteParams)?.gameSequence;
   const currentGameIndex = (route.params as RouteParams)?.currentGameIndex ?? -1;
   const categoryTitle = (route.params as RouteParams)?.categoryTitle;
-
-  // Responsive sizing
-  const DROP_SIZE = Math.min(width * 0.18, 90);
-  const CARD_SIZE = Math.min(width * 0.18, 80);
   
   const [numbers, setNumbers] = useState<NumberItem[]>(() => generateNumbers(5));
   const [sortedOrder, setSortedOrder] = useState<number[]>([]);
-  const [round, setRound] = useState(1);
-  const totalRounds = 3; // 3-4 tekrar: min 3; istenirse 4'e çıkarılabilir
+  const [wrongAnswers, setWrongAnswers] = useState(0); // Yanlış cevap sayısını takip et
   const [shakeAnim] = useState(new Animated.Value(0));
   const [gameStartTime, setGameStartTime] = useState(Date.now());
   const correctOrder = numbers.map((n) => n.value).sort((a, b) => a - b);
@@ -104,37 +98,27 @@ const SortNumbersLevel1 = ({ navigation }: any) => {
           Tts.speak(`Perfect! We sorted from ${min} to ${max}!`);
         } catch {}
         setTimeout(() => {
-          if (round < totalRounds) {
-            // Bir sonraki varyasyona geç
-            setRound(round + 1);
-            setNumbers(generateNumbers(5));
-            setSortedOrder([]);
-          } else {
-            const totalTime = Date.now() - gameStartTime;
-            const gameResult = {
-              correctAnswers: totalRounds,
-              totalQuestions: totalRounds,
-              totalTime: totalTime,
-            };
-            sendToDatabase(gameResult);
-
-            const gameNav = createGameCompletionHandler({
-              navigation,
-              child,
-              gameSequence,
-              currentGameIndex,
-              categoryTitle,
-              resetGame,
-            });
-            gameNav.showCompletionMessage(
-              totalRounds,
-              totalRounds,
-              gameNav.getCompletionMessage()
-            );
-          }
+          const totalTime = Date.now() - gameStartTime;
+          const gameResult = {
+            correctAnswers: 1,
+            totalQuestions: 1,
+            totalTime: totalTime,
+            wrongAnswers: wrongAnswers,
+          };
+          
+          sendToDatabase(gameResult);
+          
+          const gameNav = createGameCompletionHandler(
+            navigation,
+            { child, gameSequence, currentGameIndex, categoryTitle },
+            resetGame
+          );
+          
+          Alert.alert('🎉 Amazing!', gameNav.getCompletionMessage(), gameNav.createCompletionButtons());
         }, 1500);
       } else {
         // Wrong order
+        setWrongAnswers(prev => prev + 1); // Yanlış cevap sayısını artır
         Animated.sequence([
           Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
           Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
@@ -157,21 +141,42 @@ const SortNumbersLevel1 = ({ navigation }: any) => {
       return;
     }
     
-    await sendGameResult({
-      child_id: child.id,
-      game_type: 'numbers-sort',
-      level: 1,
-      score: data.correctAnswers,
-      max_score: data.totalQuestions,
-      duration_seconds: Math.floor(data.totalTime / 1000),
-      completed: true,
-    });
+    try {
+      const response = await fetch(`${API_BASE_URL}${API_ENDPOINTS.GAME_SESSION}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          child_id: child.id,
+          game_type: 'numbers-sort',
+          level: 1,
+          score: data.correctAnswers,
+          max_score: data.totalQuestions,
+          duration_seconds: Math.floor(data.totalTime / 1000),
+          completed: true,
+          wrong_answers: data.wrongAnswers || 0,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('❌ Backend error. Response status:', response.status);
+        return;
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        console.log('✅ Sort Numbers game session saved successfully!');
+      } else {
+        console.warn('⚠️ Failed to save game session:', result.message);
+      }
+    } catch (error) {
+      console.error('❌ Error sending data:', error instanceof Error ? error.message : 'Unknown error');
+    }
   };
 
   const resetGame = () => {
     setNumbers(generateNumbers(5));
     setSortedOrder([]);
-    setRound(1);
+    setWrongAnswers(0);
     setGameStartTime(Date.now());
     setTimeout(() => {
       try {
@@ -336,8 +341,8 @@ const styles = StyleSheet.create({
     gap: 15,
   },
   dropZone: {
-    width: DROP_SIZE,
-    height: DROP_SIZE,
+    width: 90,
+    height: 90,
     borderRadius: 12,
     borderWidth: 3,
     borderColor: '#85C1E9',
@@ -384,11 +389,11 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'center',
     paddingHorizontal: 20,
-    gap: Math.max(10, width * 0.02),
+    gap: 15,
   },
   numberCard: {
-    width: CARD_SIZE,
-    height: CARD_SIZE,
+    width: 80,
+    height: 80,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',

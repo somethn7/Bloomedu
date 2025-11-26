@@ -1,7 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
-
-const { width } = Dimensions.get('window');
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, useWindowDimensions } from 'react-native';
 
 interface CategoryGamesScreenProps {
   navigation: any;
@@ -9,6 +7,7 @@ interface CategoryGamesScreenProps {
 }
 
 const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, route }) => {
+  const { width } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const { categoryTitle, child } = route.params || {};
   const childLevel = child?.level || 1;
 
