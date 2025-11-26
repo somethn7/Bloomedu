@@ -1,6 +1,6 @@
 // -umut: Education Screen - Modern ve renkli tasarım (28.10.2025)
 import React, { useLayoutEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ScrollView, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ScrollView } from 'react-native';
 
 // -umut: Kategoriler - Her birinin kendine özgü rengi var (28.10.2025)
 const categories = [
@@ -43,7 +43,6 @@ const categories = [
 
 // -umut: Child parametresi eklendi - oyunlara child bilgisini iletmek için (28.10.2025)
 const EducationScreen = ({ navigation, route }: any) => {
-  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const { child } = route.params || {};
   const childLevel = child?.level || 1; // -umut: Çocuğun seviyesi
 

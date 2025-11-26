@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Animated,
-  useWindowDimensions,
+  Dimensions,
   Modal,
   ScrollView,
   Platform,
@@ -18,6 +18,8 @@ import {
 import { useRoute, useNavigation } from '@react-navigation/native';
 import Tts from 'react-native-tts';
 import { sendGameResult } from '../../../config/api';
+
+const { width } = Dimensions.get('window');
 
 // -umut: Temel günlük nesneler - Emoji ile (28.10.2025)
 const OBJECTS = [
@@ -48,7 +50,6 @@ interface RouteParams {
 }
 
 export default function ColorObjectsLevel2() {
-  const { width } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { child } = (route.params || {}) as RouteParams;
@@ -448,7 +449,7 @@ export default function ColorObjectsLevel2() {
             {options.map((option, index) => (
               <TouchableOpacity
                 key={index}
-                style={[styles.optionContainer, { width: (width - 42) / 2 }]}
+                style={styles.optionContainer}
                 onPress={() => selectOption(option)}
                 activeOpacity={0.7}
                 disabled={feedback !== ''}
@@ -477,7 +478,7 @@ export default function ColorObjectsLevel2() {
         transparent={true}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxWidth: Math.min(380, width * 0.9) }]}>
+          <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>🎉 Great Job! 🎉</Text>
             <Text style={styles.modalSubtitle}>Level 2 Complete!</Text>
             
@@ -757,6 +758,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   optionContainer: {
+    width: (width - 42) / 2,
     marginBottom: 10,
   },
   optionBox: {
@@ -798,6 +800,7 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     padding: 28,
     width: '100%',
+    maxWidth: 380,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },

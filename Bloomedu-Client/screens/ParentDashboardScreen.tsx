@@ -7,13 +7,14 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
-  useWindowDimensions,
+  Dimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 
+const { width } = Dimensions.get('window');
+
 const ParentDashboardScreen = ({ navigation }: any) => {
-  const { width } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const [showChildrenProgress, setShowChildrenProgress] = useState(false);
   const [loading, setLoading] = useState(false);
   const [childrenList, setChildrenList] = useState<any[]>([]);

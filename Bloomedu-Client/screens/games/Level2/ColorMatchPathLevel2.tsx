@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   Animated,
-  useWindowDimensions,
+  Dimensions,
   TouchableOpacity,
   Alert,
 } from 'react-native';
@@ -12,6 +12,12 @@ import Tts from 'react-native-tts';
 import { useRoute } from '@react-navigation/native';
 import { createGameCompletionHandler } from '../../../utils/gameNavigation';
 import { sendGameResult } from '../../../config/api';
+
+const { width, height } = Dimensions.get('window');
+
+// Responsive sizing
+const BALL_SIZE = width * 0.22;
+const BASKET_SIZE = width * 0.28;
 
 interface RouteParams {
   child?: {
@@ -39,13 +45,8 @@ const COLORS: ColorData[] = [
 ];
 
 const ColorMatchPathLevel2 = ({ navigation }: any) => {
-  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const route = useRoute();
   const { child, gameSequence, currentGameIndex, categoryTitle } = (route.params as RouteParams) || {};
-
-  // Responsive sizing
-  const BALL_SIZE = width * 0.22;
-  const BASKET_SIZE = width * 0.28;
 
   const [currentColorIndex, setCurrentColorIndex] = useState(0);
   const [correctAnswers, setCorrectAnswers] = useState(0);

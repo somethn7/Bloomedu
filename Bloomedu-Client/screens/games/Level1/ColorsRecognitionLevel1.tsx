@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Animated,
-  useWindowDimensions,
+  Dimensions,
   Modal,
   ScrollView,
   Platform,
@@ -17,6 +17,8 @@ import {
 import { useRoute, useNavigation } from '@react-navigation/native';
 import Tts from 'react-native-tts'; // -umut: Text-to-Speech için eklendi
 import { sendGameResult } from '../../../config/api';
+
+const { width, height } = Dimensions.get('window');
 
 // -umut: Level 1 için 6 temel renk (28.10.2025)
 // Her renk: ID, isim, kod, emoji ve pastel arkaplan rengi içerir
@@ -41,7 +43,6 @@ interface RouteParams {
 }
 
 export default function ColorsRecognitionLevel1() {
-  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { child } = (route.params || {}) as RouteParams; // -umut: Child bilgisi route'tan alınıyor
@@ -450,7 +451,7 @@ export default function ColorsRecognitionLevel1() {
             {options.map((color) => (
               <TouchableOpacity
                 key={color.id}
-                style={[styles.optionContainer, { width: (width - 42) / 2 }]}
+                style={styles.optionContainer}
                 onPress={() => selectColor(color)}
                 activeOpacity={0.7}
                 disabled={feedback !== ''}
@@ -486,7 +487,7 @@ export default function ColorsRecognitionLevel1() {
         transparent={true}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { maxWidth: Math.min(380, width * 0.9) }]}>
+          <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>🎉 Congratulations! 🎉</Text>
             <Text style={styles.modalSubtitle}>You completed the game!</Text>
             
@@ -770,6 +771,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   optionContainer: {
+    width: (width - 42) / 2, // 2 sütun
     marginBottom: 10,
   },
   optionBox: {
@@ -811,6 +813,7 @@ const styles = StyleSheet.create({
     borderRadius: 26,
     padding: 28,
     width: '100%',
+    maxWidth: 380,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 8 },

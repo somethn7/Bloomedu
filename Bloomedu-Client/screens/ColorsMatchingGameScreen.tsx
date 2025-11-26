@@ -6,12 +6,20 @@ import {
   StyleSheet,
   PanResponder,
   Animated,
-  useWindowDimensions,
+  Dimensions,
   TouchableOpacity,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { RootStackParamList } from './types';
+import { RootStackParamList } from './types'; 
+
+const screenWidth = Dimensions.get('window').width;
+
+const droppableAreas = [
+  { color: 'red', x: screenWidth * 0.1 },
+  { color: 'green', x: screenWidth * 0.4 },
+  { color: 'blue', x: screenWidth * 0.7 },
+];
 
 const items = [
   { key: 'redcar', image: require('./assets/redcar.png'), color: 'red' },
@@ -22,7 +30,6 @@ const items = [
 // 💡 Navigation tipi burada tanımlandı
 // -umut: Child parametresi ve skor kaydetme sistemi eklendi (28.10.2025)
 const ColorsMatchingGameScreen = ({ route }: any) => {
-  const { width: screenWidth } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const navigation = useNavigation<StackNavigationProp<RootStackParamList, 'ColorsMatchingGame'>>();
   const { child } = route.params || {}; // -umut: Child bilgisi route'tan alınıyor
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -30,13 +37,6 @@ const ColorsMatchingGameScreen = ({ route }: any) => {
   const [gameCompleted, setGameCompleted] = useState(false);
   const [gameStartTime] = useState(Date.now()); // -umut: Oyun süresini hesaplamak için başlangıç zamanı
   const positions = useRef(items.map(() => new Animated.ValueXY())).current;
-
-  // Responsive: droppableAreas dinamik olarak hesaplanıyor
-  const droppableAreas = [
-    { color: 'red', x: screenWidth * 0.1 },
-    { color: 'green', x: screenWidth * 0.4 },
-    { color: 'blue', x: screenWidth * 0.7 },
-  ];
 
   // -umut: Oyun sonuçlarını backend'e kaydeden fonksiyon (28.10.2025)
   // Çocuğun oyun skorunu, süresini ve tamamlanma durumunu database'e kaydeder

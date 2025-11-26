@@ -4,13 +4,15 @@ import {
   Text,
   StyleSheet,
   Animated,
-  useWindowDimensions,
+  Dimensions,
   TouchableOpacity,
 } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import Tts from 'react-native-tts';
 import { createGameCompletionHandler } from '../../../utils/gameNavigation';
 import { sendGameResult } from '../../../config/api';
+
+const { width, height } = Dimensions.get('window');
 
 interface RouteParams {
   child?: {
@@ -100,7 +102,6 @@ const FAMILY_MEMBERS: FamilyMember[] = [
 ];
 
 export default function MeetMyFamilyLevel1({ navigation }: any) {
-  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const route = useRoute();
   const { child, gameSequence, currentGameIndex, categoryTitle } = (route.params as RouteParams) || {};
 

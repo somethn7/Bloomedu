@@ -10,7 +10,6 @@ import {
   Platform,
   SafeAreaView,
   ActivityIndicator,
-  useWindowDimensions,
 } from 'react-native';
 
 interface Message {
@@ -22,7 +21,6 @@ interface Message {
 
 // -umut: (22.11.2025) Created new AI Chat screen with mock responses (Updated to English)
 const ParentAIChatScreen = ({ navigation }: any) => {
-  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',

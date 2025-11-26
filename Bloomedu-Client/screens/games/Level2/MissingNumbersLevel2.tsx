@@ -6,12 +6,14 @@ import {
   TouchableOpacity,
   Animated,
   Alert,
-  useWindowDimensions,
+  Dimensions,
 } from 'react-native';
 import Tts from 'react-native-tts';
 import { useRoute } from '@react-navigation/native';
 import { createGameCompletionHandler } from '../../../utils/gameNavigation';
 import { sendGameResult } from '../../../config/api';
+
+const { width } = Dimensions.get('window');
 
 interface RouteParams {
   child?: {
@@ -75,7 +77,6 @@ const generateSequence = (): NumberSequence => {
 };
 
 const MissingNumbersLevel2 = ({ navigation }: any) => {
-  const { width } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const route = useRoute();
   const child = (route.params as RouteParams)?.child;
   const gameSequence = (route.params as RouteParams)?.gameSequence;

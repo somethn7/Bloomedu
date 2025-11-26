@@ -6,12 +6,16 @@ import {
   TouchableOpacity,
   Animated,
   Alert,
-  useWindowDimensions,
+  Dimensions,
 } from 'react-native';
 import Tts from 'react-native-tts';
 import { useRoute } from '@react-navigation/native';
 import { createGameCompletionHandler } from '../../../utils/gameNavigation';
 import { sendGameResult } from '../../../config/api';
+
+const { width } = Dimensions.get('window');
+const DROP_SIZE = Math.min(width * 0.18, 90);
+const CARD_SIZE = Math.min(width * 0.18, 80);
 
 interface RouteParams {
   child?: {
@@ -61,16 +65,11 @@ const generateNumbers = (count: number): NumberItem[] => {
 };
 
 const SortNumbersLevel1 = ({ navigation }: any) => {
-  const { width } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const route = useRoute();
   const child = (route.params as RouteParams)?.child;
   const gameSequence = (route.params as RouteParams)?.gameSequence;
   const currentGameIndex = (route.params as RouteParams)?.currentGameIndex ?? -1;
   const categoryTitle = (route.params as RouteParams)?.categoryTitle;
-
-  // Responsive sizing
-  const DROP_SIZE = Math.min(width * 0.18, 90);
-  const CARD_SIZE = Math.min(width * 0.18, 80);
   
   const [numbers, setNumbers] = useState<NumberItem[]>(() => generateNumbers(5));
   const [sortedOrder, setSortedOrder] = useState<number[]>([]);

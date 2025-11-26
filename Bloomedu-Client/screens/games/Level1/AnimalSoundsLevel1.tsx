@@ -5,12 +5,14 @@ import {
   TouchableOpacity,
   StyleSheet,
   Animated,
-  useWindowDimensions,
+  Dimensions,
 } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import Tts from 'react-native-tts';
 import { createGameCompletionHandler } from '../../../utils/gameNavigation';
 import { sendGameResult } from '../../../config/api';
+
+const { width, height } = Dimensions.get('window');
 
 interface RouteParams {
   child?: {
@@ -100,7 +102,6 @@ const ANIMALS = [
 ];
 
 export default function AnimalSoundsLevel1({ navigation }: any) {
-  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const route = useRoute();
   const { child, gameSequence, currentGameIndex, categoryTitle } = (route.params as RouteParams) || {};
 
@@ -472,9 +473,6 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
           styles.bgCircle1, 
           { 
             backgroundColor: animal.color,
-            width: width * 0.65, // Responsive: ekran genişliğinin %65'i
-            height: width * 0.65,
-            borderRadius: (width * 0.65) / 2,
             opacity: bounceAnim.interpolate({
               inputRange: [0, 1],
               outputRange: [0, 0.4],
@@ -487,9 +485,6 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
           styles.bgCircle2, 
           { 
             backgroundColor: animal.color,
-            width: width * 0.47, // Responsive: ekran genişliğinin %47'si
-            height: width * 0.47,
-            borderRadius: (width * 0.47) / 2,
             opacity: bounceAnim.interpolate({
               inputRange: [0, 1],
               outputRange: [0, 0.3],
@@ -502,9 +497,6 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
           styles.bgCircle3, 
           { 
             backgroundColor: animal.color,
-            width: width * 0.39, // Responsive: ekran genişliğinin %39'u
-            height: width * 0.39,
-            borderRadius: (width * 0.39) / 2,
             opacity: bounceAnim.interpolate({
               inputRange: [0, 1],
               outputRange: [0, 0.25],
@@ -699,19 +691,25 @@ const styles = StyleSheet.create({
   },
   bgCircle1: {
     position: 'absolute',
-    // width, height, borderRadius dinamik olarak inline style'dan geliyor
+    width: 250,
+    height: 250,
+    borderRadius: 125,
     top: -80,
     right: -60,
   },
   bgCircle2: {
     position: 'absolute',
-    // width, height, borderRadius dinamik olarak inline style'dan geliyor
+    width: 180,
+    height: 180,
+    borderRadius: 90,
     bottom: 120,
     left: -50,
   },
   bgCircle3: {
     position: 'absolute',
-    // width, height, borderRadius dinamik olarak inline style'dan geliyor
+    width: 150,
+    height: 150,
+    borderRadius: 75,
     top: 150,
     left: -30,
   },

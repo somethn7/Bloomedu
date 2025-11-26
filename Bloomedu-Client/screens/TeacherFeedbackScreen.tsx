@@ -8,12 +8,10 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  useWindowDimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const TeacherFeedbackScreen = ({ route, navigation }: any) => {
-  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const { childId, childName, childSurname, parentId } = route.params || {};
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);

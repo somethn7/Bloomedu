@@ -8,11 +8,9 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  useWindowDimensions,
 } from 'react-native';
 
 const ParentVerifyCodeScreen = ({ navigation, route }: any) => {
-  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const { email } = route.params;  // sadece email almalısın
   const [code, setCode] = useState('');
 

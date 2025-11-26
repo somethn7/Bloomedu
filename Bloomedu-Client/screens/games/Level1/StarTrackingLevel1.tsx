@@ -4,7 +4,7 @@ import {
   Text,
   StyleSheet,
   Animated,
-  useWindowDimensions,
+  Dimensions,
   TouchableOpacity,
   Alert,
 } from 'react-native';
@@ -12,6 +12,13 @@ import { useRoute } from '@react-navigation/native';
 import Tts from 'react-native-tts';
 import { createGameCompletionHandler } from '../../../utils/gameNavigation';
 import { sendGameResult } from '../../../config/api';
+
+const { width, height } = Dimensions.get('window');
+
+// Responsive sizing
+const ITEM_SIZE = Math.min(width, height) * 0.12;
+const TARGET_SIZE = Math.min(width, height) * 0.16;
+const MARGIN = width * 0.12;
 
 interface RouteParams {
   child?: {
@@ -115,14 +122,8 @@ const DIRECTIONS = [
 ];
 
 export default function StarTrackingLevel1({ navigation }: any) {
-  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const route = useRoute();
   const { child, gameSequence, currentGameIndex, categoryTitle } = (route.params as RouteParams) || {};
-
-  // Responsive sizing
-  const ITEM_SIZE = Math.min(width, height) * 0.12;
-  const TARGET_SIZE = Math.min(width, height) * 0.16;
-  const MARGIN = width * 0.12;
 
   const [currentScenario, setCurrentScenario] = useState(0);
   const [score, setScore] = useState(0);

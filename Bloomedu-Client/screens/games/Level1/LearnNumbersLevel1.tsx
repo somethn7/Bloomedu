@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, useWindowDimensions, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, Alert } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import Tts from 'react-native-tts';
 import { createGameCompletionHandler, GameSequenceParams } from '../../../utils/gameNavigation';
 import { sendGameResult } from '../../../config/api';
+
+const { width } = Dimensions.get('window');
 
 interface RouteParams {
   child?: { id: number; level: number; name?: string };
@@ -20,7 +22,6 @@ interface NumberData {
 }
 
 const LearnNumbersLevel1 = ({ navigation }: any) => {
-  const { width } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const route = useRoute();
   const child = (route.params as RouteParams)?.child;
   const gameSequence = (route.params as RouteParams)?.gameSequence;

@@ -7,12 +7,10 @@ import {
   StyleSheet,
   TextInput,
   Alert,
-  useWindowDimensions,
 } from 'react-native';
 import { FeedbackContext, Child } from './Contexts/FeedbackContext';
 
 const ChildInfoScreen: React.FC = () => {
-  const { width, height } = useWindowDimensions(); // Responsive: ekran döndürme desteği
   const feedbackContext = useContext(FeedbackContext);
   if (!feedbackContext) {
     throw new Error('FeedbackContext must be used within FeedbackProvider');

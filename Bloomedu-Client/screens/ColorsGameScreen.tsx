@@ -2,7 +2,7 @@
 // YouTube video içeriği ile renk öğrenimi
 // Video boyutlandırması optimize edildi
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, ScrollView } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 const ColorsGameScreen = ({ navigation, route }: any) => {
@@ -10,7 +10,7 @@ const ColorsGameScreen = ({ navigation, route }: any) => {
 
   const videoUrl = `https://www.youtube.com/embed/qhOTU8_1Af4?autoplay=1&modestbranding=1&rel=0&showinfo=0&playsinline=1`;
 
-  const { width, height: screenHeight } = useWindowDimensions(); // Responsive: ekran döndürme desteği
+  const { width, height: screenHeight } = Dimensions.get('window');
   // -umut: Video boyutu - ekranın %90'ı, 16:9 oranında (28.10.2025)
   const videoWidth = width - 32;
   const videoHeight = (videoWidth * 9) / 16;
