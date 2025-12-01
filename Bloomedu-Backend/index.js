@@ -155,32 +155,45 @@ app.post('/parent/request-reset', async (req, res) => {
 });
 // === RESET PASSWORD ===
 app.post('/parent/reset-password', async (req, res) => {
-  const { email, code, newPassword } = req.body;
-
-  if (!email || !code || !newPassword)
-    return res.status(400).json({ success: false, message: 'Missing fields.' });
-
   try {
-    const result = await pool.query(
-      'SELECT * FROM parents WHERE email = $1 AND verification_code = $2',
-      [email, code]
+    const { email, code, newPassword } = req.body;
+
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ success: false, message: 'Missing fields.' });
+    }
+
+    const parent = await pool.query(
+      'SELECT * FROM parents WHERE email = $1',
+      [email]
     );
 
-    if (result.rows.length === 0)
+    if (parent.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Parent not found.' });
+    }
+
+    const savedCode = parent.rows[0].verification_code;
+
+    if (!savedCode || savedCode !== code) {
       return res.status(400).json({ success: false, message: 'Invalid code.' });
+    }
 
     await pool.query(
       'UPDATE parents SET password = $1, verification_code = NULL WHERE email = $2',
       [newPassword, email]
     );
 
-    res.json({ success: true, message: 'Password reset successful.' });
+    return res.json({ success: true, message: 'Password reset successful.' });
 
   } catch (err) {
     console.error('Error (POST /parent/reset-password):', err);
-    res.status(500).json({ success: false, message: 'Server error resetting password.' });
+    return res.status(500).json({
+      success: false,
+      message: 'Server error resetting password.',
+      error: err.message
+    });
   }
 });
+
 
 
 // === ADD CHILD ===
@@ -560,6 +573,16 @@ app.post('/ai-chat', async (req, res) => {
 
 // === HEALTH CHECK (redundant but safe) ===
 app.get("/health", (req, res) => res.status(200).json({ ok: true }));
+
+
+// === 404 HANDLER (JSON döner, RN JSON parse error çözülür) ===
+app.use((req, res) => {
+  console.log('❌ Route not found:', req.method, req.url);
+  return res.status(404).json({
+    success: false,
+    message: 'Route not found.'
+  });
+});
 
 const port = process.env.PORT || 8080;
 app.listen(port, "0.0.0.0", () => {

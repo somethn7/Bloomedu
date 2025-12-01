@@ -61,6 +61,9 @@ import ChildProgressScreen from './screens/ChildProgressScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import { FeedbackProvider } from './screens/Contexts/FeedbackContext';
 
+// 🔥 Forgot Password ikinci aşama ekranı (Yeni eklenen)
+import ParentVerifyResetCodeScreen from './screens/ParentVerifyResetCodeScreen';
+
 const Stack = createNativeStackNavigator<any>();
 
 export default function App() {
@@ -127,8 +130,6 @@ export default function App() {
           <Stack.Screen name="ColorsGame" component={ColorsGameScreen} />
           <Stack.Screen name="ColorsMatchingGame" component={ColorsMatchingGameScreen} />
           
-          {/* -umut: Level 1 oyunları için navigation route eklendi (28.10.2025) */}
-          {/* Renk tanıma oyunu - Child bilgisini alır ve skorları backend'e kaydeder */}
           {/* === LEVEL 1 GAMES === */}
           <Stack.Screen 
             name="ColorsRecognitionLevel1" 
@@ -194,8 +195,6 @@ export default function App() {
             }}
           />
 
-          {/* -umut: Level 2 oyunları (28.10.2025) */}
-          {/* Renk + Nesne kombinasyonu oyunu */}
           {/* === LEVEL 2 GAMES === */}
           <Stack.Screen 
             name="ColorObjectsLevel2" 
@@ -252,7 +251,7 @@ export default function App() {
             }}
           />
 
-          {/* Level 3 Games */}
+          {/* === LEVEL 3 GAMES === */}
           <Stack.Screen 
             name="ShapeMatchLevel3" 
             component={ShapeMatchLevel3}
@@ -303,11 +302,20 @@ export default function App() {
 
           {/* === OTHER === */}
           <Stack.Screen name="Settings" component={SettingsScreen} />
+
           <Stack.Screen
             name="ParentForgotPassword"
             component={ParentForgotPasswordScreen}
             options={{ title: 'Reset Password', headerTintColor: '#7a8a91' }}
           />
+
+          {/* 🔥 Yeni Forgot Password doğrulama ekranı */}
+          <Stack.Screen
+            name="ParentVerifyReset"
+            component={ParentVerifyResetCodeScreen}
+            options={{ title: 'Verify Code', headerTintColor: '#7a8a91' }}
+          />
+
         </Stack.Navigator>
       </NavigationContainer>
     </FeedbackProvider>
