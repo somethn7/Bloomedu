@@ -22,8 +22,6 @@ app.use(cors());
 // -umut: (23.11.2025) Increased payload limit to 50mb to support Base64 images
 app.use(express.json({ limit: '50mb' }));
 
-// === MOUNT ROUTES ===
-app.use('/', messagesRouter);
 
 // === LOG MIDDLEWARE ===
 app.use((req, res, next) => {
@@ -583,6 +581,8 @@ app.use((req, res) => {
     message: 'Route not found.'
   });
 });
+// === MOUNT ROUTES ===
+app.use('/', messagesRouter);
 
 const port = process.env.PORT || 8080;
 app.listen(port, "0.0.0.0", () => {
