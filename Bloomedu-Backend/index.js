@@ -22,7 +22,6 @@ app.use(cors());
 // -umut: (23.11.2025) Increased payload limit to 50mb to support Base64 images
 app.use(express.json({ limit: '50mb' }));
 
-
 // === LOG MIDDLEWARE ===
 app.use((req, res, next) => {
   console.log(`👉 ${req.method} ${req.url} - Body:`, req.body);
@@ -130,16 +129,13 @@ app.post('/parent/request-reset', async (req, res) => {
     if (parent.rows.length === 0)
       return res.status(404).json({ success: false, message: 'Email not found.' });
 
-    // Generate 6-digit code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Save code in DB
     await pool.query(
       'UPDATE parents SET verification_code = $1 WHERE email = $2',
       [code, email]
     );
 
-    // Send email
     await sendVerificationCode(email, code);
 
     console.log(`📩 Reset code sent to ${email}: ${code}`);
@@ -151,6 +147,7 @@ app.post('/parent/request-reset', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error sending reset code.' });
   }
 });
+
 // === RESET PASSWORD ===
 app.post('/parent/reset-password', async (req, res) => {
   try {
@@ -191,8 +188,6 @@ app.post('/parent/reset-password', async (req, res) => {
     });
   }
 });
-
-
 
 // === ADD CHILD ===
 app.post('/teacher/add-child', async (req, res) => {
@@ -251,7 +246,7 @@ app.get('/children/:teacherId', async (req, res) => {
   }
 });
 
-// === VERIFY CHILD (Parent Add Child) ===
+// === VERIFY CHILD ===
 app.post('/parent/verify-child', async (req, res) => {
   const { firstName, lastName, studentCode, studentPassword, parentId } = req.body;
   if (!firstName || !lastName || !studentCode || !studentPassword || !parentId)
@@ -285,7 +280,6 @@ app.post('/feedback', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Missing fields.' });
 
   try {
-    // 🔹 Eğer parent_id gönderilmediyse çocuk üzerinden bul
     let parentIdToUse = parent_id;
     if (!parent_id || parent_id === 0) {
       const parentResult = await pool.query(
@@ -307,7 +301,6 @@ app.post('/feedback', async (req, res) => {
   }
 });
 
-
 // === GET FEEDBACKS BY PARENT ===
 app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
   const { parentId } = req.params;
@@ -317,7 +310,6 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
   }
 
   try {
-    // -umut: (23.11.2025) SAFE QUERY - Raw selection, processing in JS, using teacher full_name
     const result = await pool.query(
       `SELECT 
          f.id AS feedback_id,
@@ -334,22 +326,16 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
       [parentId]
     );
 
-    // Process data in JS to avoid SQL errors
     const feedbacks = result.rows.map(row => {
-      // Format Teacher Name
       let teacherName = 'Unknown Teacher';
-      if (row.teacher_full_name) {
-        teacherName = row.teacher_full_name;
-      }
+      if (row.teacher_full_name) teacherName = row.teacher_full_name;
 
-      // Format Date (Basic ISO string or formatted)
       let dateStr = '';
       if (row.created_at) {
         try {
           const d = new Date(row.created_at);
-          // Format: YYYY-MM-DD HH:mm:ss
           dateStr = d.toISOString().replace('T', ' ').substring(0, 19);
-        } catch (e) {
+        } catch {
           dateStr = String(row.created_at);
         }
       }
@@ -370,7 +356,6 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error while fetching feedbacks.' });
   }
 });
-
 
 // === CHILDREN BY PARENT ===
 app.get('/children/by-parent/:parentId', async (req, res) => {
@@ -494,7 +479,6 @@ app.get('/progress/:childId', async (req, res) => {
   const { childId } = req.params;
 
   try {
-    // Oyun istatistikleri
     const gameStats = await pool.query(
       `SELECT game_type, level, COUNT(*) as play_count, 
        AVG(score) as avg_score, MAX(score) as best_score,
@@ -506,7 +490,6 @@ app.get('/progress/:childId', async (req, res) => {
       [childId]
     );
 
-    // Video istatistikleri
     const videoStats = await pool.query(
       `SELECT category, level, COUNT(*) as watch_count,
        SUM(watch_duration_seconds) as total_watch_time
@@ -517,7 +500,6 @@ app.get('/progress/:childId', async (req, res) => {
       [childId]
     );
 
-    // Son aktiviteler
     const recentGames = await pool.query(
       `SELECT game_type, level, score, max_score, completed, played_at
        FROM game_sessions 
@@ -539,8 +521,7 @@ app.get('/progress/:childId', async (req, res) => {
   }
 });
 
-// === NEW: AI CHAT BOT (Integrated) ===
-// -umut: (23.11.2025) Added AI Chat Endpoint for the new Pedagogue Bot
+// === AI CHAT BOT ===
 app.post('/ai-chat', async (req, res) => {
   const { message } = req.body;
 
@@ -548,7 +529,6 @@ app.post('/ai-chat', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Message is required.' });
   }
 
-  // Mock AI Response Logic
   let aiResponse = "";
   const lowerMsg = message.toLowerCase();
 
@@ -569,11 +549,10 @@ app.post('/ai-chat', async (req, res) => {
   res.json({ success: true, reply: aiResponse });
 });
 
-// === HEALTH CHECK (redundant but safe) ===
-app.get("/health", (req, res) => res.status(200).json({ ok: true }));
+// === CHAT ROUTES MUST BE LAST (MESSAGES ROUTER) ===
+app.use('/', messagesRouter);
 
-
-// === 404 HANDLER (JSON döner, RN JSON parse error çözülür) ===
+// === 404 HANDLER ===
 app.use((req, res) => {
   console.log('❌ Route not found:', req.method, req.url);
   return res.status(404).json({
@@ -581,8 +560,6 @@ app.use((req, res) => {
     message: 'Route not found.'
   });
 });
-// === MOUNT ROUTES ===
-app.use('/', messagesRouter);
 
 const port = process.env.PORT || 8080;
 app.listen(port, "0.0.0.0", () => {

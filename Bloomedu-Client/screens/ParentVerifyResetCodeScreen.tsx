@@ -14,7 +14,7 @@ export default function ParentVerifyResetCodeScreen({ route, navigation }: any) 
 
     try {
       const res = await fetch(
-        "https://bloomedu-production.up.railway.app/parent/reset-password",
+        "https://bloomedu-production.up.railway.app/parent/reset-password", // NO TRAILING SLASH
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -22,13 +22,21 @@ export default function ParentVerifyResetCodeScreen({ route, navigation }: any) 
         }
       );
 
-      const data = await res.json();
+      let data;
+
+      // SAFE JSON PARSE → backend bazen HTML dönerse sorun çıkmasın
+      try {
+        data = await res.json();
+      } catch {
+        Alert.alert("Error", "Invalid response from server.");
+        return;
+      }
 
       if (res.ok) {
         Alert.alert("Success", "Password changed successfully!");
         navigation.navigate("Login");
       } else {
-        Alert.alert("Error", data.message || "Invalid code.");
+        Alert.alert("Error", data?.message || "Invalid code.");
       }
     } catch (e) {
       Alert.alert("Network Error", "Could not connect to server.");
