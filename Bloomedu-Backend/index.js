@@ -116,6 +116,73 @@ app.post('/parent/verify-code', async (req, res) => {
   }
 });
 
+// === REQUEST PASSWORD RESET CODE ===
+app.post('/parent/request-reset', async (req, res) => {
+  const { email } = req.body;
+
+  if (!email)
+    return res.status(400).json({ success: false, message: 'Email required.' });
+
+  try {
+    const parent = await pool.query(
+      'SELECT * FROM parents WHERE email = $1',
+      [email]
+    );
+
+    if (parent.rows.length === 0)
+      return res.status(404).json({ success: false, message: 'Email not found.' });
+
+    // Generate 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Save code in DB
+    await pool.query(
+      'UPDATE parents SET verification_code = $1 WHERE email = $2',
+      [code, email]
+    );
+
+    // Send email
+    await sendVerificationCode(email, code);
+
+    console.log(`📩 Reset code sent to ${email}: ${code}`);
+
+    res.json({ success: true, message: 'Reset code sent to email.' });
+
+  } catch (err) {
+    console.error('Error (POST /parent/request-reset):', err);
+    res.status(500).json({ success: false, message: 'Server error sending reset code.' });
+  }
+});
+// === RESET PASSWORD ===
+app.post('/parent/reset-password', async (req, res) => {
+  const { email, code, newPassword } = req.body;
+
+  if (!email || !code || !newPassword)
+    return res.status(400).json({ success: false, message: 'Missing fields.' });
+
+  try {
+    const result = await pool.query(
+      'SELECT * FROM parents WHERE email = $1 AND verification_code = $2',
+      [email, code]
+    );
+
+    if (result.rows.length === 0)
+      return res.status(400).json({ success: false, message: 'Invalid code.' });
+
+    await pool.query(
+      'UPDATE parents SET password = $1, verification_code = NULL WHERE email = $2',
+      [newPassword, email]
+    );
+
+    res.json({ success: true, message: 'Password reset successful.' });
+
+  } catch (err) {
+    console.error('Error (POST /parent/reset-password):', err);
+    res.status(500).json({ success: false, message: 'Server error resetting password.' });
+  }
+});
+
+
 // === ADD CHILD ===
 app.post('/teacher/add-child', async (req, res) => {
   const {
