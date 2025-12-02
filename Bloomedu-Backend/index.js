@@ -480,15 +480,16 @@ app.get('/game-sessions/by-child/:childId', async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT 
-         id,
-         game_type,
-         level,
-         score,
-         max_score,
-         duration_seconds,
-         wrong_count,
-         success_rate,
-         played_at
+        id, 
+        game_type, 
+        level, 
+        score, 
+        max_score, 
+        duration_seconds, 
+        wrong_count,
+        success_rate,
+        details,
+        played_at
        FROM game_sessions
        WHERE child_id = $1
        ORDER BY played_at DESC`,
@@ -496,12 +497,12 @@ app.get('/game-sessions/by-child/:childId', async (req, res) => {
     );
 
     res.json({ success: true, sessions: result.rows });
-
   } catch (err) {
     console.error('Error (GET /game-sessions/by-child):', err);
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 });
+
 
 
 // === GET CHILD PROGRESS ===
