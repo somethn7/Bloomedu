@@ -439,8 +439,8 @@ app.post('/game-session', async (req, res) => {
   try {
     await pool.query(
       `INSERT INTO game_sessions 
-       (child_id, game_type, level, score, max_score, duration_seconds, completed) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+       (child_id, game_type, level, score, max_score, duration_seconds, completed, played_at) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
       [child_id, game_type, level, score, max_score, duration_seconds, completed]
     );
 
@@ -451,26 +451,23 @@ app.post('/game-session', async (req, res) => {
   }
 });
 
-// === SAVE VIDEO SESSION ===
-app.post('/video-session', async (req, res) => {
-  const { child_id, video_title, category, level, watch_duration_seconds, completed } = req.body;
-
-  if (!child_id || !video_title || !category) {
-    return res.status(400).json({ success: false, message: 'Missing required fields.' });
-  }
+// === GET GAME SESSIONS BY CHILD ===
+app.get('/game-sessions/by-child/:childId', async (req, res) => {
+  const { childId } = req.params;
 
   try {
-    await pool.query(
-      `INSERT INTO video_sessions 
-       (child_id, video_title, category, level, watch_duration_seconds, completed) 
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [child_id, video_title, category, level, watch_duration_seconds, completed]
+    const result = await pool.query(
+      `SELECT id, game_type, level, score, max_score, duration_seconds, played_at
+       FROM game_sessions
+       WHERE child_id = $1
+       ORDER BY played_at DESC`,
+      [childId]
     );
 
-    res.json({ success: true, message: 'Video session saved successfully.' });
+    res.json({ success: true, sessions: result.rows });
   } catch (err) {
-    console.error('Error (POST /video-session):', err);
-    res.status(500).json({ success: false, message: 'Server error while saving video session.' });
+    console.error('Error (GET /game-sessions/by-child):', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
   }
 });
 

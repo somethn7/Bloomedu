@@ -1,3 +1,4 @@
+// 🚀 ParentChildrenOverviewScreen – UPDATED v2
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -36,14 +37,7 @@ const ParentChildrenOverviewScreen = ({ navigation }: any) => {
         return;
       }
 
-      const mapped = json.children.map((child: any) => ({
-        ...child,
-        dailyPlayMinutes: Math.floor(Math.random() * 60),
-        totalPlayMinutes: Math.floor(Math.random() * 1000),
-        favoriteGames: ['Puzzle Game', 'Memory Match', 'Color Blocks'],
-      }));
-
-      setChildren(mapped);
+      setChildren(json.children);
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Unknown error');
     } finally {
@@ -51,7 +45,6 @@ const ParentChildrenOverviewScreen = ({ navigation }: any) => {
     }
   };
 
-  // 🔥 Normalize survey_completed → TRUE / "TRUE" / 1 hepsi true olur
   const isSurveyDone = (value: any) =>
     value === true || value === "TRUE" || value === 1;
 
@@ -72,12 +65,12 @@ const ParentChildrenOverviewScreen = ({ navigation }: any) => {
           <Text style={styles.studentId}>ID: {child.id}</Text>
         </View>
 
-        <View style={[styles.levelBadge]}>
+        <View style={styles.levelBadge}>
           <Text style={styles.levelBadgeText}>L{child.level || 1}</Text>
         </View>
       </View>
 
-      {/* 🔥 SURVEY DURUMU */}
+      {/* SURVEY */}
       {isSurveyDone(child.survey_completed) ? (
         <View style={styles.statusBadge}>
           <Text style={styles.statusIcon}>✅</Text>
@@ -93,7 +86,7 @@ const ParentChildrenOverviewScreen = ({ navigation }: any) => {
         </TouchableOpacity>
       )}
 
-      {/* 🔥 EĞİTİM BAŞLANGICI */}
+      {/* START LEARNING */}
       {isSurveyDone(child.survey_completed) && (
         <TouchableOpacity
           style={styles.startButton}
@@ -103,24 +96,14 @@ const ParentChildrenOverviewScreen = ({ navigation }: any) => {
         </TouchableOpacity>
       )}
 
-      {/* STATS */}
-      <View style={styles.statsRow}>
-        <View style={styles.statBox}>
-          <Text style={styles.statIcon}>⏱️</Text>
-          <Text style={styles.statValue}>{child.dailyPlayMinutes}</Text>
-          <Text style={styles.statLabel}>Daily mins</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statIcon}>🎯</Text>
-          <Text style={styles.statValue}>{child.totalPlayMinutes}</Text>
-          <Text style={styles.statLabel}>Total mins</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statIcon}>🎮</Text>
-          <Text style={styles.statValue}>{child.favoriteGames.length}</Text>
-          <Text style={styles.statLabel}>Games</Text>
-        </View>
-      </View>
+      {/* ✨ NEW: VIEW DETAILS BUTTON */}
+      <TouchableOpacity
+        style={styles.detailsButton}
+        onPress={() => navigation.navigate("ChildGameDetails", { child })}
+      >
+        <Text style={styles.detailsText}>📊 View Details</Text>
+      </TouchableOpacity>
+
     </View>
   );
 
@@ -165,6 +148,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+
   backButton: {
     width: 40,
     height: 40,
@@ -240,20 +224,21 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 14,
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 12,
   },
   startButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 
-  statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  statBox: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-    padding: 12,
+  /** 🌟 NEW DETAILS BUTTON */
+  detailsButton: {
+    backgroundColor: "#FFB7D5",
+    paddingVertical: 12,
     borderRadius: 12,
-    alignItems: 'center',
-    marginHorizontal: 4,
+    alignItems: "center",
+    marginTop: 6,
   },
-  statIcon: { fontSize: 20 },
-  statValue: { fontSize: 18, fontWeight: '700', color: '#2D3748' },
-  statLabel: { fontSize: 12, color: '#6B7280' },
+  detailsText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#7A003C",
+  },
 });

@@ -23,8 +23,11 @@ export const API_ENDPOINTS = {
   UPDATE_LEVEL: (childId: number) => `${API_BASE_URL}/children/${childId}/update-level`,
   MARK_SURVEY_COMPLETE: (childId: number) => `${API_BASE_URL}/children/${childId}/mark-survey-complete`,
   
-  // Game Sessions (oyunlar ve videolar burada tutulur)
+  // Game Sessions
   GAME_SESSION: `${API_BASE_URL}/game-session`,
+  GAME_SESSIONS_BY_CHILD: (childId: number) =>
+    `${API_BASE_URL}/game-sessions/by-child/${childId}`,  // ⭐ YENİ EKLENDİ
+  
   PROGRESS: (childId: number) => `${API_BASE_URL}/progress/${childId}`,
   
   // Feedback
@@ -64,9 +67,15 @@ export const sendGameResult = async (data: {
       console.warn('⚠️ Failed to save game session:', result.message);
     }
     return result;
+
   } catch (error) {
-    console.error('❌ Error sending game data:', error instanceof Error ? error.message : 'Unknown error');
-    return { success: false, error: error instanceof Error ? error.message : 'Network error' };
+    console.error(
+      '❌ Error sending game data:',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Network error',
+    };
   }
 };
-

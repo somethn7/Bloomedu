@@ -1,6 +1,9 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
+
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+
+import ChildGameDetailsScreen from './screens/ChildGameDetailsScreen';
 
 import SplashScreen from './screens/SplashScreen';
 import HomeScreen from './screens/HomeScreen';
@@ -108,6 +111,11 @@ export default function App() {
           <Stack.Screen name="CategoryGames" component={CategoryGamesScreen} options={{ headerShown: false }} />
           <Stack.Screen name="ColorsGame" component={ColorsGameScreen} />
           <Stack.Screen name="ColorsMatchingGame" component={ColorsMatchingGameScreen} />
+          <Stack.Screen
+        name="ChildGameDetails"
+        component={ChildGameDetailsScreen}
+          options={{ headerShown: false }}
+            />
 
           {/* === Level Games === */}
           <Stack.Screen name="ColorsRecognitionLevel1" component={ColorsRecognitionLevel1} />
