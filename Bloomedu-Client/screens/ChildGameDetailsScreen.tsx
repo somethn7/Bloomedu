@@ -1,4 +1,8 @@
-// 🚀 FINAL GAME DETAILS — WRONG + SUCCESS INCLUDED
+// 🚀 FINAL ✨ MODERN GAME DETAILS SCREEN ✨
+// - Correct bars for wrong / success
+// - Backend safe values
+// - Today / Yesterday / Earlier
+// - Modern UI
 
 import React, { useEffect, useState } from "react";
 import {
@@ -25,8 +29,18 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
     try {
       const res = await fetch(API_ENDPOINTS.GAME_SESSIONS_BY_CHILD(child.id));
       const json = await res.json();
+      if (json.success) {
+        // 👇 SAFE VALUES
+        const cleaned = json.sessions.map((s: any) => ({
+          ...s,
+          wrong_count: Number(s.wrong_count) || 0,
+          success_rate: Number(s.success_rate) || 0,
+          score: Number(s.score) || 0,
+          max_score: Number(s.max_score) || 1,
+        }));
 
-      if (json.success) setSessions(json.sessions);
+        setSessions(cleaned);
+      }
     } catch (e) {
       console.log("❌", e);
     } finally {
@@ -34,40 +48,140 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
     }
   };
 
-  const formatDate = (d: string) => {
+  const formatDate = (dateString: string) => {
     try {
-      const x = new Date(d);
-      return `${x.toLocaleDateString()} – ${x.toLocaleTimeString()}`;
+      const d = new Date(dateString);
+      return d.toLocaleString("tr-TR", {
+        timeZone: "Europe/Istanbul",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
     } catch {
-      return "Unknown";
+      return "Unknown date";
     }
   };
 
-  const render = (s: any) => (
+  // GROUP BY DATE ===================================
+  const groupByDate = () => {
+    const todayList: any[] = [];
+    const yesterdayList: any[] = [];
+    const earlierList: any[] = [];
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    sessions.forEach((s) => {
+      const played = new Date(s.played_at);
+      const clean = new Date(played);
+      clean.setHours(0, 0, 0, 0);
+
+      if (clean.getTime() === today.getTime()) todayList.push(s);
+      else if (clean.getTime() === yesterday.getTime()) yesterdayList.push(s);
+      else earlierList.push(s);
+    });
+
+    return { todayList, yesterdayList, earlierList };
+  };
+
+  const { todayList, yesterdayList, earlierList } = groupByDate();
+
+  // BAR COMPONENT ===================================
+  const StatBar = ({ label, value, max, color }: any) => {
+    const percent = Math.min((value / max) * 100, 100);
+    return (
+      <View style={{ marginTop: 6 }}>
+        <Text style={styles.statLabel}>
+          {label}: {value}
+        </Text>
+        <View style={styles.barBackground}>
+          <View
+            style={[
+              styles.barFill,
+              { width: `${percent}%`, backgroundColor: color },
+            ]}
+          />
+        </View>
+      </View>
+    );
+  };
+
+  // SESSION CARD ====================================
+  const renderSession = (s: any) => (
     <View key={s.id} style={styles.card}>
       <View style={styles.row}>
         <Text style={styles.game}>🎮 {s.game_type?.toUpperCase()}</Text>
-        <Text style={styles.badge}>L{s.level}</Text>
+        <Text style={styles.badge}>Level {s.level}</Text>
       </View>
 
-      <Text style={styles.text}>Score: {s.score}/{s.max_score}</Text>
-      <Text style={styles.text}>Wrong answers: {s.wrong_count}</Text>
-      <Text style={styles.text}>Success rate: {s.success_rate}%</Text>
-      <Text style={styles.text}>Duration: {Math.round(s.duration_seconds/60)} mins</Text>
+      {/* BARS */}
+      <StatBar label="Score" value={s.score} max={s.max_score} color="#4CAF50" />
+      <StatBar
+        label="Wrong"
+        value={s.wrong_count}
+        max={s.max_score}
+        color="#FF5252"
+      />
+      <StatBar
+        label="Success %"
+        value={s.success_rate}
+        max={100}
+        color="#FFC107"
+      />
 
+      <Text style={styles.duration}>⏱ {Math.round(s.duration_seconds / 60)} mins</Text>
       <Text style={styles.date}>{formatDate(s.played_at)}</Text>
     </View>
   );
 
   return (
     <View style={styles.container}>
+      {/* HEADER */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{child.name}'s Games</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         {loading ? (
           <ActivityIndicator size="large" color="#FF6B9A" />
-        ) : sessions.length === 0 ? (
-          <Text style={styles.no}>No game activity found.</Text>
         ) : (
-          sessions.map(render)
+          <>
+            {/* TODAY */}
+            <Text style={styles.section}>📅 Today</Text>
+            {todayList.length === 0 ? (
+              <Text style={styles.empty}>No activity today.</Text>
+            ) : (
+              todayList.map(renderSession)
+            )}
+
+            {/* YESTERDAY */}
+            <Text style={styles.section}>📅 Yesterday</Text>
+            {yesterdayList.length === 0 ? (
+              <Text style={styles.empty}>No activity yesterday.</Text>
+            ) : (
+              yesterdayList.map(renderSession)
+            )}
+
+            {/* EARLIER */}
+            <Text style={styles.section}>📅 Earlier</Text>
+            {earlierList.length === 0 ? (
+              <Text style={styles.empty}>No earlier activity.</Text>
+            ) : (
+              earlierList.map(renderSession)
+            )}
+          </>
         )}
       </ScrollView>
     </View>
@@ -76,25 +190,91 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
 
 export default ChildGameDetailsScreen;
 
+// STYLES ============================================
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFF" },
-  card: {
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: "#FFF",
-    marginBottom: 12,
-    elevation: 2,
+
+  header: {
+    backgroundColor: "#FF6B9A",
+    paddingTop: 55,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
-  row: { flexDirection: "row", justifyContent: "space-between" },
-  game: { fontSize: 16, fontWeight: "700" },
-  badge: {
-    backgroundColor: "#FFD1DC",
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 10,
+
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.25)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  backIcon: { fontSize: 22, color: "#fff", fontWeight: "700" },
+  headerTitle: { fontSize: 18, color: "#fff", fontWeight: "700" },
+
+  section: {
+    marginTop: 18,
+    fontSize: 20,
     fontWeight: "700",
+    color: "#333",
   },
-  text: { marginTop: 4, fontSize: 14, color: "#444" },
-  date: { marginTop: 6, color: "#777", fontSize: 12 },
-  no: { textAlign: "center", marginTop: 40, color: "#777" },
+
+  card: {
+    marginTop: 10,
+    padding: 16,
+    borderRadius: 14,
+    backgroundColor: "#FFF",
+    borderLeftWidth: 6,
+    borderLeftColor: "#FF6B9A",
+    elevation: 4,
+  },
+
+  row: { flexDirection: "row", justifyContent: "space-between" },
+  game: { fontSize: 17, fontWeight: "700", color: "#444" },
+
+  badge: {
+    backgroundColor: "#FFE4EC",
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#C2185B",
+  },
+
+  statLabel: {
+    fontSize: 14,
+    color: "#555",
+    fontWeight: "600",
+  },
+
+  barBackground: {
+    height: 8,
+    backgroundColor: "#EEE",
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+
+  barFill: { height: "100%", borderRadius: 10 },
+
+  duration: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "#444",
+    fontWeight: "600",
+  },
+
+  date: {
+    marginTop: 6,
+    fontSize: 13,
+    color: "#777",
+    fontWeight: "500",
+  },
+
+  empty: { color: "#AAA", marginTop: 4, fontStyle: "italic" },
 });

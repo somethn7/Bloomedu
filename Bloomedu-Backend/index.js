@@ -479,7 +479,16 @@ app.get('/game-sessions/by-child/:childId', async (req, res) => {
 
   try {
     const result = await pool.query(
-      `SELECT id, game_type, level, score, max_score, duration_seconds, played_at
+      `SELECT 
+          id, 
+          game_type, 
+          level, 
+          score, 
+          max_score, 
+          duration_seconds, 
+          COALESCE(wrong_count, 0) AS wrong_count,
+          COALESCE(success_rate, 0) AS success_rate,
+          played_at
        FROM game_sessions
        WHERE child_id = $1
        ORDER BY played_at DESC`,
