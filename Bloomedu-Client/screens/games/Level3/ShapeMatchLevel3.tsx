@@ -1,3 +1,5 @@
+// 🚀 FINAL ShapeMatchLevel3 – FULL WRONG & SUCCESS SUPPORT
+
 import React, { useState, useEffect, useRef } from "react";
 import {
   View,
@@ -15,6 +17,7 @@ import { sendGameResult } from "../../../config/api";
 
 const { width } = Dimensions.get("window");
 
+// Shape options
 const SHAPES = [
   { id: 1, type: "circle", color: "#FFD1DC" },
   { id: 2, type: "square", color: "#B5EAD7" },
@@ -24,26 +27,15 @@ const SHAPES = [
 
 const TOTAL_QUESTIONS = 10;
 
-interface RouteParams {
-  child?: {
-    id: number;
-    level: number;
-    name?: string;
-  };
-  gameSequence?: any[];
-  currentGameIndex?: number;
-  categoryTitle?: string;
-}
-
 const ShapeMatchLevel3 = ({ navigation }: any) => {
   const route = useRoute();
-  const { child, gameSequence, currentGameIndex, categoryTitle } =
-    (route.params as RouteParams) || {};
+  const { child, gameSequence, currentGameIndex, categoryTitle }: any =
+    route.params || {};
 
   const [targetShape, setTargetShape] = useState<any>(null);
   const [options, setOptions] = useState<any[]>([]);
   const [feedback, setFeedback] = useState("");
-  const [score, setScore] = useState(0); // SKOR: Doğru cevaplardan yanlış düşülür
+  const [score, setScore] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
   const [currentQuestion, setCurrentQuestion] = useState(1);
   const [gameFinished, setGameFinished] = useState(false);
@@ -54,12 +46,10 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // TTS ayarları
-    Tts.setDefaultLanguage('en-US').catch(() => {});
-    Tts.setDefaultRate(0.3); // Yavaş konuşma
+    Tts.setDefaultLanguage("en-US").catch(() => {});
+    Tts.setDefaultRate(0.3);
     Tts.setDefaultPitch(1.0);
-    Tts.setIgnoreSilentSwitch('ignore');
-    
+    Tts.setIgnoreSilentSwitch("ignore");
     newQuestion();
   }, []);
 
@@ -69,11 +59,10 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
     const newTarget = SHAPES[Math.floor(Math.random() * SHAPES.length)];
     setTargetShape(newTarget);
     setOptions([...SHAPES].sort(() => Math.random() - 0.5));
-    
-    // Şekil adını söyle
+
     setTimeout(() => {
       Tts.speak(`Find the ${newTarget.type}`);
-    }, 500);
+    }, 400);
   };
 
   const selectShape = (shape: any) => {
@@ -83,14 +72,12 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
     const isCorrect = shape.id === targetShape.id;
 
     if (isCorrect) {
-      // Doğru cevap - skor artar
       setScore((p) => p + 1);
       setFeedback("correct");
       animateFeedback(true);
-      Tts.speak("Correct! Well done!");
+      Tts.speak("Correct!");
       setTimeout(() => nextStep(), 800);
     } else {
-      // Yanlış cevap - skor düşer (minimum 0)
       setScore((p) => Math.max(0, p - 1));
       setWrongCount((p) => p + 1);
       setFeedback("wrong");
@@ -118,26 +105,10 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
 
   const runShake = () => {
     Animated.sequence([
-      Animated.timing(shakeAnim, {
-        toValue: 6,
-        duration: 80,
-        useNativeDriver: false,
-      }),
-      Animated.timing(shakeAnim, {
-        toValue: -6,
-        duration: 80,
-        useNativeDriver: false,
-      }),
-      Animated.timing(shakeAnim, {
-        toValue: 6,
-        duration: 80,
-        useNativeDriver: false,
-      }),
-      Animated.timing(shakeAnim, {
-        toValue: 0,
-        duration: 80,
-        useNativeDriver: false,
-      }),
+      Animated.timing(shakeAnim, { toValue: 6, duration: 80, useNativeDriver: false }),
+      Animated.timing(shakeAnim, { toValue: -6, duration: 80, useNativeDriver: false }),
+      Animated.timing(shakeAnim, { toValue: 6, duration: 80, useNativeDriver: false }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 80, useNativeDriver: false }),
     ]).start();
   };
 
@@ -160,38 +131,40 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
   };
 
   const sendToDatabase = async () => {
-    if (!child?.id) {
-      console.warn('⚠️ Child ID not found, skipping score save.');
-      return;
-    }
+    if (!child?.id) return;
 
     const totalTime = Date.now() - gameStartTime;
+    const totalAnswered = currentQuestion - 1;
+    const successRate =
+      totalAnswered > 0 ? Math.round((score / totalAnswered) * 100) : 0;
+
     await sendGameResult({
       child_id: child.id,
-      game_type: 'shape-match',
+      game_type: "shape-match",
       level: 3,
-      score: score, // Güncel skor (yanlış cevaplar düşülmüş)
+      score,
       max_score: TOTAL_QUESTIONS,
       duration_seconds: Math.floor(totalTime / 1000),
+      wrong_count: wrongCount,
+      success_rate: successRate,
+      details: {
+        totalQuestions: TOTAL_QUESTIONS,
+        wrongCount,
+        successRate,
+      },
       completed: true,
     });
   };
 
-  // Oyun bittiği an
   useEffect(() => {
     if (gameFinished) {
-      // 1) Önce DB'ye gönder
       sendToDatabase();
-
-      // 2) Sonra completion handler'ı çağır
       handleGameCompletion();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gameFinished]);
 
   const handleGameCompletion = () => {
     Tts.stop();
-    
     const gameNav = createGameCompletionHandler({
       navigation,
       child,
@@ -202,9 +175,9 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
     });
 
     gameNav.showCompletionMessage(
-      score, // Güncel skor (yanlış düşülmüş)
+      score,
       TOTAL_QUESTIONS,
-      '🎉 Amazing! You matched all the shapes perfectly!'
+      "🎉 Amazing job!"
     );
   };
 
@@ -214,37 +187,16 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
       feedback === "correct" ? ["#FFF", "#77DD77"] : ["#FFF", "#FF6961"],
   });
 
-  // Başarı oranı hesaplama
   const totalAnswered = currentQuestion > 1 ? currentQuestion - 1 : 0;
   const successRate =
-    totalAnswered > 0
-      ? Math.round((score / totalAnswered) * 100)
-      : 0;
+    totalAnswered > 0 ? Math.round((score / totalAnswered) * 100) : 0;
 
   const renderShape = (type: string, color: string, size = 90) => {
     switch (type) {
       case "circle":
-        return (
-          <View
-            style={{
-              width: size,
-              height: size,
-              borderRadius: size / 2,
-              backgroundColor: color,
-            }}
-          />
-        );
+        return <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color }} />;
       case "square":
-        return (
-          <View
-            style={{
-              width: size,
-              height: size,
-              borderRadius: 18,
-              backgroundColor: color,
-            }}
-          />
-        );
+        return <View style={{ width: size, height: size, borderRadius: 18, backgroundColor: color }} />;
       case "triangle":
         return (
           <View
@@ -261,7 +213,7 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
           />
         );
       case "star":
-        return <Text style={{ fontSize: size * 0.8, color: "#FFD700" }}>★</Text>;
+        return <Text style={{ fontSize: size * 0.9, color: "#FFD700" }}>★</Text>;
       default:
         return null;
     }
@@ -270,12 +222,14 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
+
         {/* HEADER */}
         <View style={styles.header}>
           <View>
             <Text style={styles.title}>🌼 Shape Match</Text>
             <Text style={styles.subtitle}>Level 3</Text>
           </View>
+
           <View style={styles.progressBox}>
             <Text style={styles.questionCounter}>
               {currentQuestion}/{TOTAL_QUESTIONS}
@@ -284,11 +238,7 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
               <View
                 style={[
                   styles.progressFill,
-                  {
-                    width: `${
-                      (currentQuestion / TOTAL_QUESTIONS) * 100
-                    }%`,
-                  },
+                  { width: `${(currentQuestion / TOTAL_QUESTIONS) * 100}%` },
                 ]}
               />
             </View>
@@ -302,11 +252,13 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
             <Text style={styles.scoreNumber}>{score}</Text>
             <Text style={styles.scoreLabel}>Score</Text>
           </View>
+
           <View style={[styles.scoreCard, { borderTopColor: "#FF8787" }]}>
             <Text style={styles.scoreEmoji}>✗</Text>
             <Text style={styles.scoreNumber}>{wrongCount}</Text>
             <Text style={styles.scoreLabel}>Wrong</Text>
           </View>
+
           <View style={[styles.scoreCard, { borderTopColor: "#FFD43B" }]}>
             <Text style={styles.scoreEmoji}>⭐</Text>
             <Text style={styles.scoreNumber}>{successRate}%</Text>
@@ -402,7 +354,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 2,
     elevation: 2,
   },
-  scoreEmoji: { fontSize: 20, marginBottom: 4 },
+  scoreEmoji: { fontSize: 20 },
   scoreNumber: { fontSize: 20, fontWeight: "700", color: "#4A4A4A" },
   scoreLabel: { fontSize: 11, color: "#888" },
   target: { alignItems: "center", marginVertical: 16 },
@@ -428,4 +380,3 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
   },
 });
-

@@ -430,7 +430,18 @@ app.post('/parent/login', async (req, res) => {
 
 // === SAVE GAME SESSION ===
 app.post('/game-session', async (req, res) => {
-  const { child_id, game_type, level, score, max_score, duration_seconds, completed } = req.body;
+  const {
+    child_id,
+    game_type,
+    level,
+    score,
+    max_score,
+    duration_seconds,
+    wrong_count,
+    success_rate,
+    details,
+    completed
+  } = req.body;
 
   if (!child_id || !game_type || level === undefined || score === undefined) {
     return res.status(400).json({ success: false, message: 'Missing required fields.' });
@@ -439,9 +450,20 @@ app.post('/game-session', async (req, res) => {
   try {
     await pool.query(
       `INSERT INTO game_sessions 
-       (child_id, game_type, level, score, max_score, duration_seconds, completed, played_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
-      [child_id, game_type, level, score, max_score, duration_seconds, completed]
+       (child_id, game_type, level, score, max_score, duration_seconds, wrong_count, success_rate, details, completed, played_at) 
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,NOW())`,
+      [
+        child_id,
+        game_type,
+        level,
+        score,
+        max_score,
+        duration_seconds,
+        wrong_count || 0,
+        success_rate || 0,
+        details || null,
+        completed
+      ]
     );
 
     res.json({ success: true, message: 'Game session saved successfully.' });
