@@ -447,6 +447,10 @@ app.post('/game-session', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Missing required fields.' });
   }
 
+  // 🔥 EN ÖNEMLİ SATIRLAR — undefined → 0 yapar
+  const safeWrong = Number(wrong_count) || 0;
+  const safeSuccess = Number(success_rate) || 0;
+
   try {
     await pool.query(
       `INSERT INTO game_sessions 
@@ -459,8 +463,8 @@ app.post('/game-session', async (req, res) => {
         score,
         max_score,
         duration_seconds,
-        wrong_count || 0,
-        success_rate || 0,
+        safeWrong,
+        safeSuccess,
         details || null,
         completed
       ]
@@ -473,6 +477,7 @@ app.post('/game-session', async (req, res) => {
   }
 });
 
+
 // === GET GAME SESSIONS BY CHILD ===
 app.get('/game-sessions/by-child/:childId', async (req, res) => {
   const { childId } = req.params;
@@ -480,12 +485,12 @@ app.get('/game-sessions/by-child/:childId', async (req, res) => {
   try {
     const result = await pool.query(
       `SELECT 
-        id, 
-        game_type, 
-        level, 
-        score, 
-        max_score, 
-        duration_seconds, 
+        id,
+        game_type,
+        level,
+        score,
+        max_score,
+        duration_seconds,
         wrong_count,
         success_rate,
         details,
@@ -496,13 +501,14 @@ app.get('/game-sessions/by-child/:childId', async (req, res) => {
       [childId]
     );
 
+    console.log("🎮 GAME SESSIONS FOUND:", result.rows);
+
     res.json({ success: true, sessions: result.rows });
   } catch (err) {
     console.error('Error (GET /game-sessions/by-child):', err);
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 });
-
 
 
 // === GET CHILD PROGRESS ===

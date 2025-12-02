@@ -1,8 +1,9 @@
 // 🚀 FINAL ✨ MODERN GAME DETAILS SCREEN ✨
-// - Correct bars for wrong / success
-// - Backend safe values
-// - Today / Yesterday / Earlier
-// - Modern UI
+// - Back button fixed
+// - Today / Yesterday / Earlier working
+// - Bars correct
+// - Cleaned JSON values
+// - Istanbul timezone
 
 import React, { useEffect, useState } from "react";
 import {
@@ -29,8 +30,8 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
     try {
       const res = await fetch(API_ENDPOINTS.GAME_SESSIONS_BY_CHILD(child.id));
       const json = await res.json();
+
       if (json.success) {
-        // 👇 SAFE VALUES
         const cleaned = json.sessions.map((s: any) => ({
           ...s,
           wrong_count: Number(s.wrong_count) || 0,
@@ -42,16 +43,16 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
         setSessions(cleaned);
       }
     } catch (e) {
-      console.log("❌", e);
+      console.log("❌ ERROR:", e);
     } finally {
       setLoading(false);
     }
   };
 
-  const formatDate = (dateString: string) => {
+  // 🔥 DATE FORMAT
+  const formatDate = (d: string) => {
     try {
-      const d = new Date(dateString);
-      return d.toLocaleString("tr-TR", {
+      return new Date(d).toLocaleString("tr-TR", {
         timeZone: "Europe/Istanbul",
         year: "numeric",
         month: "2-digit",
@@ -64,7 +65,7 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
     }
   };
 
-  // GROUP BY DATE ===================================
+  // 🔥 GROUPING
   const groupByDate = () => {
     const todayList: any[] = [];
     const yesterdayList: any[] = [];
@@ -74,7 +75,7 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
     today.setHours(0, 0, 0, 0);
 
     const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
+    yesterday.setDate(today.getDate() - 1);
 
     sessions.forEach((s) => {
       const played = new Date(s.played_at);
@@ -91,14 +92,16 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
 
   const { todayList, yesterdayList, earlierList } = groupByDate();
 
-  // BAR COMPONENT ===================================
+  // 🔥 BAR COMPONENT
   const StatBar = ({ label, value, max, color }: any) => {
     const percent = Math.min((value / max) * 100, 100);
+
     return (
       <View style={{ marginTop: 6 }}>
         <Text style={styles.statLabel}>
           {label}: {value}
         </Text>
+
         <View style={styles.barBackground}>
           <View
             style={[
@@ -111,7 +114,7 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
     );
   };
 
-  // SESSION CARD ====================================
+  // 🔥 SESSION CARD
   const renderSession = (s: any) => (
     <View key={s.id} style={styles.card}>
       <View style={styles.row}>
@@ -119,7 +122,6 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
         <Text style={styles.badge}>Level {s.level}</Text>
       </View>
 
-      {/* BARS */}
       <StatBar label="Score" value={s.score} max={s.max_score} color="#4CAF50" />
       <StatBar
         label="Wrong"
@@ -134,25 +136,28 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
         color="#FFC107"
       />
 
-      <Text style={styles.duration}>⏱ {Math.round(s.duration_seconds / 60)} mins</Text>
+      <Text style={styles.duration}>
+        ⏱ {Math.round(s.duration_seconds / 60)} mins
+      </Text>
+
       <Text style={styles.date}>{formatDate(s.played_at)}</Text>
     </View>
   );
 
   return (
     <View style={styles.container}>
-      {/* HEADER */}
+      {/* 🔥 PINK HEADER + BACK BUTTON */}
       <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          style={styles.backButton}
-        >
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
+
         <Text style={styles.headerTitle}>{child.name}'s Games</Text>
+
         <View style={{ width: 40 }} />
       </View>
 
+      {/* MAIN CONTENT */}
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         {loading ? (
           <ActivityIndicator size="large" color="#FF6B9A" />
@@ -160,26 +165,20 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
           <>
             {/* TODAY */}
             <Text style={styles.section}>📅 Today</Text>
-            {todayList.length === 0 ? (
+            {todayList.length ? todayList.map(renderSession) : (
               <Text style={styles.empty}>No activity today.</Text>
-            ) : (
-              todayList.map(renderSession)
             )}
 
             {/* YESTERDAY */}
             <Text style={styles.section}>📅 Yesterday</Text>
-            {yesterdayList.length === 0 ? (
+            {yesterdayList.length ? yesterdayList.map(renderSession) : (
               <Text style={styles.empty}>No activity yesterday.</Text>
-            ) : (
-              yesterdayList.map(renderSession)
             )}
 
             {/* EARLIER */}
             <Text style={styles.section}>📅 Earlier</Text>
-            {earlierList.length === 0 ? (
+            {earlierList.length ? earlierList.map(renderSession) : (
               <Text style={styles.empty}>No earlier activity.</Text>
-            ) : (
-              earlierList.map(renderSession)
             )}
           </>
         )}
@@ -190,7 +189,7 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
 
 export default ChildGameDetailsScreen;
 
-// STYLES ============================================
+// 🎨 STYLES
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFF" },
 
@@ -215,6 +214,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   backIcon: { fontSize: 22, color: "#fff", fontWeight: "700" },
+
   headerTitle: { fontSize: 18, color: "#fff", fontWeight: "700" },
 
   section: {
@@ -235,6 +235,7 @@ const styles = StyleSheet.create({
   },
 
   row: { flexDirection: "row", justifyContent: "space-between" },
+
   game: { fontSize: 17, fontWeight: "700", color: "#444" },
 
   badge: {
