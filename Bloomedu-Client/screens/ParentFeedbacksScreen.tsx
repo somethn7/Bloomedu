@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,11 @@ const ParentFeedbacksScreen = ({ navigation }) => {
   const [feedbacks, setFeedbacks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
+
+  // 🔥 ÜSTTEKİ BEYAZ PANELİ TAMAMEN KALDIRIYORUZ
+  useLayoutEffect(() => {
+    navigation.setOptions({ headerShown: false });
+  }, [navigation]);
 
   const fetchFeedbacks = async () => {
     try {
@@ -39,7 +44,7 @@ const ParentFeedbacksScreen = ({ navigation }) => {
   }, []);
 
   // 🔹 Artık sadece feedback_id gönderiyoruz
-  const markOneAsRead = async (feedbackId: number) => {
+  const markOneAsRead = async (feedbackId) => {
     try {
       await fetch(
         `https://bloomedu-production.up.railway.app/feedbacks/mark-read-single`,
@@ -72,7 +77,7 @@ const ParentFeedbacksScreen = ({ navigation }) => {
     return (
       <ActivityIndicator
         size="large"
-        color="#FF6B9A"
+        color="#6bfff3ff"
         style={{ marginTop: 50 }}
       />
     );
@@ -171,6 +176,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     elevation: 8,
   },
+
   backButton: {
     width: 45,
     height: 45,
@@ -179,7 +185,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   backArrow: { fontSize: 26, color: 'white', fontWeight: '700' },
+
   headerTitle: {
     flex: 1,
     textAlign: 'center',
@@ -202,7 +210,8 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
 
-  cardClosed: { backgroundColor: '#FFE0EA' },
+  // 🎨 GREEN THEMING
+  cardClosed: { backgroundColor: '#f7f1feff' }, // Açık yeşil
   cardOpened: { backgroundColor: 'white' },
 
   newBanner: {
@@ -217,6 +226,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
   },
+
   newBannerText: {
     color: 'white',
     fontSize: 14,
@@ -239,17 +249,20 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 18,
   },
+
   expandedLine: {
     fontSize: 15,
     marginBottom: 8,
     color: '#333',
   },
+
   messageTitle: {
     marginTop: 12,
     fontWeight: '700',
     fontSize: 17,
     color: '#444',
   },
+
   message: {
     marginTop: 6,
     fontSize: 15,
@@ -257,3 +270,4 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 });
+
