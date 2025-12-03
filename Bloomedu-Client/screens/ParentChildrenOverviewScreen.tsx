@@ -1,5 +1,5 @@
-// 🚀 ParentChildrenOverviewScreen – UPDATED v2
-import React, { useEffect, useState } from 'react';
+// 🚀 ParentChildrenOverviewScreen – UPDATED v3 (header removed!)
+import React, { useEffect, useState, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const ParentChildrenOverviewScreen = ({ navigation }: any) => {
   const [children, setChildren] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // 🔥 REMOVE React Navigation default header
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: false,
+    });
+  }, [navigation]);
 
   useEffect(() => {
     fetchChildren();
@@ -65,8 +72,11 @@ const ParentChildrenOverviewScreen = ({ navigation }: any) => {
           <Text style={styles.studentId}>ID: {child.id}</Text>
         </View>
 
+        {/* LEVEL BADGE — boş çizgi, survey tamamlanınca görünür */}
         <View style={styles.levelBadge}>
-          <Text style={styles.levelBadgeText}>L{child.level || 1}</Text>
+          <Text style={styles.levelBadgeText}>
+            {isSurveyDone(child.survey_completed) ? `Level ${child.level}` : `—`}
+          </Text>
         </View>
       </View>
 
@@ -96,7 +106,7 @@ const ParentChildrenOverviewScreen = ({ navigation }: any) => {
         </TouchableOpacity>
       )}
 
-      {/* ✨ NEW: VIEW DETAILS BUTTON */}
+      {/* VIEW DETAILS */}
       <TouchableOpacity
         style={styles.detailsButton}
         onPress={() => navigation.navigate("ChildGameDetails", { child })}
@@ -109,9 +119,12 @@ const ParentChildrenOverviewScreen = ({ navigation }: any) => {
 
   return (
     <View style={styles.container}>
-      {/* HEADER */}
+      {/* CUSTOM HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Your Children</Text>
@@ -228,7 +241,6 @@ const styles = StyleSheet.create({
   },
   startButtonText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 
-  /** 🌟 NEW DETAILS BUTTON */
   detailsButton: {
     backgroundColor: "#FFB7D5",
     paddingVertical: 12,

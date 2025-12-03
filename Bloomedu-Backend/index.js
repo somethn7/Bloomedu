@@ -289,8 +289,10 @@ app.post('/feedback', async (req, res) => {
       parentIdToUse = parentResult.rows[0]?.parent_id || null;
     }
 
+    // 🔥 Burada is_read = false ekliyoruz
     await pool.query(
-      'INSERT INTO feedbacks (child_id, parent_id, teacher_id, message) VALUES ($1,$2,$3,$4)',
+      `INSERT INTO feedbacks (child_id, parent_id, teacher_id, message, is_read)
+       VALUES ($1,$2,$3,$4, FALSE)`,
       [child_id, parentIdToUse, teacher_id, message]
     );
 
@@ -300,6 +302,7 @@ app.post('/feedback', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error while saving feedback.' });
   }
 });
+
 
 // === GET FEEDBACKS BY PARENT ===
 app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
@@ -315,8 +318,11 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
          f.id AS feedback_id,
          f.message,
          f.created_at,
+         f.is_read,
+         
          c.name AS child_name,
          c.surname AS child_surname,
+         
          t.full_name AS teacher_full_name
        FROM feedbacks f
        LEFT JOIN children c ON f.child_id = c.id
@@ -326,34 +332,44 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
       [parentId]
     );
 
-    const feedbacks = result.rows.map(row => {
-      let teacherName = 'Unknown Teacher';
-      if (row.teacher_full_name) teacherName = row.teacher_full_name;
-
-      let dateStr = '';
-      if (row.created_at) {
-        try {
-          const d = new Date(row.created_at);
-          dateStr = d.toISOString().replace('T', ' ').substring(0, 19);
-        } catch {
-          dateStr = String(row.created_at);
-        }
-      }
-
-      return {
-        feedback_id: row.feedback_id,
-        message: row.message,
-        created_at: dateStr,
-        child_name: row.child_name,
-        child_surname: row.child_surname,
-        teacher_name: teacherName,
-      };
-    });
+    const feedbacks = result.rows.map(row => ({
+      feedback_id: row.feedback_id,
+      message: row.message,
+      is_read: row.is_read,
+      created_at: row.created_at
+        ? new Date(row.created_at).toISOString().replace('T', ' ').substring(0, 19)
+        : '',
+      child_name: row.child_name,
+      child_surname: row.child_surname,
+      teacher_name: row.teacher_full_name || 'Unknown Teacher'
+    }));
 
     res.json({ success: true, feedbacks });
   } catch (err) {
     console.error('DB Error (GET /feedbacks/by-parent/:parentId):', err);
     res.status(500).json({ success: false, message: 'Server error while fetching feedbacks.' });
+  }
+});
+
+// === MARK FEEDBACKS AS READ ===
+app.post('/feedbacks/mark-read', async (req, res) => {
+  const { parent_id } = req.body;
+
+  if (!parent_id)
+    return res.status(400).json({ success: false, message: 'parent_id required.' });
+
+  try {
+    await pool.query(
+      `UPDATE feedbacks
+       SET is_read = TRUE
+       WHERE parent_id = $1`,
+      [parent_id]
+    );
+
+    res.json({ success: true, message: 'Feedbacks marked as read.' });
+  } catch (err) {
+    console.error('DB Error (POST /feedbacks/mark-read):', err);
+    res.status(500).json({ success: false, message: 'Server error marking read.' });
   }
 });
 

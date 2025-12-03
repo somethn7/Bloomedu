@@ -1,6 +1,21 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, Alert } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useState } from "react";
+import {
+  View,
+  Text,
+  FlatList,
+  StyleSheet,
+  ActivityIndicator,
+  TouchableOpacity,
+  LayoutAnimation,
+  UIManager,
+  Platform,
+  Alert,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 type Feedback = {
   feedback_id: number;
@@ -9,103 +24,134 @@ type Feedback = {
   child_name?: string;
   child_surname?: string;
   teacher_name?: string;
+  is_read?: boolean;
 };
 
 const ParentFeedbacksScreen = () => {
   const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
   const [loading, setLoading] = useState(false);
-
-  const fetchFeedbacks = async () => {
-    setLoading(true);
-    try {
-      const parentIdString = await AsyncStorage.getItem('parent_id');
-      if (!parentIdString) {
-        Alert.alert('Error', 'Parent ID not found.');
-        setLoading(false);
-        return;
-      }
-      const parentId = Number(parentIdString);
-      if (Number.isNaN(parentId)) {
-        Alert.alert('Error', 'Invalid Parent ID.');
-        setLoading(false);
-        return;
-      }
-
-      const url = `https://bloomedu-production.up.railway.app/feedbacks/by-parent/${parentId}`;
-      console.log('🔗 Fetching feedbacks from', url);
-
-      const res = await fetch(url);
-      const raw = await res.text();
-      console.log('📥 Raw response:', raw);
-
-      let data;
-      try {
-        data = JSON.parse(raw);
-      } catch (jsonErr) {
-        console.error('❌ JSON parse error', jsonErr);
-        Alert.alert('Error', 'Unexpected server response.');
-        setLoading(false);
-        return;
-      }
-
-      if (res.ok) {
-        if (data.success && Array.isArray(data.feedbacks)) {
-          console.log(`✅ Received ${data.feedbacks.length} feedbacks`);
-          setFeedbacks(data.feedbacks);
-        } else {
-          const msg = data.message || 'Failed fetching feedbacks';
-          console.warn('⚠️ Fetch returned ok but unsuccessful:', msg);
-          Alert.alert('Error', msg);
-        }
-      } else {
-        const msg = data.message || `Fetch failed with status ${res.status}`;
-        console.error('❌ Fetch error status:', res.status, msg);
-        Alert.alert('Error', msg);
-      }
-    } catch (err) {
-      console.error('❌ Fetch threw error:', err);
-      Alert.alert('Error', 'Cannot connect to server or network error.');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const [hasNew, setHasNew] = useState(false);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchFeedbacks();
   }, []);
 
-  if (loading) {
-    return <ActivityIndicator size="large" color="#64bef5" style={{ marginTop: 50 }} />;
-  }
+  const fetchFeedbacks = async () => {
+    setLoading(true);
+    try {
+      const parentIdString = await AsyncStorage.getItem("parent_id");
+      if (!parentIdString) return;
+      const parentId = Number(parentIdString);
+
+      const url = `https://bloomedu-production.up.railway.app/feedbacks/by-parent/${parentId}`;
+      const res = await fetch(url);
+      const text = await res.text();
+      const data = JSON.parse(text);
+
+      if (data.success) {
+        setFeedbacks(data.feedbacks);
+
+        const unread = data.feedbacks.some((f: Feedback) => f.is_read === false);
+        setHasNew(unread);
+
+        markAllAsRead(parentId);
+      }
+    } catch (err) {
+      console.log("Error:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const markAllAsRead = async (parentId: number) => {
+    try {
+      await fetch(
+        "https://bloomedu-production.up.railway.app/feedbacks/mark-read",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ parent_id: parentId }),
+        }
+      );
+    } catch {}
+  };
+
+  const toggleExpand = (id: number) => {
+    LayoutAnimation.easeInEaseOut();
+    setExpandedId(expandedId === id ? null : id);
+  };
+
+  const formatDate = (d?: string) => {
+    if (!d) return "";
+    return new Date(d).toLocaleString("tr-TR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  const renderItem = ({ item }: { item: Feedback }) => {
+    const expanded = expandedId === item.feedback_id;
+
+    return (
+      <TouchableOpacity
+        onPress={() => toggleExpand(item.feedback_id)}
+        activeOpacity={0.8}
+      >
+        <View style={[styles.card, item.is_read === false && styles.newCard]}>
+          <View style={styles.headerRow}>
+            <Text style={styles.child}>
+              👶 {item.child_name} {item.child_surname}
+            </Text>
+
+            {item.is_read === false && <Text style={styles.newBadge}>NEW</Text>}
+          </View>
+
+          {expanded && (
+            <View>
+              <Text style={styles.message}>{item.message}</Text>
+              <Text style={styles.teacher}>👩‍🏫 {item.teacher_name}</Text>
+              <Text style={styles.date}>🕒 {formatDate(item.created_at)}</Text>
+            </View>
+          )}
+
+          {!expanded && (
+            <Text style={styles.preview}>{item.message.slice(0, 35)}...</Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Teacher Feedbacks</Text>
-      {feedbacks.length === 0 ? (
-        <Text style={styles.noFeedback}>No feedback available yet.</Text>
+      {/* NOTIFICATION BANNER */}
+      {hasNew && (
+        <TouchableOpacity
+          onPress={() => setHasNew(false)}
+          style={styles.banner}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.bannerText}>🔔 You have new feedback! Tap to view.</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Title */}
+      <View style={styles.topBar}>
+        <Text style={styles.topBarText}>Teacher Feedback</Text>
+      </View>
+
+      {loading ? (
+        <ActivityIndicator size="large" color="#FF6B9A" style={{ marginTop: 40 }} />
       ) : (
         <FlatList
           data={feedbacks}
-          keyExtractor={(item, index) => 
-            item.feedback_id ? String(item.feedback_id) : String(index)
-          }
-          renderItem={({ item }) => {
-            const created = item.created_at;
-            return (
-              <View style={styles.card}>
-                <Text style={styles.childName}>
-                  👶 {item.child_name} {item.child_surname}
-                </Text>
-                <Text style={styles.message}>{item.message}</Text>
-                <Text style={styles.teacher}>👩‍🏫 {item.teacher_name || 'Unknown teacher'}</Text>
-                {!!created && (
-                  <Text style={styles.date}>
-                    🕒 {created ? created.replace('T', ' ').slice(0, 16) : ''}
-                  </Text>
-                )}
-              </View>
-            );
-          }}
+          keyExtractor={(item) => item.feedback_id.toString()}
+          renderItem={renderItem}
+          contentContainerStyle={{ padding: 20 }}
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -116,27 +162,70 @@ const ParentFeedbacksScreen = () => {
 export default ParentFeedbacksScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', padding: 20 },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    textAlign: 'center',
-    marginBottom: 15,
-    color: '#fb3896c0',
+  container: { flex: 1, backgroundColor: "#FDECF5" },
+  topBar: {
+    backgroundColor: "#FF6B9A",
+    paddingTop: 55,
+    paddingBottom: 15,
+    borderBottomRightRadius: 25,
+    borderBottomLeftRadius: 25,
+    alignItems: "center",
   },
-  noFeedback: { textAlign: 'center', fontSize: 16, color: '#777' },
-  card: {
-    backgroundColor: '#e8f0fe',
-    padding: 14,
+  topBarText: {
+    color: "#FFF",
+    fontSize: 22,
+    fontWeight: "700",
+  },
+
+  banner: {
+    backgroundColor: "#FFE3EE",
+    padding: 12,
+    margin: 16,
     borderRadius: 12,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#FF6B9A",
   },
-  childName: { fontWeight: '700', marginBottom: 4, fontSize: 16 },
-  message: { marginBottom: 4, fontSize: 15, color: '#334155' },
-  teacher: { fontStyle: 'italic', marginBottom: 4, color: '#475569' },
-  date: { fontSize: 12, color: '#64748b' },
+  bannerText: {
+    color: "#C2185B",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+
+  card: {
+    backgroundColor: "#FFF",
+    padding: 15,
+    borderRadius: 16,
+    marginBottom: 14,
+    elevation: 3,
+  },
+  newCard: {
+    borderLeftWidth: 6,
+    borderLeftColor: "#FF6B9A",
+  },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  child: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#333",
+  },
+  newBadge: {
+    backgroundColor: "#FF6B9A",
+    color: "#FFF",
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  preview: {
+    marginTop: 6,
+    color: "#6B7280",
+  },
+  message: { marginTop: 10, fontSize: 15, color: "#444" },
+  teacher: { marginTop: 10, color: "#6B7280", fontStyle: "italic" },
+  date: { marginTop: 8, color: "#9CA3AF", fontSize: 12 },
 });
