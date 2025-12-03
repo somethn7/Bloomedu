@@ -1,160 +1,156 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   FlatList,
   StyleSheet,
   ActivityIndicator,
-  TouchableOpacity,
-  LayoutAnimation,
-  UIManager,
-  Platform,
   Alert,
-} from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+  TouchableOpacity,
+} from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
-type Feedback = {
-  feedback_id: number;
-  message: string;
-  created_at?: string;
-  child_name?: string;
-  child_surname?: string;
-  teacher_name?: string;
-  is_read?: boolean;
-};
-
-const ParentFeedbacksScreen = () => {
-  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [hasNew, setHasNew] = useState(false);
-  const [expandedId, setExpandedId] = useState<number | null>(null);
-
-  useEffect(() => {
-    fetchFeedbacks();
-  }, []);
+const ParentFeedbacksScreen = ({ navigation }) => {
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState(null);
 
   const fetchFeedbacks = async () => {
-    setLoading(true);
     try {
-      const parentIdString = await AsyncStorage.getItem("parent_id");
-      if (!parentIdString) return;
-      const parentId = Number(parentIdString);
+      const parentId = await AsyncStorage.getItem('parent_id');
+      if (!parentId) return;
 
-      const url = `https://bloomedu-production.up.railway.app/feedbacks/by-parent/${parentId}`;
-      const res = await fetch(url);
-      const text = await res.text();
-      const data = JSON.parse(text);
+      const res = await fetch(
+        `https://bloomedu-production.up.railway.app/feedbacks/by-parent/${parentId}`
+      );
 
-      if (data.success) {
-        setFeedbacks(data.feedbacks);
-
-        const unread = data.feedbacks.some((f: Feedback) => f.is_read === false);
-        setHasNew(unread);
-
-        markAllAsRead(parentId);
-      }
+      const data = await res.json();
+      if (data.success) setFeedbacks(data.feedbacks);
     } catch (err) {
-      console.log("Error:", err);
+      console.log(err);
+      Alert.alert('Error', 'Failed to load feedbacks.');
     } finally {
       setLoading(false);
     }
   };
 
-  const markAllAsRead = async (parentId: number) => {
+  useEffect(() => {
+    fetchFeedbacks();
+  }, []);
+
+  // 🔹 Artık sadece feedback_id gönderiyoruz
+  const markOneAsRead = async (feedbackId: number) => {
     try {
       await fetch(
-        "https://bloomedu-production.up.railway.app/feedbacks/mark-read",
+        `https://bloomedu-production.up.railway.app/feedbacks/mark-read-single`,
         {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ parent_id: parentId }),
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ feedback_id: feedbackId }),
         }
       );
-    } catch {}
+
+      setFeedbacks(prev =>
+        prev.map(f =>
+          f.feedback_id === feedbackId ? { ...f, is_read: true } : f
+        )
+      );
+    } catch (err) {
+      console.log('Mark ONE read error:', err);
+    }
   };
 
-  const toggleExpand = (id: number) => {
-    LayoutAnimation.easeInEaseOut();
-    setExpandedId(expandedId === id ? null : id);
+  const toggleExpand = async (item) => {
+    setExpandedId(expandedId === item.feedback_id ? null : item.feedback_id);
+
+    if (!item.is_read) {
+      markOneAsRead(item.feedback_id);
+    }
   };
 
-  const formatDate = (d?: string) => {
-    if (!d) return "";
-    return new Date(d).toLocaleString("tr-TR", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  const renderItem = ({ item }: { item: Feedback }) => {
-    const expanded = expandedId === item.feedback_id;
-
+  if (loading) {
     return (
-      <TouchableOpacity
-        onPress={() => toggleExpand(item.feedback_id)}
-        activeOpacity={0.8}
-      >
-        <View style={[styles.card, item.is_read === false && styles.newCard]}>
-          <View style={styles.headerRow}>
-            <Text style={styles.child}>
-              👶 {item.child_name} {item.child_surname}
-            </Text>
-
-            {item.is_read === false && <Text style={styles.newBadge}>NEW</Text>}
-          </View>
-
-          {expanded && (
-            <View>
-              <Text style={styles.message}>{item.message}</Text>
-              <Text style={styles.teacher}>👩‍🏫 {item.teacher_name}</Text>
-              <Text style={styles.date}>🕒 {formatDate(item.created_at)}</Text>
-            </View>
-          )}
-
-          {!expanded && (
-            <Text style={styles.preview}>{item.message.slice(0, 35)}...</Text>
-          )}
-        </View>
-      </TouchableOpacity>
+      <ActivityIndicator
+        size="large"
+        color="#FF6B9A"
+        style={{ marginTop: 50 }}
+      />
     );
-  };
+  }
 
   return (
     <View style={styles.container}>
-      {/* NOTIFICATION BANNER */}
-      {hasNew && (
-        <TouchableOpacity
-          onPress={() => setHasNew(false)}
-          style={styles.banner}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.bannerText}>🔔 You have new feedback! Tap to view.</Text>
-        </TouchableOpacity>
-      )}
 
-      {/* Title */}
-      <View style={styles.topBar}>
-        <Text style={styles.topBarText}>Teacher Feedback</Text>
+      {/* HEADER */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={styles.backArrow}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Teacher Feedback</Text>
       </View>
 
-      {loading ? (
-        <ActivityIndicator size="large" color="#FF6B9A" style={{ marginTop: 40 }} />
-      ) : (
-        <FlatList
-          data={feedbacks}
-          keyExtractor={(item) => item.feedback_id.toString()}
-          renderItem={renderItem}
-          contentContainerStyle={{ padding: 20 }}
-          showsVerticalScrollIndicator={false}
-        />
-      )}
+      <FlatList
+        data={feedbacks}
+        keyExtractor={(item) => String(item.feedback_id)}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        renderItem={({ item }) => {
+          const expanded = expandedId === item.feedback_id;
+
+          return (
+            <TouchableOpacity
+              onPress={() => toggleExpand(item)}
+              activeOpacity={0.9}
+              style={[
+                styles.card,
+                !expanded ? styles.cardClosed : styles.cardOpened
+              ]}
+            >
+              {/* 🔔 NEW BANNER */}
+              {!item.is_read && (
+                <View style={styles.newBanner}>
+                  <Text style={styles.newBannerText}>🔔 You have a new feedback</Text>
+                </View>
+              )}
+
+              {/* CHILD */}
+              <Text style={styles.childName}>👶 {item.child_name} {item.child_surname}</Text>
+
+              {/* CLOSED */}
+              {!expanded && (
+                <>
+                  <Text style={styles.line}>
+                    <Text style={styles.bold}>📨 From:</Text> {item.teacher_name}
+                  </Text>
+                  <Text style={styles.line}>
+                    <Text style={styles.bold}>📅 Date:</Text> {item.created_at}
+                  </Text>
+                </>
+              )}
+
+              {/* OPENED */}
+              {expanded && (
+                <View style={styles.expandedBox}>
+                  <Text style={styles.expandedLine}>
+                    <Text style={styles.bold}>📨 From:</Text> {item.teacher_name}
+                  </Text>
+
+                  <Text style={styles.expandedLine}>
+                    <Text style={styles.bold}>👶 For:</Text> {item.child_name} {item.child_surname}
+                  </Text>
+
+                  <Text style={styles.expandedLine}>
+                    <Text style={styles.bold}>📅 Date:</Text> {item.created_at}
+                  </Text>
+
+                  <Text style={styles.messageTitle}>💬 Message:</Text>
+                  <Text style={styles.message}>{item.message}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        }}
+      />
     </View>
   );
 };
@@ -162,70 +158,102 @@ const ParentFeedbacksScreen = () => {
 export default ParentFeedbacksScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FDECF5" },
-  topBar: {
-    backgroundColor: "#FF6B9A",
-    paddingTop: 55,
-    paddingBottom: 15,
-    borderBottomRightRadius: 25,
-    borderBottomLeftRadius: 25,
-    alignItems: "center",
-  },
-  topBarText: {
-    color: "#FFF",
-    fontSize: 22,
-    fontWeight: "700",
-  },
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
 
-  banner: {
-    backgroundColor: "#FFE3EE",
-    padding: 12,
-    margin: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#FF6B9A",
+  header: {
+    backgroundColor: '#FF6B9A',
+    paddingTop: 55,
+    paddingBottom: 25,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    elevation: 8,
   },
-  bannerText: {
-    color: "#C2185B",
-    fontSize: 14,
-    fontWeight: "700",
+  backButton: {
+    width: 45,
+    height: 45,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backArrow: { fontSize: 26, color: 'white', fontWeight: '700' },
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '700',
+    color: 'white',
+    marginRight: 45,
   },
 
   card: {
-    backgroundColor: "#FFF",
-    padding: 15,
-    borderRadius: 16,
-    marginBottom: 14,
-    elevation: 3,
+    marginHorizontal: 20,
+    marginTop: 20,
+    padding: 22,
+    borderRadius: 24,
+    overflow: 'hidden',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 6,
   },
-  newCard: {
-    borderLeftWidth: 6,
-    borderLeftColor: "#FF6B9A",
+
+  cardClosed: { backgroundColor: '#FFE0EA' },
+  cardOpened: { backgroundColor: 'white' },
+
+  newBanner: {
+    backgroundColor: '#FF4F88',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+    marginBottom: 12,
+    shadowColor: '#FF4F88',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
   },
-  headerRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
+  newBannerText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.3,
   },
-  child: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#333",
+
+  childName: {
+    fontSize: 19,
+    fontWeight: '700',
+    marginBottom: 10,
+    color: '#333',
   },
-  newBadge: {
-    backgroundColor: "#FF6B9A",
-    color: "#FFF",
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    fontSize: 11,
-    fontWeight: "700",
+  bold: { fontWeight: '700' },
+  line: { fontSize: 14, color: '#444', marginBottom: 3 },
+
+  expandedBox: {
+    marginTop: 16,
+    backgroundColor: '#EEF2FF',
+    padding: 16,
+    borderRadius: 18,
   },
-  preview: {
+  expandedLine: {
+    fontSize: 15,
+    marginBottom: 8,
+    color: '#333',
+  },
+  messageTitle: {
+    marginTop: 12,
+    fontWeight: '700',
+    fontSize: 17,
+    color: '#444',
+  },
+  message: {
     marginTop: 6,
-    color: "#6B7280",
+    fontSize: 15,
+    color: '#222',
+    lineHeight: 22,
   },
-  message: { marginTop: 10, fontSize: 15, color: "#444" },
-  teacher: { marginTop: 10, color: "#6B7280", fontStyle: "italic" },
-  date: { marginTop: 8, color: "#9CA3AF", fontSize: 12 },
 });

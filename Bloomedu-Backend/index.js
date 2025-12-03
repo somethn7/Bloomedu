@@ -351,27 +351,36 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
   }
 });
 
-// === MARK FEEDBACKS AS READ ===
-app.post('/feedbacks/mark-read', async (req, res) => {
-  const { parent_id } = req.body;
+// === MARK SINGLE FEEDBACK AS READ ===
+app.post('/feedbacks/mark-read-single', async (req, res) => {
+  const { feedback_id } = req.body;
 
-  if (!parent_id)
-    return res.status(400).json({ success: false, message: 'parent_id required.' });
+  // Sadece feedback_id yeterli
+  if (!feedback_id) {
+    return res.status(400).json({
+      success: false,
+      message: 'feedback_id is required.'
+    });
+  }
 
   try {
     await pool.query(
-      `UPDATE feedbacks
-       SET is_read = TRUE
-       WHERE parent_id = $1`,
-      [parent_id]
+      `UPDATE feedbacks 
+       SET is_read = TRUE 
+       WHERE id = $1`,
+      [feedback_id]
     );
 
-    res.json({ success: true, message: 'Feedbacks marked as read.' });
+    return res.json({ success: true, message: 'Feedback marked as read.' });
   } catch (err) {
-    console.error('DB Error (POST /feedbacks/mark-read):', err);
-    res.status(500).json({ success: false, message: 'Server error marking read.' });
+    console.error('DB Error (POST /feedbacks/mark-read-single):', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error marking feedback.'
+    });
   }
 });
+
 
 // === CHILDREN BY PARENT ===
 app.get('/children/by-parent/:parentId', async (req, res) => {
