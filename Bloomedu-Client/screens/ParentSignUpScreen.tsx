@@ -9,22 +9,31 @@ import {
 } from 'react-native';
 
 const ParentSignupScreen = ({ navigation }: any) => {
-  const [name, setName] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [surname, setSurname] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   const handleSignup = async () => {
-    if (!name || !email || !password) {
+    if (!firstName || !surname || !email || !password) {
       Alert.alert('Missing Fields', 'Please fill in all the fields.');
       return;
     }
 
     try {
-      const response = await fetch('https://bloomedu-production.up.railway.app/parent/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password }),
-      });
+      const response = await fetch(
+        'https://bloomedu-production.up.railway.app/parent/signup',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: firstName,
+            surname: surname,
+            email,
+            password,
+          }),
+        }
+      );
 
       const data = await response.json();
 
@@ -33,9 +42,11 @@ const ParentSignupScreen = ({ navigation }: any) => {
           'Verification Required',
           'A verification code has been sent to your email.'
         );
+
         navigation.navigate('ParentVerifyCode', {
           email,
-          name,
+          firstName,
+          surname,
           password,
           originalCode: data.verificationCode,
         });
@@ -43,36 +54,46 @@ const ParentSignupScreen = ({ navigation }: any) => {
         Alert.alert('Signup Failed', data.message || 'Something went wrong.');
       }
     } catch (error) {
-      console.error('❌ Signup error:', error);
       Alert.alert('Server Error', 'Unable to connect to the server.');
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Parent Sign Up</Text>
+      <Text style={styles.title}>Create Your Account</Text>
+      <Text style={styles.subtitle}>Join Bloomedu for your child</Text>
 
       <TextInput
-        placeholder="Full Name"
-        value={name}
-        onChangeText={setName}
+        placeholder="First Name"
+        value={firstName}
+        onChangeText={setFirstName}
         style={styles.input}
-        autoCapitalize="words"
+        placeholderTextColor="#B6B6B6"
       />
+
       <TextInput
-        placeholder="Email"
+        placeholder="Last Name"
+        value={surname}
+        onChangeText={setSurname}
+        style={styles.input}
+        placeholderTextColor="#B6B6B6"
+      />
+
+      <TextInput
+        placeholder="Email Address"
         value={email}
         onChangeText={setEmail}
         style={styles.input}
-        keyboardType="email-address"
-        autoCapitalize="none"
+        placeholderTextColor="#B6B6B6"
       />
+
       <TextInput
         placeholder="Password"
+        secureTextEntry
         value={password}
         onChangeText={setPassword}
         style={styles.input}
-        secureTextEntry
+        placeholderTextColor="#B6B6B6"
       />
 
       <TouchableOpacity style={styles.button} onPress={handleSignup}>
@@ -80,7 +101,9 @@ const ParentSignupScreen = ({ navigation }: any) => {
       </TouchableOpacity>
 
       <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-        <Text style={styles.link}>Already have an account? Log In</Text>
+        <Text style={styles.link}>
+          Already have an account? <Text style={styles.linkBold}>Log In</Text>
+        </Text>
       </TouchableOpacity>
     </View>
   );
@@ -88,50 +111,74 @@ const ParentSignupScreen = ({ navigation }: any) => {
 
 export default ParentSignupScreen;
 
+const PINK = "#ff5fa2";   // ana pembe
+const LIGHT_PINK = "#ffe3f0"; // soft arka plan
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    justifyContent: 'center',
-    backgroundColor: '#ffffff',
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 30,
+    justifyContent: "center",
   },
+
   title: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-    color: '#fb3896c0',
+    fontSize: 30,
+    fontWeight: "800",
+    textAlign: "center",
+    color: PINK,
+    marginBottom: 5,
   },
-  input: {
-    borderWidth: 1,
-    borderColor: '#fb389681',
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 16,
-    fontSize: 16,
-    color: '#34495e',
-  },
-  button: {
-    backgroundColor: '#fb389674',
-    padding: 16,
-    borderRadius: 30,
-    marginBottom: 12,
-    alignItems: 'center',
-    shadowColor: '#fb389674',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  link: {
-    textAlign: 'center',
-    color: '#ff73c7ff',
+
+  subtitle: {
+    textAlign: "center",
+    color: "#777",
+    marginBottom: 25,
     fontSize: 14,
-    fontWeight: '600',
+  },
+
+  input: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 15,
+    fontSize: 15,
+    borderWidth: 1.6,
+    borderColor: "#ff9bcf",
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  button: {
+    backgroundColor: PINK,
+    paddingVertical: 15,
+    borderRadius: 30,
+    alignItems: "center",
+    marginTop: 10,
+    shadowColor: PINK,
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+
+  buttonText: {
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "800",
+  },
+
+  link: {
+    marginTop: 15,
+    textAlign: "center",
+    color: "#777",
+    fontSize: 14,
+  },
+
+  linkBold: {
+    color: PINK,
+    fontWeight: "700",
   },
 });

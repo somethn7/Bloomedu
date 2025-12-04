@@ -51,8 +51,9 @@ app.post('/teacher/login', async (req, res) => {
 
 // === PARENT SIGNUP ===
 app.post('/parent/signup', async (req, res) => {
-  const { name, email, password } = req.body;
-  if (!name || !email || !password)
+  const { name, surname, email, password } = req.body;
+
+  if (!name || !surname || !email || !password)
     return res.status(400).json({ success: false, message: 'All fields are required.' });
 
   try {
@@ -69,9 +70,11 @@ app.post('/parent/signup', async (req, res) => {
     await sendVerificationCode(email, verificationCode);
     console.log(`📩 Verification code sent to ${email}: ${verificationCode}`);
 
+    // ✔ Surname eklendi
     await pool.query(
-      'INSERT INTO parents (name, email, password, is_verified, verification_code) VALUES ($1,$2,$3,$4,$5)',
-      [name, email, password, false, verificationCode]
+      `INSERT INTO parents (name, surname, email, password, is_verified, verification_code) 
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [name, surname, email, password, false, verificationCode]
     );
 
     res.json({
@@ -79,11 +82,13 @@ app.post('/parent/signup', async (req, res) => {
       message: 'Verification email sent. Please check your inbox.',
       verificationCode
     });
+
   } catch (err) {
     console.error('Error (POST /parent/signup):', err);
     res.status(500).json({ success: false, message: 'Server error during signup.' });
   }
 });
+
 
 // === NEW: VERIFY PARENT EMAIL ===
 app.post('/parent/verify-code', async (req, res) => {
