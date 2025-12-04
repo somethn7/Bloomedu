@@ -136,8 +136,9 @@ app.post('/parent/request-reset', async (req, res) => {
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
 
+    // 🔥 ESKİSİ: verification_code'a yazıyordu → yanlış
     await pool.query(
-      'UPDATE parents SET verification_code = $1 WHERE email = $2',
+      'UPDATE parents SET reset_code = $1 WHERE email = $2',
       [code, email]
     );
 
@@ -152,6 +153,7 @@ app.post('/parent/request-reset', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error sending reset code.' });
   }
 });
+
 
 // === RESET PASSWORD ===
 app.post('/parent/reset-password', async (req, res) => {
@@ -171,14 +173,14 @@ app.post('/parent/reset-password', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Parent not found.' });
     }
 
-    const savedCode = parent.rows[0].verification_code;
+    const savedCode = parent.rows[0].reset_code;
 
     if (!savedCode || savedCode !== code) {
-      return res.status(400).json({ success: false, message: 'Invalid code.' });
+      return res.status(400).json({ success: false, message: 'Invalid reset code.' });
     }
 
     await pool.query(
-      'UPDATE parents SET password = $1, verification_code = NULL WHERE email = $2',
+      'UPDATE parents SET password = $1, reset_code = NULL WHERE email = $2',
       [newPassword, email]
     );
 
@@ -193,6 +195,7 @@ app.post('/parent/reset-password', async (req, res) => {
     });
   }
 });
+
 
 // === ADD CHILD ===
 app.post('/teacher/add-child', async (req, res) => {
