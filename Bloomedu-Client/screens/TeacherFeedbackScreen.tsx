@@ -13,28 +13,34 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const TeacherFeedbackScreen = ({ route, navigation }: any) => {
-  const { childId, childName, childSurname, parentId } = route.params || {};
+  const {
+    childId,
+    childName,
+    childSurname,
+    parentName,
+    parentSurname
+  } = route.params || {};
+
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(false);
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
 
-  // 🚀 FEEDBACK HISTORY GETIR
+  React.useLayoutEffect(() => {
+    navigation.setOptions({ headerShown: false });
+  }, []);
+
   const fetchHistory = async () => {
     try {
       const teacherIdStr = await AsyncStorage.getItem("teacher_id");
       const teacherId = teacherIdStr ? Number(teacherIdStr) : null;
-
-      if (!teacherId) return;
 
       const res = await fetch(
         `https://bloomedu-production.up.railway.app/feedbacks/by-teacher/${teacherId}/${childId}`
       );
 
       const data = await res.json();
-      if (data.success) {
-        setFeedbacks(data.feedbacks);
-      }
+      if (data.success) setFeedbacks(data.feedbacks);
     } catch (err) {
       console.error("History fetch error:", err);
     } finally {
@@ -46,49 +52,47 @@ const TeacherFeedbackScreen = ({ route, navigation }: any) => {
     fetchHistory();
   }, []);
 
-  // 🚀 FEEDBACK YOLLA
-  const handleSendFeedback = async () => {
+  const handleSend = async () => {
     if (!message.trim()) return;
-
     setLoading(true);
 
     try {
       const teacherIdStr = await AsyncStorage.getItem("teacher_id");
       const teacherId = teacherIdStr ? Number(teacherIdStr) : null;
 
-      const response = await fetch(
+      const res = await fetch(
         "https://bloomedu-production.up.railway.app/feedback",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             child_id: childId,
-            parent_id: parentId ?? 0,
+            parent_id: 0,
             teacher_id: teacherId,
             message: message.trim(),
           }),
         }
       );
 
-      const data = await response.json();
-
-      if (response.ok && data.success) {
+      const data = await res.json();
+      if (data.success) {
         setMessage("");
-        fetchHistory(); // 🔥 YENI FEEDBACKI GERI YUKLE
+        fetchHistory();
       }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      console.error("Send error:", err);
     }
+
+    setLoading(false);
   };
 
-  // 🔥 CHAT BUBBLE TASARIMI
   const renderFeedback = ({ item }: any) => (
-    <View style={styles.bubbleContainer}>
-      <View style={styles.bubble}>
-        <Text style={styles.bubbleMessage}>{item.message}</Text>
-        <Text style={styles.bubbleTime}>{item.created_at}</Text>
+    <View style={styles.card}>
+      <View style={styles.cardLeftBorder} />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.cardTitle}>Feedback</Text>
+        <Text style={styles.cardMessage}>{item.message}</Text>
+        <Text style={styles.cardDate}>{item.created_at}</Text>
       </View>
     </View>
   );
@@ -103,43 +107,51 @@ const TeacherFeedbackScreen = ({ route, navigation }: any) => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.back}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          Feedback — {childName} {childSurname}
-        </Text>
+        <Text style={styles.headerTitle}>Teacher Feedback</Text>
         <View style={{ width: 30 }} />
       </View>
 
-      {/* HISTORY */}
+      {/* CHILD + PARENT */}
+      <View style={styles.infoBox}>
+        <Text style={styles.infoTitle}>
+          Child: {childName} {childSurname}
+        </Text>
+        <Text style={styles.infoSubtitle}>
+          Parent: {parentName || "Parent"} {parentSurname || ""}
+        </Text>
+      </View>
+
+      {/* LIST */}
       <View style={styles.historyBox}>
         {loadingHistory ? (
           <ActivityIndicator size="large" color="#4ECDC4" />
         ) : feedbacks.length === 0 ? (
-          <Text style={styles.noHistory}>No feedback sent yet.</Text>
+          <Text style={styles.noHistory}>No feedback yet.</Text>
         ) : (
           <FlatList
             data={feedbacks}
-            renderItem={renderFeedback}
             keyExtractor={(item) => item.feedback_id.toString()}
-            style={{ flex: 1 }}
+            renderItem={renderFeedback}
+            showsVerticalScrollIndicator={false}
           />
         )}
       </View>
 
-      {/* INPUT AREA */}
+      {/* INPUT */}
       <View style={styles.inputRow}>
         <TextInput
           style={styles.input}
-          placeholder="Type a feedback..."
+          placeholder="Write feedback..."
           value={message}
-          onChangeText={setMessage}
           multiline
+          onChangeText={setMessage}
         />
 
         <TouchableOpacity
           style={[styles.sendButton, loading && { opacity: 0.5 }]}
-          onPress={handleSendFeedback}
+          onPress={handleSend}
         >
-          <Text style={styles.sendText}>➤</Text>
+          <Text style={styles.sendText}>Send</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -148,67 +160,91 @@ const TeacherFeedbackScreen = ({ route, navigation }: any) => {
 
 export default TeacherFeedbackScreen;
 
+/* STYLES */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8F9FA" },
 
   header: {
-    paddingTop: 50,
+    paddingTop: 48,
     paddingBottom: 20,
     paddingHorizontal: 20,
     backgroundColor: "#4ECDC4",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    borderBottomRightRadius: 25,
     borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
+    elevation: 4,
   },
-  back: { fontSize: 28, color: "white" },
-  headerTitle: {
+  back: { fontSize: 30, color: "#fff" },
+  headerTitle: { color: "#fff", fontSize: 20, fontWeight: "700" },
+
+  infoBox: {
+    backgroundColor: "#fff",
+    margin: 16,
+    padding: 20,
+    borderRadius: 18,
+    elevation: 4,
+  },
+  infoTitle: {
     fontSize: 18,
-    color: "white",
     fontWeight: "700",
+    color: "#1e293b",
+    marginBottom: 6,
+  },
+  infoSubtitle: {
+    fontSize: 15,
+    color: "#475569",
   },
 
-  historyBox: {
-    flex: 1,
-    padding: 15,
-  },
-
+  historyBox: { flex: 1, paddingHorizontal: 16 },
   noHistory: {
     textAlign: "center",
-    paddingTop: 30,
-    fontSize: 15,
-    color: "#888",
+    marginTop: 30,
+    fontSize: 16,
+    color: "#9ca3af",
   },
 
-  bubbleContainer: {
-    alignItems: "flex-end",
-    marginVertical: 6,
+  card: {
+    flexDirection: "row",
+    backgroundColor: "#ffffff",
+    paddingVertical: 22,
+    paddingHorizontal: 22,
+    borderRadius: 22,
+    marginBottom: 20,
+    elevation: 4,
   },
 
-  bubble: {
-    maxWidth: "75%",
+  cardLeftBorder: {
+    width: 8,
     backgroundColor: "#4ECDC4",
-    padding: 12,
-    borderRadius: 15,
-    borderBottomRightRadius: 0,
+    borderRadius: 8,
+    marginRight: 14,
   },
 
-  bubbleMessage: {
-    color: "white",
-    fontSize: 15,
+  cardTitle: {
+    fontSize: 16,
+    color: "#4ECDC4",
+    fontWeight: "700",
+    marginBottom: 8,
   },
-  bubbleTime: {
-    fontSize: 11,
-    color: "#E0FFFB",
-    textAlign: "right",
-    marginTop: 3,
+
+  cardMessage: {
+    fontSize: 17,
+    color: "#334155",
+    marginBottom: 10,
+    lineHeight: 22,
+  },
+
+  cardDate: {
+    fontSize: 13,
+    color: "#64748b",
   },
 
   inputRow: {
     flexDirection: "row",
-    padding: 12,
-    backgroundColor: "white",
+    padding: 14,
+    backgroundColor: "#fff",
     borderTopWidth: 1,
     borderColor: "#e2e8f0",
   },
@@ -216,21 +252,18 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     backgroundColor: "#F1F5F9",
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    fontSize: 15,
-    maxHeight: 120,
+    borderRadius: 22,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
   },
 
   sendButton: {
     backgroundColor: "#4ECDC4",
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    paddingHorizontal: 20,
     marginLeft: 10,
+    borderRadius: 22,
     justifyContent: "center",
-    alignItems: "center",
   },
-  sendText: { color: "white", fontSize: 22, fontWeight: "800" },
+  sendText: { color: "#fff", fontSize: 16, fontWeight: "700" },
 });

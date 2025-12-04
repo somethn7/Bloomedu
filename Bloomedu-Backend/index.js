@@ -231,20 +231,38 @@ app.post('/teacher/add-child', async (req, res) => {
   }
 });
 
-// === GET CHILDREN BY TEACHER ===
+// === GET CHILDREN BY TEACHER (WITH PARENT NAME) ===
 app.get('/children/:teacherId', async (req, res) => {
   const { teacherId } = req.params;
+
   try {
     const children = await pool.query(
-      'SELECT id, name, surname, level, survey_completed, student_code FROM children WHERE teacher_id = $1',
+      `
+      SELECT 
+        c.id,
+        c.name,
+        c.surname,
+        c.level,
+        c.parent_id,
+        p.name AS parent_name,
+        p.surname AS parent_surname,
+        c.student_code,
+        c.survey_completed
+      FROM children c
+      LEFT JOIN parents p ON p.id = c.parent_id
+      WHERE c.teacher_id = $1
+      ORDER BY c.id ASC
+      `,
       [teacherId]
     );
-    res.json(children.rows);
+
+    return res.json(children.rows);
   } catch (err) {
     console.error('DB Error (GET /children/:teacherId):', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+
 
 // === VERIFY CHILD ===
 app.post('/parent/verify-child', async (req, res) => {
@@ -365,11 +383,17 @@ app.get("/feedbacks/by-teacher/:teacherId/:childId", async (req, res) => {
       SELECT 
         f.id AS feedback_id,
         f.message,
-        f.created_at
+        f.created_at,
+
+        p.name AS parent_name,        -- 🔥 EKLENDİ
+        c.name AS child_name,         -- opsiyonel
+        c.surname AS child_surname    -- opsiyonel
       FROM feedbacks f
+      LEFT JOIN parents p ON f.parent_id = p.id      -- 🔥 EKLENDİ
+      LEFT JOIN children c ON f.child_id = c.id
       WHERE f.teacher_id = $1
       AND f.child_id = $2
-      ORDER BY f.created_at ASC
+      ORDER BY f.created_at DESC
       `,
       [teacherId, childId]
     );
@@ -377,12 +401,16 @@ app.get("/feedbacks/by-teacher/:teacherId/:childId", async (req, res) => {
     const feedbacks = result.rows.map(row => ({
       feedback_id: row.feedback_id,
       message: row.message,
+      parent_name: row.parent_name || "Parent",
+
       created_at: row.created_at
-        ? new Date(row.created_at).toISOString().replace("T", " ").substring(0, 19)
+        ? new Date(row.created_at)
+            .toLocaleString("en-GB", { hour12: false }) // 🔥 güzel tarih formatı
         : ""
     }));
 
     res.json({ success: true, feedbacks });
+
   } catch (err) {
     console.error("DB Error (GET /feedbacks/by-teacher):", err);
     res.status(500).json({

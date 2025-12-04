@@ -16,6 +16,8 @@ interface Student {
   name: string;
   surname: string;
   parent_id?: number;
+  parent_name?: string;
+  parent_surname?: string;
   level?: number;
   dailyPlayMinutes?: number;
   totalPlayMinutes?: number;
@@ -40,7 +42,7 @@ const TeacherStudentsOverviewScreen = ({ navigation }: any) => {
     setLoading(true);
 
     try {
-      // 1️⃣ Öğrencileri çek
+      // Öğrencileri çek
       const res = await fetch(
         `https://bloomedu-production.up.railway.app/children/${teacherId}`
       );
@@ -48,7 +50,7 @@ const TeacherStudentsOverviewScreen = ({ navigation }: any) => {
 
       const data: Student[] = await res.json();
 
-      // 2️⃣ Her öğrenci için playtime bilgisini çek
+      // Playtime ekle
       const studentsWithProgress = await Promise.all(
         data.map(async (student) => {
           try {
@@ -62,7 +64,7 @@ const TeacherStudentsOverviewScreen = ({ navigation }: any) => {
               dailyPlayMinutes: json.daily_minutes ?? 0,
               totalPlayMinutes: json.total_minutes ?? 0,
             };
-          } catch (e) {
+          } catch {
             return {
               ...student,
               dailyPlayMinutes: 0,
@@ -113,18 +115,17 @@ const TeacherStudentsOverviewScreen = ({ navigation }: any) => {
       </View>
 
       <View style={styles.actionButtons}>
-        {/* 🔥 Child objesini tam gönderiyoruz */}
+        {/* Details */}
         <TouchableOpacity
           style={styles.progressButton}
           onPress={() =>
-            navigation.navigate("ChildProgress", {
-              child: item,
-            })
+            navigation.navigate("ChildProgress", { child: item })
           }
         >
           <Text style={styles.progressButtonText}>📊 View Details</Text>
         </TouchableOpacity>
 
+        {/* Feedback */}
         <TouchableOpacity
           style={styles.feedbackButton}
           onPress={() =>
@@ -133,6 +134,8 @@ const TeacherStudentsOverviewScreen = ({ navigation }: any) => {
               childName: item.name,
               childSurname: item.surname,
               parentId: item.parent_id,
+              parentName: item.parent_name,
+              parentSurname: item.parent_surname,
             })
           }
         >
@@ -197,10 +200,10 @@ const TeacherStudentsOverviewScreen = ({ navigation }: any) => {
 
 export default TeacherStudentsOverviewScreen;
 
-/* 🎨 STYLES — Teacher turquoise theme */
+
+/* STYLES */
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#F8F9FA" },
-
   header: {
     backgroundColor: "#4ECDC4",
     paddingTop: 50,
@@ -213,7 +216,6 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 24,
     elevation: 8,
   },
-
   backButton: {
     width: 40,
     height: 40,
@@ -222,11 +224,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-
   backButtonText: { fontSize: 24, color: "#fff", fontWeight: "700" },
-
   headerTitle: { fontSize: 20, fontWeight: "700", color: "#fff" },
-
   content: { flex: 1, padding: 20 },
 
   searchInput: {
@@ -250,19 +249,14 @@ const styles = StyleSheet.create({
   },
 
   studentName: { fontSize: 20, fontWeight: "700", marginBottom: 8, color: "#1E293B" },
-
   levelText: { fontSize: 15, color: "#475569" },
-
   levelValue: { color: "#4ECDC4", fontWeight: "700" },
 
   idText: { marginTop: 4, fontSize: 14, color: "#6B7280" },
-
   idValue: { fontWeight: "700", color: "#2563EB" },
 
   progressDetails: { marginTop: 10, marginBottom: 10 },
-
   progressText: { fontSize: 15, color: "#334155" },
-
   valueText: { color: "#4ECDC4", fontWeight: "700" },
 
   actionButtons: { flexDirection: "row", gap: 10, marginTop: 10 },
@@ -275,7 +269,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     elevation: 4,
   },
-
   progressButtonText: { color: "#fff", fontWeight: "700", fontSize: 14 },
 
   feedbackButton: {
@@ -286,7 +279,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     elevation: 4,
   },
-
   feedbackButtonText: { color: "#fff", fontWeight: "700", fontSize: 14 },
 
   emptyState: { paddingTop: 50, alignItems: "center" },
