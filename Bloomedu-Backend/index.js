@@ -351,6 +351,48 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
   }
 });
 
+// === GET FEEDBACKS BY TEACHER (for a specific child) ===
+app.get("/feedbacks/by-teacher/:teacherId/:childId", async (req, res) => {
+  const { teacherId, childId } = req.params;
+
+  if (!teacherId || !childId) {
+    return res.status(400).json({ success: false, message: "Missing IDs." });
+  }
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT 
+        f.id AS feedback_id,
+        f.message,
+        f.created_at
+      FROM feedbacks f
+      WHERE f.teacher_id = $1
+      AND f.child_id = $2
+      ORDER BY f.created_at ASC
+      `,
+      [teacherId, childId]
+    );
+
+    const feedbacks = result.rows.map(row => ({
+      feedback_id: row.feedback_id,
+      message: row.message,
+      created_at: row.created_at
+        ? new Date(row.created_at).toISOString().replace("T", " ").substring(0, 19)
+        : ""
+    }));
+
+    res.json({ success: true, feedbacks });
+  } catch (err) {
+    console.error("DB Error (GET /feedbacks/by-teacher):", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching teacher feedbacks."
+    });
+  }
+});
+
+
 // === MARK SINGLE FEEDBACK AS READ ===
 app.post('/feedbacks/mark-read-single', async (req, res) => {
   const { feedback_id } = req.body;
