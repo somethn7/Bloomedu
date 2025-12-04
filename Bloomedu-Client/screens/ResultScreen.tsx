@@ -1,128 +1,170 @@
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, BackHandler, Alert } from 'react-native';
+import React, { useEffect, useLayoutEffect } from 'react';
+import { View, Text, TouchableOpacity, BackHandler, StyleSheet } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { API_ENDPOINTS } from '../config/api';
-
-interface ResultScreenParams {
-  answers: (string | null)[];
-  child: any;
-}
 
 const ResultScreen = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
-  const { answers, child } = route.params as ResultScreenParams;
+  const { answers, child } = route.params;
+
+  // 🚫 Default Header'ı kaldırıyoruz
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerShown: false,
+    });
+  }, [navigation]);
 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => true);
     return () => backHandler.remove();
   }, []);
 
-  // ✅ Survey tamamlandı → DB’de işaretle
-  useEffect(() => {
-    const markSurveyCompleted = async () => {
-      try {
-        const res = await fetch(`https://bloomedu-production.up.railway.app/children/${child.id}/mark-survey-complete`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-        });
-        const data = await res.json();
-        if (!data.success) {
-          console.warn('⚠️ Survey mark failed:', data.message);
-        } else {
-          console.log('✅ Survey marked complete in DB for child:', child.id);
-        }
-      } catch (err) {
-        console.error('❌ Error marking survey as complete:', err);
-        Alert.alert('Error', 'Failed to update survey status.');
-      }
-    };
-
-    if (child?.id) markSurveyCompleted();
-  }, [child]);
-
-  const score = answers.reduce((total, a) => total + (a === 'yes' ? 1 : 0), 0);
-
-  // ✅ Send child's level to backend
-useEffect(() => {
-  const updateLevel = async () => {
-    try {
-      const response = await fetch(API_ENDPOINTS.UPDATE_LEVEL(child.id), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ correctAnswers: score }),
-      });
-
-      const data = await response.json();
-      if (data.success) {
-        console.log(`✅ Level ${data.level} saved for child ID: ${child.id}`);
-      } else {
-        console.warn('⚠️ Level update failed:', data.message);
-      }
-    } catch (err) {
-      console.error('❌ Error updating child level:', err);
-    }
-  };
-
-  if (child?.id) updateLevel();
-}, [child, score]);
-
-  let level = 1;
-  if (score <= 4) level = 1;
-  else if (score <= 8) level = 2;
-  else if (score <= 12) level = 3;
-  else if (score <= 16) level = 4;
-  else level = 5;
+  const score = answers.reduce(
+    (total: number, a: string | null) => total + (a === 'yes' ? 1 : 0),
+    0
+  );
+  const level = Math.ceil(score / 4);
 
   return (
-    <View
-      style={{
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-        padding: 20,
-      }}
-    >
-      <Text style={{ fontSize: 26, fontWeight: 'bold', color: '#FF6B9A', marginBottom: 20 }}>
-        Survey Completed!
-      </Text>
+    <View style={styles.container}>
 
-      <Text style={{ fontSize: 22, color: '#333', marginBottom: 10 }}>
-        Your Score: {score} / {answers.length}
-      </Text>
+      {/* ===================== ÜST OVAL PANEL ===================== */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
+          <Text style={styles.backText}>←</Text>
+        </TouchableOpacity>
 
-      <Text style={{ fontSize: 20, color: '#555', marginBottom: 30 }}>
-        Your Child's Level: {level}
-      </Text>
+        <Text style={styles.headerTitle}>Result</Text>
+      </View>
 
-      {/* -umut: Child parametresi Education'a iletiliyor - oyunlarda skor kaydı için gerekli (28.10.2025) */}
-      <TouchableOpacity
-        style={{
-          backgroundColor: '#FF6B9A',
-          paddingVertical: 15,
-          paddingHorizontal: 30,
-          borderRadius: 25,
-          marginBottom: 15,
-        }}
-        onPress={() => navigation.navigate('Education', { child })}
-      >
-        <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>START EDUCATION →</Text>
-      </TouchableOpacity>
+      {/* ===================== KART ===================== */}
+      <View style={styles.cardWrapper}>
+        <View style={styles.card}>
+          <Text style={styles.title}>Survey Completed!</Text>
+          <Text style={styles.score}>Your Score: {score} / 20</Text>
+          <Text style={styles.level}>Your Child's Level: {level}</Text>
 
-      <TouchableOpacity
-        style={{
-          backgroundColor: '#73c0ff',
-          paddingVertical: 15,
-          paddingHorizontal: 30,
-          borderRadius: 25,
-        }}
-        onPress={() => navigation.navigate('Dashboard')}
-      >
-        <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>GO TO DASHBOARD</Text>
-      </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.eduBtn}
+            onPress={() => navigation.navigate('Education', { child })}
+          >
+            <Text style={styles.eduText}>START EDUCATION →</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.dashboardBtn}
+            onPress={() => navigation.navigate('Dashboard')}
+          >
+            <Text style={styles.dashboardText}>GO TO DASHBOARD</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
     </View>
   );
 };
 
 export default ResultScreen;
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f6f5f5',
+  },
+
+  /* ----- CUSTOM HEADER ----- */
+  header: {
+    backgroundColor: '#d9d9d9',
+    paddingTop: 55,
+    paddingBottom: 25,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    alignItems: 'center',
+  },
+  backButton: {
+    position: 'absolute',
+    left: 20,
+    top: 55,
+    backgroundColor: 'white',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backText: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#555',
+  },
+  headerTitle: {
+    color: '#444',
+    fontSize: 22,
+    fontWeight: '700',
+  },
+
+  /* ----- CARD ----- */
+  cardWrapper: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  card: {
+    width: '85%',
+    backgroundColor: '#fff',
+    padding: 25,
+    borderRadius: 18,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 5,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FF6B9A',
+    marginBottom: 12,
+  },
+  score: {
+    fontSize: 18,
+    color: '#444',
+    marginBottom: 6,
+  },
+  level: {
+    fontSize: 18,
+    color: '#666',
+    marginBottom: 22,
+  },
+
+  eduBtn: {
+    backgroundColor: '#FF6B9A',
+    paddingVertical: 14,
+    borderRadius: 25,
+    width: '85%',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  eduText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  dashboardBtn: {
+    backgroundColor: '#e7e7e7',
+    paddingVertical: 14,
+    borderRadius: 25,
+    width: '85%',
+    alignItems: 'center',
+  },
+  dashboardText: {
+    color: '#444',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+});

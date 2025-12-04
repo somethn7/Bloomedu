@@ -75,105 +75,142 @@ const SurveyScreen = () => {
   const currentQuestions = questions.slice(startIndex, startIndex + questionsPerPage);
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#fff', padding: 20 }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
-        {currentQuestions.map((question, index) => {
-          const questionIndex = startIndex + index;
-          const isYes = answers[questionIndex] === 'yes';
-          const isNo = answers[questionIndex] === 'no';
+    <View style={{ flex: 1, backgroundColor: '#f2f2f2' }}>
 
-          return (
-            <View key={questionIndex} style={{ marginBottom: 28 }}>
-              <Text style={{ fontSize: 18, fontWeight: '500', marginBottom: 12, color: '#333' }}>
-                {question}
-              </Text>
-
-              <View style={{ flexDirection: 'row', justifyContent: 'space-evenly' }}>
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: isYes ? '#b0b0b0' : '#e5e5e5',
-                    paddingVertical: 12,
-                    paddingHorizontal: 30,
-                    borderRadius: 25, // ✅ oval
-                  }}
-                  onPress={() => handleAnswer(questionIndex, 'yes')}
-                >
-                  <Text
-                    style={{
-                      color: '#222',
-                      fontSize: 16,
-                      fontWeight: isYes ? '700' : '500',
-                    }}
-                  >
-                    Yes
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: isNo ? '#b0b0b0' : '#e5e5e5',
-                    paddingVertical: 12,
-                    paddingHorizontal: 30,
-                    borderRadius: 25, // ✅ oval
-                  }}
-                  onPress={() => handleAnswer(questionIndex, 'no')}
-                >
-                  <Text
-                    style={{
-                      color: '#222',
-                      fontSize: 16,
-                      fontWeight: isNo ? '700' : '500',
-                    }}
-                  >
-                    No
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          );
-        })}
-      </ScrollView>
-
-      {/* === Bottom Buttons === */}
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
-        {currentPage > 0 ? (
-          <TouchableOpacity
-            style={{
-              backgroundColor: '#a0a0a0',
-              paddingVertical: 12,
-              paddingHorizontal: 25,
-              borderRadius: 25, // ✅ oval
-            }}
-            onPress={handleBack}
-          >
-            <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Back</Text>
-          </TouchableOpacity>
-        ) : (
-          <View style={{ width: 100 }} />
-        )}
-
+      {/* 🔥🔥 OVAL GRİ HEADER – diğer sayfalar ile birebir uyumlu */}
+      <View
+        style={{
+          backgroundColor: '#d9d9d9',
+          height: 110,
+          borderBottomLeftRadius: 40,
+          borderBottomRightRadius: 40,
+          justifyContent: 'flex-end',
+          paddingBottom: 15,
+          alignItems: 'center',
+        }}
+      >
+        {/* Back Button */}
         <TouchableOpacity
+          onPress={() => navigation.goBack()}
           style={{
-            backgroundColor: '#FF6B9A', // ✅ tekrar pembe oldu
-            paddingVertical: 12,
-            paddingHorizontal: 25,
-            borderRadius: 25, // ✅ oval
-            alignItems: 'center',
+            position: 'absolute',
+            left: 20,
+            top: 45,
+            backgroundColor: '#ff6b9a',
+            width: 40,
+            height: 40,
+            borderRadius: 20,
             justifyContent: 'center',
-            flexDirection: 'row',
+            alignItems: 'center',
           }}
-          onPress={handleNext}
         >
-          <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold', marginRight: 5 }}>
-            {currentPage < totalPages - 1 ? 'Next' : 'Finish'}
-          </Text>
-          <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>→</Text>
+          <Text style={{ color: 'white', fontSize: 20 }}>←</Text>
         </TouchableOpacity>
+
+        <Text style={{ fontSize: 22, fontWeight: '700', color: '#444' }}>Survey</Text>
       </View>
 
-      <Text style={{ textAlign: 'center', marginTop: 10, fontSize: 14, color: '#555' }}>
-        Page {currentPage + 1} of {totalPages}
-      </Text>
+      {/* MAIN CONTENT */}
+      <View style={{ flex: 1, padding: 20 }}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
+          {currentQuestions.map((question, index) => {
+            const questionIndex = startIndex + index;
+            const isYes = answers[questionIndex] === 'yes';
+            const isNo = answers[questionIndex] === 'no';
+
+            return (
+              <View key={questionIndex} style={{ marginBottom: 28 }}>
+                <Text style={{ fontSize: 18, fontWeight: '500', marginBottom: 12, color: '#333' }}>
+                  {question}
+                </Text>
+
+                <View style={{ flexDirection: 'row', justifyContent: 'space-evenly' }}>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: isYes ? '#b0b0b0' : '#e5e5e5',
+                      paddingVertical: 12,
+                      paddingHorizontal: 30,
+                      borderRadius: 25,
+                    }}
+                    onPress={() => handleAnswer(questionIndex, 'yes')}
+                  >
+                    <Text
+                      style={{
+                        color: '#222',
+                        fontSize: 16,
+                        fontWeight: isYes ? '700' : '500',
+                      }}
+                    >
+                      Yes
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: isNo ? '#b0b0b0' : '#e5e5e5',
+                      paddingVertical: 12,
+                      paddingHorizontal: 30,
+                      borderRadius: 25,
+                    }}
+                    onPress={() => handleAnswer(questionIndex, 'no')}
+                  >
+                    <Text
+                      style={{
+                        color: '#222',
+                        fontSize: 16,
+                        fontWeight: isNo ? '700' : '500',
+                      }}
+                    >
+                      No
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          })}
+        </ScrollView>
+
+        {/* BOTTOM BUTTONS */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
+          {currentPage > 0 ? (
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#a0a0a0',
+                paddingVertical: 12,
+                paddingHorizontal: 25,
+                borderRadius: 25,
+              }}
+              onPress={handleBack}
+            >
+              <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>Back</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={{ width: 100 }} />
+          )}
+
+          <TouchableOpacity
+            style={{
+              backgroundColor: '#FF6B9A',
+              paddingVertical: 12,
+              paddingHorizontal: 25,
+              borderRadius: 25,
+              alignItems: 'center',
+              justifyContent: 'center',
+              flexDirection: 'row',
+            }}
+            onPress={handleNext}
+          >
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold', marginRight: 5 }}>
+              {currentPage < totalPages - 1 ? 'Next' : 'Finish'}
+            </Text>
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>→</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={{ textAlign: 'center', marginTop: 10, fontSize: 14, color: '#555' }}>
+          Page {currentPage + 1} of {totalPages}
+        </Text>
+      </View>
     </View>
   );
 };
