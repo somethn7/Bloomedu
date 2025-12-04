@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -8,131 +8,121 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-} from 'react-native';
+} from "react-native";
 
 const ParentForgotPasswordScreen = ({ navigation }: any) => {
-  const [email, setEmail] = useState('');
+  const [email, setEmail] = useState("");
   const [codeSent, setCodeSent] = useState(false);
-  const [verificationCode, setVerificationCode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
+  const [verificationCode, setVerificationCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
 
   const handleRequestReset = async () => {
     if (!email) {
-      Alert.alert('Error', 'Please enter your email.');
+      Alert.alert("Error", "Please enter your email.");
       return;
     }
+
     try {
-      console.log("🔄 handleRequestReset — initiating request for email:", email);
-      const response = await fetch('https://bloomedu-production.up.railway.app/parent/request-reset', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-      console.log("🔁 handleRequestReset — response status:", response.status);
+      const response = await fetch(
+        "https://bloomedu-production.up.railway.app/parent/request-reset",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email }),
+        }
+      );
 
-      const raw = await response.text();
-      console.log("🔁 handleRequestReset — raw response text:", raw);
-
-      let data;
-      try {
-        data = JSON.parse(raw);
-      } catch (parseError) {
-        console.error("⚠️ handleRequestReset — JSON parse failed:", parseError, " — raw:", raw);
-        Alert.alert('Error', 'Invalid response from server.');
-        return;
-      }
-
-      console.log("🔁 handleRequestReset — parsed response data:", data);
-
+      const data = await response.json();
       if (response.ok) {
         setCodeSent(true);
-        Alert.alert('Success', data.message || 'Verification code sent to your email.');
+        Alert.alert("Success", data.message || "Verification code sent.");
       } else {
-        Alert.alert('Error', data.message || 'Failed to send code.');
+        Alert.alert("Error", data.message || "Could not send code.");
       }
     } catch (error: any) {
-      console.error("❌ handleRequestReset network error:", error);
-      Alert.alert('Network Error', 'Could not connect to server. ' + (error.message || ''));
+      Alert.alert("Network Error", error.message || "Could not connect.");
     }
   };
 
   const handleResetPassword = async () => {
     if (!verificationCode || !newPassword) {
-      Alert.alert('Error', 'Please enter the code and new password.');
+      Alert.alert("Error", "Please enter the code and new password.");
       return;
     }
+
     try {
-      console.log("🔄 handleResetPassword — sending code & new password", { email, verificationCode, newPassword });
-      const response = await fetch('http://10.0.2.2:3000/parent/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          code: verificationCode,
-          newPassword,
-        }),
-      });
-      console.log("🔁 handleResetPassword — response status:", response.status);
+      const response = await fetch(
+        "https://bloomedu-production.up.railway.app/parent/reset-password",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email,
+            code: verificationCode,
+            newPassword,
+          }),
+        }
+      );
 
-      const raw = await response.text();
-      console.log("🔁 handleResetPassword — raw response text:", raw);
-
-      let data;
-      try {
-        data = JSON.parse(raw);
-      } catch (parseError) {
-        console.error("⚠️ handleResetPassword — JSON parse failed:", parseError, " — raw:", raw);
-        Alert.alert('Error', 'Invalid response from server.');
-        return;
-      }
-
-      console.log("🔁 handleResetPassword — parsed response data:", data);
-
+      const data = await response.json();
       if (response.ok) {
-        Alert.alert('Success', data.message || 'Password reset successfully.');
-        navigation.navigate('Login');
+        Alert.alert("Success", "Password reset successfully.");
+        navigation.navigate("Login");
       } else {
-        Alert.alert('Error', data.message || 'Failed to reset password.');
+        Alert.alert("Error", data.message || "Could not reset password.");
       }
     } catch (error: any) {
-      console.error("❌ handleResetPassword network error:", error);
-      Alert.alert('Network Error', 'Could not connect to server. ' + (error.message || ''));
+      Alert.alert("Network Error", error.message || "Could not connect.");
     }
   };
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={styles.container}
     >
-      <View style={styles.innerContainer}>
-        <Text style={styles.title}>Reset Password</Text>
+      {/* ===== HEADER ===== */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Forgot Password</Text>
+        <View style={{ width: 40 }} />
+      </View>
+
+      {/* ===== CENTER CARD ===== */}
+      <View style={styles.card}>
+        <Text style={styles.cardTitle}>Reset Password</Text>
+        <Text style={styles.description}>
+          Enter your email to receive a verification code.
+        </Text>
+
         <TextInput
-          placeholder="Email"
+          placeholder="Email Address"
           value={email}
           onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
           style={styles.input}
-          placeholderTextColor="#7a8a91"
+          placeholderTextColor="#9b9b9b"
         />
+
         {codeSent && (
           <>
             <TextInput
               placeholder="Verification Code"
               value={verificationCode}
               onChangeText={setVerificationCode}
-              keyboardType="numeric"
               style={styles.input}
-              placeholderTextColor="#7a8a91"
+              keyboardType="numeric"
+              placeholderTextColor="#9b9b9b"
             />
+
             <TextInput
               placeholder="New Password"
               value={newPassword}
               onChangeText={setNewPassword}
               secureTextEntry
               style={styles.input}
-              placeholderTextColor="#7a8a91"
+              placeholderTextColor="#9b9b9b"
             />
           </>
         )}
@@ -142,7 +132,7 @@ const ParentForgotPasswordScreen = ({ navigation }: any) => {
           onPress={codeSent ? handleResetPassword : handleRequestReset}
         >
           <Text style={styles.buttonText}>
-            {codeSent ? 'Reset Password' : 'Send Code'}
+            {codeSent ? "Reset Password" : "Send Code"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -155,45 +145,96 @@ export default ParentForgotPasswordScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
+    backgroundColor: "#fafafa",
+    alignItems: "center",
   },
-  innerContainer: {
-    marginHorizontal: 30,
+
+  /* ===== HEADER ===== */
+  header: {
+    width: "100%",
+    backgroundColor: "#FF6B9A",
+    paddingTop: 55,
+    paddingBottom: 25,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
-  title: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#fb3896c0',
-    marginBottom: 30,
-    textAlign: 'center',
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.3)",
+    justifyContent: "center",
+    alignItems: "center",
   },
+  backIcon: {
+    fontSize: 22,
+    color: "#fff",
+    fontWeight: "bold",
+  },
+  headerTitle: {
+    color: "#fff",
+    fontSize: 20,
+    fontWeight: "700",
+  },
+
+  /* ===== CARD ===== */
+  card: {
+    width: "88%",
+    backgroundColor: "#fff",
+    paddingVertical: 38,
+    paddingHorizontal: 28,
+    borderRadius: 22,
+    marginTop: 60,
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+
+  cardTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#FF6B9A",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+
+  description: {
+    fontSize: 14,
+    textAlign: "center",
+    color: "#6a6a6a",
+    marginBottom: 25,
+  },
+
+  /* ===== INPUT ===== */
   input: {
-    backgroundColor: '#f5f6fa',
-    borderRadius: 12,
-    paddingHorizontal: 18,
+    width: "100%",
+    backgroundColor: "#fff",
+    borderWidth: 2,
+    borderColor: "#ff8ab5",
     paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 14,
     fontSize: 16,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: '#fb389681',
-    color: '#34495e',
+    marginBottom: 18,
   },
+
+  /* ===== BUTTON ===== */
   button: {
-    backgroundColor: '#fb389674',
+    backgroundColor: "#FF6B9A",
     paddingVertical: 16,
     borderRadius: 30,
-    alignItems: 'center',
-    marginTop: 10,
-    shadowColor: '#fb389674',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
+    alignItems: "center",
+    marginTop: 5,
+    elevation: 6,
   },
   buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
+    color: "#fff",
+    fontSize: 17,
+    fontWeight: "700",
   },
 });

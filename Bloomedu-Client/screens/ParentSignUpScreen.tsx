@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useLayoutEffect } from "react";
 import {
   View,
   Text,
@@ -6,44 +6,48 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-} from 'react-native';
+  ScrollView,
+} from "react-native";
 
 const ParentSignupScreen = ({ navigation }: any) => {
-  const [firstName, setFirstName] = useState('');
-  const [surname, setSurname] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState("");
+  const [surname, setSurname] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  useLayoutEffect(() => {
+    navigation.setOptions({ headerShown: false });
+  }, []);
 
   const handleSignup = async () => {
     if (!firstName || !surname || !email || !password) {
-      Alert.alert('Missing Fields', 'Please fill in all the fields.');
+      Alert.alert("Missing Fields", "Please fill in all fields.");
       return;
     }
 
     try {
-      const response = await fetch(
-        'https://bloomedu-production.up.railway.app/parent/signup',
+      const res = await fetch(
+        "https://bloomedu-production.up.railway.app/parent/signup",
         {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             name: firstName,
-            surname: surname,
+            surname,
             email,
             password,
           }),
         }
       );
 
-      const data = await response.json();
+      const data = await res.json();
 
-      if (response.ok && data.success) {
+      if (res.ok && data.success) {
         Alert.alert(
-          'Verification Required',
-          'A verification code has been sent to your email.'
+          "Verification Required",
+          "A verification code was sent to your email."
         );
-
-        navigation.navigate('ParentVerifyCode', {
+        navigation.navigate("ParentVerifyCode", {
           email,
           firstName,
           surname,
@@ -51,134 +55,168 @@ const ParentSignupScreen = ({ navigation }: any) => {
           originalCode: data.verificationCode,
         });
       } else {
-        Alert.alert('Signup Failed', data.message || 'Something went wrong.');
+        Alert.alert("Signup Failed", data.message || "Something went wrong.");
       }
-    } catch (error) {
-      Alert.alert('Server Error', 'Unable to connect to the server.');
+    } catch (err) {
+      console.log("Signup error:", err);
+      Alert.alert("Server Error", "Unable to reach the server.");
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Create Your Account</Text>
-      <Text style={styles.subtitle}>Join Bloomedu for your child</Text>
 
-      <TextInput
-        placeholder="First Name"
-        value={firstName}
-        onChangeText={setFirstName}
-        style={styles.input}
-        placeholderTextColor="#B6B6B6"
-      />
+      {/* HEADER — SAME STYLE AS OTHER PARENT SCREENS */}
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
 
-      <TextInput
-        placeholder="Last Name"
-        value={surname}
-        onChangeText={setSurname}
-        style={styles.input}
-        placeholderTextColor="#B6B6B6"
-      />
+        <Text style={styles.headerTitle}>Sign Up</Text>
 
-      <TextInput
-        placeholder="Email Address"
-        value={email}
-        onChangeText={setEmail}
-        style={styles.input}
-        placeholderTextColor="#B6B6B6"
-      />
+        <View style={{ width: 40 }} />
+      </View>
 
-      <TextInput
-        placeholder="Password"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        style={styles.input}
-        placeholderTextColor="#B6B6B6"
-      />
+      {/* CONTENT */}
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.subtitle}>Create your account</Text>
 
-      <TouchableOpacity style={styles.button} onPress={handleSignup}>
-        <Text style={styles.buttonText}>Sign Up</Text>
-      </TouchableOpacity>
+        <TextInput
+          placeholder="First Name"
+          style={styles.input}
+          value={firstName}
+          onChangeText={setFirstName}
+        />
 
-      <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-        <Text style={styles.link}>
-          Already have an account? <Text style={styles.linkBold}>Log In</Text>
-        </Text>
-      </TouchableOpacity>
+        <TextInput
+          placeholder="Last Name"
+          style={styles.input}
+          value={surname}
+          onChangeText={setSurname}
+        />
+
+        <TextInput
+          placeholder="Email Address"
+          style={styles.input}
+          value={email}
+          onChangeText={setEmail}
+          autoCapitalize="none"
+        />
+
+        <TextInput
+          placeholder="Password"
+          style={styles.input}
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+        />
+
+        <TouchableOpacity style={styles.signupButton} onPress={handleSignup}>
+          <Text style={styles.signupText}>Sign Up</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+          <Text style={styles.loginLink}>
+            Already have an account? <Text style={styles.loginBold}>Log In</Text>
+          </Text>
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 };
 
 export default ParentSignupScreen;
 
-const PINK = "#ff5fa2";   // ana pembe
-const LIGHT_PINK = "#ffe3f0"; // soft arka plan
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 30,
-    justifyContent: "center",
+    backgroundColor: "#F8F9FA",
   },
 
-  title: {
-    fontSize: 30,
-    fontWeight: "800",
-    textAlign: "center",
-    color: PINK,
-    marginBottom: 5,
+  /* HEADER — SAME AS ParentChildrenOverview */
+  header: {
+    backgroundColor: "#FF6B9A",
+    paddingTop: 55,
+    paddingBottom: 25,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.25)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  backIcon: {
+    fontSize: 22,
+    color: "#fff",
+    fontWeight: "700",
+  },
+
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#fff",
+  },
+
+  content: {
+    padding: 20,
+    paddingTop: 30,
   },
 
   subtitle: {
+    fontSize: 18,
+    color: "#7A003C",
+    fontWeight: "600",
+    marginBottom: 20,
     textAlign: "center",
-    color: "#777",
-    marginBottom: 25,
-    fontSize: 14,
   },
 
   input: {
-    width: "100%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#FFA6C9",
+    backgroundColor: "#fff",
     padding: 14,
-    marginBottom: 15,
-    fontSize: 15,
-    borderWidth: 1.6,
-    borderColor: "#ff9bcf",
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
+    borderRadius: 14,
+    marginBottom: 14,
+    fontSize: 16,
   },
 
-  button: {
-    backgroundColor: PINK,
-    paddingVertical: 15,
-    borderRadius: 30,
+  signupButton: {
+    backgroundColor: "#FF6B9A",
+    paddingVertical: 14,
+    borderRadius: 20,
     alignItems: "center",
     marginTop: 10,
-    shadowColor: PINK,
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 6,
+    elevation: 3,
   },
 
-  buttonText: {
+  signupText: {
     color: "#fff",
-    fontSize: 17,
-    fontWeight: "800",
+    fontSize: 18,
+    fontWeight: "700",
   },
 
-  link: {
-    marginTop: 15,
-    textAlign: "center",
-    color: "#777",
+  loginLink: {
+    marginTop: 18,
+    color: "#6B7280",
     fontSize: 14,
+    textAlign: "center",
   },
 
-  linkBold: {
-    color: PINK,
+  loginBold: {
+    color: "#FF6B9A",
     fontWeight: "700",
   },
 });
