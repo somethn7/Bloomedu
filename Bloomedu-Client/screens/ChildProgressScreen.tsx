@@ -1,453 +1,271 @@
-// -umut: ÇOCUK GELİŞİM DETAY EKRANI - Öğretmen için (28.10.2025)
-// Çocuğun oyun skorları, istatistikler ve gelişim grafiği
-// Backend /progress/:childId endpoint'ini kullanır
-import React, { useState, useEffect } from 'react';
+// 🚀 FINAL ✨ MODERN GAME DETAILS SCREEN – TEACHER THEME ✨
+
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
   TouchableOpacity,
-  Alert,
-} from 'react-native';
-import { API_ENDPOINTS } from '../config/api';
-import { useRoute } from '@react-navigation/native';
+  ActivityIndicator,
+} from "react-native";
+import { useRoute } from "@react-navigation/native";
+import { API_ENDPOINTS } from "../config/api";
 
-interface GameStat {
-  game_type: string;
-  level: number;
-  play_count: number;
-  avg_score: number;
-  best_score: number;
-  total_duration: number;
-}
-
-interface RecentGame {
-  game_type: string;
-  level: number;
-  score: number;
-  max_score: number;
-  completed: boolean;
-  played_at: string;
-}
-
-const ChildProgressScreen = () => {
-  const route = useRoute<any>();
-  const { childId, childName, childSurname } = route.params || {};
-
+const ChildGameDetailsScreen = ({ navigation }: any) => {
+  const { child }: any = useRoute().params;
+  const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [gameStats, setGameStats] = useState<GameStat[]>([]);
-  const [recentGames, setRecentGames] = useState<RecentGame[]>([]);
 
   useEffect(() => {
-    fetchProgress();
+    fetchSessions();
   }, []);
 
-  // -umut: Backend'den çocuğun gelişim verilerini çek (28.10.2025)
-  const fetchProgress = async () => {
-    if (!childId) {
-      Alert.alert('Error', 'Child ID not found.');
-      setLoading(false);
-      return;
-    }
-
+  const fetchSessions = async () => {
     try {
-      const response = await fetch(API_ENDPOINTS.PROGRESS(childId));
-      const data = await response.json();
+      const res = await fetch(API_ENDPOINTS.GAME_SESSIONS_BY_CHILD(child.id));
+      const json = await res.json();
 
-      if (data.success) {
-        setGameStats(data.gameStats || []);
-        setRecentGames(data.recentGames || []);
-        console.log('✅ Progress data loaded:', data);
-      } else {
-        Alert.alert('Error', 'Failed to load progress data.');
+      if (json.success) {
+        const cleaned = json.sessions.map((s: any) => ({
+          ...s,
+          wrong_count: Number(s.wrong_count) || 0,
+          success_rate: Number(s.success_rate) || 0,
+          score: Number(s.score) || 0,
+          max_score: Number(s.max_score) || 1,
+        }));
+
+        setSessions(cleaned);
       }
-    } catch (error) {
-      console.error('❌ Error fetching progress:', error);
-      Alert.alert('Network Error', 'Could not fetch progress data.');
+    } catch (e) {
+      console.log("❌ ERROR:", e);
     } finally {
       setLoading(false);
     }
   };
 
-  // -umut: Oyun tipini okunabilir hale getir (28.10.2025)
-  const getGameTypeName = (gameType: string) => {
-    if (gameType === 'colors_recognition') return '🎨 Color Match';
-    if (gameType === 'color_objects') return '🎯 Color Objects';
-    if (gameType === 'colors_matching') return '🌈 Color Matching';
-    return gameType;
+  const formatDate = (d: string) => {
+    try {
+      return new Date(d).toLocaleString("tr-TR", {
+        timeZone: "Europe/Istanbul",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "Unknown date";
+    }
   };
 
-  // -umut: Başarı oranı renk kodu (28.10.2025)
-  const getSuccessColor = (avgScore: number, maxScore: number = 10) => {
-    const percentage = (avgScore / maxScore) * 100;
-    if (percentage >= 80) return '#51CF66'; // Yeşil
-    if (percentage >= 60) return '#FFD43B'; // Sarı
-    return '#FF8787'; // Kırmızı
+  const groupByDate = () => {
+    const todayList: any[] = [];
+    const yesterdayList: any[] = [];
+    const earlierList: any[] = [];
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+
+    sessions.forEach((s) => {
+      const played = new Date(s.played_at);
+      const clean = new Date(played);
+      clean.setHours(0, 0, 0, 0);
+
+      if (clean.getTime() === today.getTime()) todayList.push(s);
+      else if (clean.getTime() === yesterday.getTime()) yesterdayList.push(s);
+      else earlierList.push(s);
+    });
+
+    return { todayList, yesterdayList, earlierList };
   };
 
-  if (loading) {
+  const { todayList, yesterdayList, earlierList } = groupByDate();
+
+  const StatBar = ({ label, value, max, color }: any) => {
+    const percent = Math.min((value / max) * 100, 100);
+
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4DABF7" />
-        <Text style={styles.loadingText}>Loading progress...</Text>
+      <View style={{ marginTop: 6 }}>
+        <Text style={styles.statLabel}>
+          {label}: {value}
+        </Text>
+
+        <View style={styles.barBackground}>
+          <View
+            style={[
+              styles.barFill,
+              { width: `${percent}%`, backgroundColor: color },
+            ]}
+          />
+        </View>
       </View>
     );
-  }
+  };
+
+  const renderSession = (s: any) => (
+    <View key={s.id} style={styles.card}>
+      <View style={styles.row}>
+        <Text style={styles.game}>🎮 {s.game_type?.toUpperCase()}</Text>
+        <Text style={styles.badge}>Level {s.level}</Text>
+      </View>
+
+      <StatBar label="Score" value={s.score} max={s.max_score} color="#3AB4A2" />
+      <StatBar
+        label="Wrong"
+        value={s.wrong_count}
+        max={s.max_score}
+        color="#FF6B6B"
+      />
+      <StatBar
+        label="Success %"
+        value={s.success_rate}
+        max={100}
+        color="#FFC947"
+      />
+
+      <Text style={styles.duration}>
+        ⏱ {Math.round(s.duration_seconds / 60)} mins
+      </Text>
+
+      <Text style={styles.date}>{formatDate(s.played_at)}</Text>
+    </View>
+  );
 
   return (
-    <ScrollView style={styles.container}>
-      {/* -umut: Başlık - çocuk bilgisi (28.10.2025) */}
+    <View style={styles.container}>
+      {/* TEACHER TURQUOISE HEADER */}
       <View style={styles.header}>
-        <Text style={styles.title}>📊 Progress Report</Text>
-        <Text style={styles.studentName}>
-          {childName} {childSurname}
-        </Text>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
+          <Text style={styles.backIcon}>←</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.headerTitle}>{child.name}'s Games</Text>
+
+        <View style={{ width: 40 }} />
       </View>
 
-      {/* -umut: Özet İstatistikler (28.10.2025) */}
-      <View style={styles.summaryCards}>
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryEmoji}>🎮</Text>
-          <Text style={styles.summaryNumber}>{recentGames.length}</Text>
-          <Text style={styles.summaryLabel}>Games Played</Text>
-        </View>
-
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryEmoji}>⭐</Text>
-          <Text style={styles.summaryNumber}>
-            {gameStats.length > 0
-              ? Math.round(
-                  (gameStats.reduce((sum, stat) => sum + Number(stat.avg_score), 0) /
-                    gameStats.length /
-                    10) *
-                    100
-                )
-              : 0}%
-          </Text>
-          <Text style={styles.summaryLabel}>Avg Success</Text>
-        </View>
-
-        <View style={styles.summaryCard}>
-          <Text style={styles.summaryEmoji}>🏆</Text>
-          <Text style={styles.summaryNumber}>
-            {gameStats.length > 0
-              ? Math.max(...gameStats.map(stat => Number(stat.best_score)))
-              : 0}
-          </Text>
-          <Text style={styles.summaryLabel}>Best Score</Text>
-        </View>
-      </View>
-
-      {/* -umut: Oyun İstatistikleri - Detaylı (28.10.2025) */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Game Statistics</Text>
-
-        {gameStats.length > 0 ? (
-          gameStats.map((stat, index) => (
-            <View key={index} style={styles.statCard}>
-              <View style={styles.statHeader}>
-                <Text style={styles.statGameName}>
-                  {getGameTypeName(stat.game_type)}
-                </Text>
-                <View style={styles.levelBadge}>
-                  <Text style={styles.levelBadgeText}>Level {stat.level}</Text>
-                </View>
-              </View>
-
-              <View style={styles.statGrid}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statLabel}>Times Played</Text>
-                  <Text style={styles.statValue}>{stat.play_count}×</Text>
-                </View>
-
-                <View style={styles.statItem}>
-                  <Text style={styles.statLabel}>Avg Score</Text>
-                  <Text 
-                    style={[
-                      styles.statValue,
-                      { color: getSuccessColor(Number(stat.avg_score)) }
-                    ]}
-                  >
-                    {Number(stat.avg_score).toFixed(1)}/10
-                  </Text>
-                </View>
-
-                <View style={styles.statItem}>
-                  <Text style={styles.statLabel}>Best Score</Text>
-                  <Text style={[styles.statValue, { color: '#51CF66' }]}>
-                    {stat.best_score}/10
-                  </Text>
-                </View>
-
-                <View style={styles.statItem}>
-                  <Text style={styles.statLabel}>Total Time</Text>
-                  <Text style={styles.statValue}>
-                    {Math.round(Number(stat.total_duration) / 60)}min
-                  </Text>
-                </View>
-              </View>
-            </View>
-          ))
+      <ScrollView contentContainerStyle={{ padding: 16 }}>
+        {loading ? (
+          <ActivityIndicator size="large" color="#4ECDC4" />
         ) : (
-          <Text style={styles.noDataText}>No game statistics yet.</Text>
+          <>
+            <Text style={styles.section}>📅 Today</Text>
+            {todayList.length ? todayList.map(renderSession) : (
+              <Text style={styles.empty}>No activity today.</Text>
+            )}
+
+            <Text style={styles.section}>📅 Yesterday</Text>
+            {yesterdayList.length ? yesterdayList.map(renderSession) : (
+              <Text style={styles.empty}>No activity yesterday.</Text>
+            )}
+
+            <Text style={styles.section}>📅 Earlier</Text>
+            {earlierList.length ? earlierList.map(renderSession) : (
+              <Text style={styles.empty}>No earlier activity.</Text>
+            )}
+          </>
         )}
-      </View>
-
-      {/* -umut: Son Oyunlar (28.10.2025) */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Recent Games</Text>
-
-        {recentGames.length > 0 ? (
-          recentGames.map((game, index) => {
-            const successRate = (game.score / game.max_score) * 100;
-            return (
-              <View key={index} style={styles.recentGameCard}>
-                <View style={styles.recentGameHeader}>
-                  <Text style={styles.recentGameName}>
-                    {getGameTypeName(game.game_type)}
-                  </Text>
-                  <Text style={styles.recentGameDate}>
-                    {new Date(game.played_at).toLocaleDateString('tr-TR', {
-                      day: 'numeric',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </Text>
-                </View>
-
-                <View style={styles.recentGameScore}>
-                  <Text style={styles.scoreText}>
-                    Score: <Text style={{ fontWeight: '700' }}>{game.score}/{game.max_score}</Text>
-                  </Text>
-                  <View 
-                    style={[
-                      styles.successBadge,
-                      { backgroundColor: getSuccessColor(game.score, game.max_score) }
-                    ]}
-                  >
-                    <Text style={styles.successBadgeText}>{Math.round(successRate)}%</Text>
-                  </View>
-                </View>
-              </View>
-            );
-          })
-        ) : (
-          <Text style={styles.noDataText}>No recent games yet.</Text>
-        )}
-      </View>
-
-      {/* -umut: Refresh butonu (28.10.2025) */}
-      <TouchableOpacity style={styles.refreshButton} onPress={fetchProgress}>
-        <Text style={styles.refreshButtonText}>🔄 Refresh Data</Text>
-      </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 };
 
-// -umut: Stiller (28.10.2025)
+export default ChildGameDetailsScreen;
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#718096',
-  },
+  container: { flex: 1, backgroundColor: "#F8FFFF" },
+
   header: {
-    backgroundColor: '#FFFFFF',
-    padding: 20,
-    paddingTop: 30,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    marginBottom: 20,
+    backgroundColor: "#4ECDC4",
+    paddingTop: 55,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#2D3748',
-    textAlign: 'center',
-    marginBottom: 8,
+
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.25)",
+    justifyContent: "center",
+    alignItems: "center",
   },
-  studentName: {
+
+  backIcon: { fontSize: 22, color: "#fff", fontWeight: "700" },
+
+  headerTitle: { fontSize: 18, color: "#fff", fontWeight: "700" },
+
+  section: {
+    marginTop: 18,
     fontSize: 20,
-    fontWeight: '600',
-    color: '#4DABF7',
-    textAlign: 'center',
+    fontWeight: "700",
+    color: "#007F73",
   },
-  summaryCards: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: 10,
-    marginBottom: 20,
-  },
-  summaryCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+
+  card: {
+    marginTop: 10,
     padding: 16,
-    alignItems: 'center',
-    width: '30%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    borderLeftWidth: 6,
+    borderLeftColor: "#4ECDC4",
     elevation: 3,
   },
-  summaryEmoji: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
-  summaryNumber: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#2D3748',
-    marginBottom: 4,
-  },
-  summaryLabel: {
-    fontSize: 11,
-    color: '#718096',
-    textAlign: 'center',
-  },
-  section: {
-    paddingHorizontal: 16,
-    marginBottom: 20,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#2D3748',
-    marginBottom: 12,
-  },
-  statCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  statHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  statGameName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#2D3748',
-  },
-  levelBadge: {
-    backgroundColor: '#E7F5FF',
-    borderRadius: 12,
+
+  row: { flexDirection: "row", justifyContent: "space-between" },
+
+  game: { fontSize: 17, fontWeight: "700", color: "#004F4A" },
+
+  badge: {
+    backgroundColor: "#D1FFF7",
     paddingVertical: 4,
     paddingHorizontal: 10,
-  },
-  levelBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#4DABF7',
-  },
-  statGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  statItem: {
-    width: '48%',
-    marginBottom: 10,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#718096',
-    marginBottom: 4,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#2D3748',
-  },
-  recentGameCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: '#4DABF7',
-  },
-  recentGameHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  recentGameName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#2D3748',
-  },
-  recentGameDate: {
-    fontSize: 12,
-    color: '#718096',
-  },
-  recentGameScore: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  scoreText: {
+    borderRadius: 10,
     fontSize: 14,
-    color: '#4A5568',
+    fontWeight: "700",
+    color: "#007F73",
   },
-  successBadge: {
-    borderRadius: 12,
-    paddingVertical: 4,
-    paddingHorizontal: 12,
+
+  statLabel: {
+    fontSize: 14,
+    color: "#005F5A",
+    fontWeight: "600",
   },
-  successBadgeText: {
+
+  barBackground: {
+    height: 8,
+    backgroundColor: "#E0F7F5",
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+
+  barFill: { height: "100%", borderRadius: 10 },
+
+  duration: {
+    marginTop: 8,
+    fontSize: 14,
+    color: "#004F4A",
+    fontWeight: "600",
+  },
+
+  date: {
+    marginTop: 6,
     fontSize: 13,
-    fontWeight: '700',
-    color: '#FFFFFF',
+    color: "#777",
+    fontWeight: "500",
   },
-  noDataText: {
-    fontSize: 15,
-    color: '#A0AEC0',
-    textAlign: 'center',
-    marginTop: 20,
-    fontStyle: 'italic',
-  },
-  refreshButton: {
-    backgroundColor: '#4DABF7',
-    margin: 16,
-    marginTop: 0,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    shadowColor: '#4DABF7',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  refreshButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
+
+  empty: { color: "#AAA", marginTop: 4, fontStyle: "italic" },
 });
-
-export default ChildProgressScreen;
-

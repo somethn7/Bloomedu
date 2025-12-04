@@ -1,6 +1,5 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
-
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import ChildGameDetailsScreen from './screens/ChildGameDetailsScreen';
@@ -17,7 +16,7 @@ import ParentFeedbacksScreen from './screens/ParentFeedbacksScreen';
 import ParentAIChatScreen from './screens/ParentAIChatScreen';
 import ParentMessageCategoriesScreen from './screens/ParentMessageCategoriesScreen';
 import ParentVerifyResetCodeScreen from './screens/ParentVerifyResetCodeScreen';
-import ParentChildrenOverviewScreen from './screens/ParentChildrenOverviewScreen'; // ⭐ YENİ EKLENDİ
+import ParentChildrenOverviewScreen from './screens/ParentChildrenOverviewScreen';
 
 import ChatScreen from './screens/ChatScreen';
 import ChildInfoScreen from './screens/ChildInfoScreen';
@@ -94,7 +93,6 @@ export default function App() {
             options={{ title: 'Communication Board' }}
           />
 
-          {/* ⭐⭐ YENİ: Parent Children Overview Screen */}
           <Stack.Screen 
             name="ParentChildrenOverview"
             component={ParentChildrenOverviewScreen}
@@ -111,11 +109,13 @@ export default function App() {
           <Stack.Screen name="CategoryGames" component={CategoryGamesScreen} options={{ headerShown: false }} />
           <Stack.Screen name="ColorsGame" component={ColorsGameScreen} />
           <Stack.Screen name="ColorsMatchingGame" component={ColorsMatchingGameScreen} />
+
+          {/* === PARENT CHILD DETAILS === */}
           <Stack.Screen
-        name="ChildGameDetails"
-        component={ChildGameDetailsScreen}
-          options={{ headerShown: false }}
-            />
+            name="ChildGameDetails"
+            component={ChildGameDetailsScreen}
+            options={{ headerShown: false }}
+          />
 
           {/* === Level Games === */}
           <Stack.Screen name="ColorsRecognitionLevel1" component={ColorsRecognitionLevel1} />
@@ -142,7 +142,13 @@ export default function App() {
           <Stack.Screen name="TeacherAddChild" component={TeacherAddChildScreen} />
           <Stack.Screen name="TeacherChatList" component={TeacherChatListScreen} />
           <Stack.Screen name="TeacherFeedback" component={TeacherFeedbackScreen} />
-          <Stack.Screen name="ChildProgress" component={ChildProgressScreen} />
+
+          {/* === TEACHER CHILD PROGRESS === */}
+          <Stack.Screen
+            name="ChildProgress"
+            component={ChildProgressScreen}
+            options={{ headerShown: false }}
+          />
 
           {/* === OTHER === */}
           <Stack.Screen name="Settings" component={SettingsScreen} />

@@ -534,6 +534,49 @@ app.get('/game-sessions/by-child/:childId', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 });
+// === GET DAILY & TOTAL PLAYTIME FOR CHILD ===
+app.get("/children/playtime/:childId", async (req, res) => {
+  const { childId } = req.params;
+
+  try {
+    // TOTAL PLAY TIME (ALL TIME)
+    const totalResult = await pool.query(
+      `
+      SELECT COALESCE(SUM(duration_seconds), 0) AS total_seconds
+      FROM game_sessions
+      WHERE child_id = $1
+      `,
+      [childId]
+    );
+
+    // DAILY PLAY TIME (ONLY TODAY)
+    const dailyResult = await pool.query(
+      `
+      SELECT COALESCE(SUM(duration_seconds), 0) AS daily_seconds
+      FROM game_sessions
+      WHERE child_id = $1
+      AND DATE(played_at AT TIME ZONE 'Europe/Istanbul') = CURRENT_DATE
+      `,
+      [childId]
+    );
+
+    const total_minutes = Math.round(totalResult.rows[0].total_seconds / 60);
+    const daily_minutes = Math.round(dailyResult.rows[0].daily_seconds / 60);
+
+    res.json({
+      success: true,
+      daily_minutes,
+      total_minutes
+    });
+
+  } catch (err) {
+    console.error("🔥 Error (GET /children/playtime):", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error while calculating playtime."
+    });
+  }
+});
 
 
 // === GET CHILD PROGRESS ===

@@ -1,4 +1,4 @@
-// 🚀 FINAL ShapeMatchLevel3 – FULL WRONG & SUCCESS SUPPORT
+// 🚀 FINAL ShapeMatchLevel3 – WRONG COUNT + SUCCESS RATE + DB SAVE CLEAN
 
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -11,13 +11,12 @@ import {
   ScrollView,
 } from "react-native";
 import { useRoute } from "@react-navigation/native";
-import Tts from 'react-native-tts';
+import Tts from "react-native-tts";
 import { createGameCompletionHandler } from "../../../utils/gameNavigation";
 import { sendGameResult } from "../../../config/api";
 
 const { width } = Dimensions.get("window");
 
-// Shape options
 const SHAPES = [
   { id: 1, type: "circle", color: "#FFD1DC" },
   { id: 2, type: "square", color: "#B5EAD7" },
@@ -30,62 +29,55 @@ const TOTAL_QUESTIONS = 10;
 const ShapeMatchLevel3 = ({ navigation }: any) => {
   const route = useRoute();
   const { child, gameSequence, currentGameIndex, categoryTitle }: any =
-    route.params || {};
+    (route.params as any) || {};
 
   const [targetShape, setTargetShape] = useState<any>(null);
   const [options, setOptions] = useState<any[]>([]);
-  const [feedback, setFeedback] = useState("");
+  const [feedback, setFeedback] = useState<"" | "correct" | "wrong">("");
   const [score, setScore] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
-  const [currentQuestion, setCurrentQuestion] = useState(1);
+  const [currentQuestion, setCurrentQuestion] = useState(1); // 1..TOTAL_QUESTIONS
+  const [answeredCount, setAnsweredCount] = useState(0); // gerçek cevaplanan soru sayısı
   const [gameFinished, setGameFinished] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const [gameStartTime] = useState(Date.now());
+
+  const gameStartTimeRef = useRef<number>(Date.now());
 
   const colorAnim = useRef(new Animated.Value(0)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
+  // TTS setup
   useEffect(() => {
     Tts.setDefaultLanguage("en-US").catch(() => {});
     Tts.setDefaultRate(0.3);
     Tts.setDefaultPitch(1.0);
     Tts.setIgnoreSilentSwitch("ignore");
+
     newQuestion();
+
+    return () => {
+      Tts.stop();
+    };
   }, []);
+
+  const speak = (text: string) => {
+    try {
+      Tts.stop();
+      Tts.speak(text);
+    } catch {}
+  };
 
   const newQuestion = () => {
     setFeedback("");
     setSelectedId(null);
+
     const newTarget = SHAPES[Math.floor(Math.random() * SHAPES.length)];
     setTargetShape(newTarget);
     setOptions([...SHAPES].sort(() => Math.random() - 0.5));
 
     setTimeout(() => {
-      Tts.speak(`Find the ${newTarget.type}`);
+      speak(`Find the ${newTarget.type}`);
     }, 400);
-  };
-
-  const selectShape = (shape: any) => {
-    if (feedback) return;
-
-    setSelectedId(shape.id);
-    const isCorrect = shape.id === targetShape.id;
-
-    if (isCorrect) {
-      setScore((p) => p + 1);
-      setFeedback("correct");
-      animateFeedback(true);
-      Tts.speak("Correct!");
-      setTimeout(() => nextStep(), 800);
-    } else {
-      setScore((p) => Math.max(0, p - 1));
-      setWrongCount((p) => p + 1);
-      setFeedback("wrong");
-      animateFeedback(false);
-      runShake();
-      Tts.speak("Try again!");
-      setTimeout(() => setFeedback(""), 700);
-    }
   };
 
   const animateFeedback = (isCorrect: boolean) => {
@@ -105,19 +97,64 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
 
   const runShake = () => {
     Animated.sequence([
-      Animated.timing(shakeAnim, { toValue: 6, duration: 80, useNativeDriver: false }),
-      Animated.timing(shakeAnim, { toValue: -6, duration: 80, useNativeDriver: false }),
-      Animated.timing(shakeAnim, { toValue: 6, duration: 80, useNativeDriver: false }),
-      Animated.timing(shakeAnim, { toValue: 0, duration: 80, useNativeDriver: false }),
+      Animated.timing(shakeAnim, {
+        toValue: 6,
+        duration: 80,
+        useNativeDriver: false,
+      }),
+      Animated.timing(shakeAnim, {
+        toValue: -6,
+        duration: 80,
+        useNativeDriver: false,
+      }),
+      Animated.timing(shakeAnim, {
+        toValue: 6,
+        duration: 80,
+        useNativeDriver: false,
+      }),
+      Animated.timing(shakeAnim, {
+        toValue: 0,
+        duration: 80,
+        useNativeDriver: false,
+      }),
     ]).start();
   };
 
-  const nextStep = () => {
-    if (currentQuestion >= TOTAL_QUESTIONS) {
-      setGameFinished(true);
+  const selectShape = (shape: any) => {
+    // aynı soruda feedback varken tekrar tıklanmasın
+    if (feedback || gameFinished) return;
+
+    setSelectedId(shape.id);
+    const isCorrect = shape.id === targetShape?.id;
+
+    if (isCorrect) {
+      setScore((prev) => prev + 1);
+      setFeedback("correct");
+      animateFeedback(true);
+      speak("Correct!");
+
+      // cevaplanan soru sayısını güncelle
+      setAnsweredCount((prevAnswered) => prevAnswered + 1);
+
+      setTimeout(() => {
+        if (currentQuestion >= TOTAL_QUESTIONS) {
+          setGameFinished(true);
+        } else {
+          setCurrentQuestion((prev) => prev + 1);
+          newQuestion();
+        }
+      }, 800);
     } else {
-      setCurrentQuestion((p) => p + 1);
-      newQuestion();
+      // yanlışta score sıfırın altına inmesin
+      setScore((prev) => Math.max(0, prev - 1));
+      setWrongCount((prev) => prev + 1);
+      setFeedback("wrong");
+      animateFeedback(false);
+      runShake();
+      speak("Try again!");
+
+      // Bu soruda tekrar denemesin diye kısa süre sonra feedbacki temizliyoruz
+      setTimeout(() => setFeedback(""), 700);
     }
   };
 
@@ -125,7 +162,9 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
     setScore(0);
     setWrongCount(0);
     setCurrentQuestion(1);
+    setAnsweredCount(0);
     setGameFinished(false);
+    gameStartTimeRef.current = Date.now();
     Tts.stop();
     newQuestion();
   };
@@ -133,38 +172,47 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
   const sendToDatabase = async () => {
     if (!child?.id) return;
 
-    const totalTime = Date.now() - gameStartTime;
-    const totalAnswered = currentQuestion - 1;
-    const successRate =
-      totalAnswered > 0 ? Math.round((score / totalAnswered) * 100) : 0;
+    const totalTimeMs = Date.now() - gameStartTimeRef.current;
 
-    await sendGameResult({
-      child_id: child.id,
-      game_type: "shape-match",
-      level: 3,
-      score,
-      max_score: TOTAL_QUESTIONS,
-      duration_seconds: Math.floor(totalTime / 1000),
-      wrong_count: wrongCount,
-      success_rate: successRate,
-      details: {
-        totalQuestions: TOTAL_QUESTIONS,
-        wrongCount,
-        successRate,
-      },
-      completed: true,
-    });
+    const safeAnswered = answeredCount > 0 ? answeredCount : 1;
+    const safeScore = score < 0 ? 0 : score;
+    const successRate = Math.round((safeScore / safeAnswered) * 100);
+
+    try {
+      await sendGameResult({
+        child_id: child.id,
+        game_type: "shape-match",
+        level: 3,
+        score: safeScore,
+        max_score: TOTAL_QUESTIONS,
+        duration_seconds: Math.floor(totalTimeMs / 1000),
+        wrong_count: wrongCount,
+        success_rate: successRate,
+        details: {
+          totalQuestions: TOTAL_QUESTIONS,
+          answeredCount: safeAnswered,
+          wrongCount,
+          successRate,
+        },
+        completed: true,
+      });
+    } catch (err) {
+      console.log("❌ Error sending game result:", err);
+    }
   };
 
   useEffect(() => {
     if (gameFinished) {
-      sendToDatabase();
-      handleGameCompletion();
+      (async () => {
+        await sendToDatabase();
+        handleGameCompletion();
+      })();
     }
   }, [gameFinished]);
 
   const handleGameCompletion = () => {
     Tts.stop();
+
     const gameNav = createGameCompletionHandler({
       navigation,
       child,
@@ -181,22 +229,41 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
     );
   };
 
+  const successRate =
+    answeredCount > 0
+      ? Math.round((Math.max(score, 0) / answeredCount) * 100)
+      : 0;
+
   const borderColor = colorAnim.interpolate({
     inputRange: [0, 1],
     outputRange:
       feedback === "correct" ? ["#FFF", "#77DD77"] : ["#FFF", "#FF6961"],
   });
 
-  const totalAnswered = currentQuestion > 1 ? currentQuestion - 1 : 0;
-  const successRate =
-    totalAnswered > 0 ? Math.round((score / totalAnswered) * 100) : 0;
-
   const renderShape = (type: string, color: string, size = 90) => {
     switch (type) {
       case "circle":
-        return <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color }} />;
+        return (
+          <View
+            style={{
+              width: size,
+              height: size,
+              borderRadius: size / 2,
+              backgroundColor: color,
+            }}
+          />
+        );
       case "square":
-        return <View style={{ width: size, height: size, borderRadius: 18, backgroundColor: color }} />;
+        return (
+          <View
+            style={{
+              width: size,
+              height: size,
+              borderRadius: 18,
+              backgroundColor: color,
+            }}
+          />
+        );
       case "triangle":
         return (
           <View
@@ -213,11 +280,23 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
           />
         );
       case "star":
-        return <Text style={{ fontSize: size * 0.9, color: "#FFD700" }}>★</Text>;
+        return (
+          <Text style={{ fontSize: size * 0.9, color: "#FFD700" }}>★</Text>
+        );
       default:
         return null;
     }
   };
+
+  if (!child?.id) {
+    return (
+      <View style={styles.container}>
+        <Text style={{ marginTop: 40, textAlign: "center" }}>
+          Child info not found.
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -249,7 +328,7 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
         <View style={styles.scoreCards}>
           <View style={[styles.scoreCard, { borderTopColor: "#51CF66" }]}>
             <Text style={styles.scoreEmoji}>🏆</Text>
-            <Text style={styles.scoreNumber}>{score}</Text>
+            <Text style={styles.scoreNumber}>{Math.max(score, 0)}</Text>
             <Text style={styles.scoreLabel}>Score</Text>
           </View>
 
@@ -296,7 +375,9 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
                     selectedId === shape.id
                       ? feedback === "correct"
                         ? "#77DD77"
-                        : "#FF6961"
+                        : feedback === "wrong"
+                        ? "#FF6961"
+                        : "#F1EFE9"
                       : "#F1EFE9",
                 },
               ]}
@@ -317,6 +398,7 @@ export default ShapeMatchLevel3;
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFFDF8" },
   scroll: { padding: 16, paddingBottom: 60 },
+
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -325,6 +407,7 @@ const styles = StyleSheet.create({
   },
   title: { fontSize: 22, fontWeight: "700", color: "#4A4A4A" },
   subtitle: { fontSize: 13, color: "#999" },
+
   progressBox: { alignItems: "flex-end" },
   questionCounter: { fontSize: 14, fontWeight: "600", color: "#6B6B6B" },
   progressBar: {
@@ -339,6 +422,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#74C0FC",
     borderRadius: 10,
   },
+
   scoreCards: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -357,6 +441,7 @@ const styles = StyleSheet.create({
   scoreEmoji: { fontSize: 20 },
   scoreNumber: { fontSize: 20, fontWeight: "700", color: "#4A4A4A" },
   scoreLabel: { fontSize: 11, color: "#888" },
+
   target: { alignItems: "center", marginVertical: 16 },
   questionText: {
     fontSize: 17,
@@ -364,6 +449,7 @@ const styles = StyleSheet.create({
     color: "#5A5A5A",
     marginBottom: 12,
   },
+
   options: {
     flexDirection: "row",
     flexWrap: "wrap",
