@@ -9,9 +9,12 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 
+const BASE_URL = 'https://bloomedu-production.up.railway.app';
+
 const ParentDashboardScreen = ({ navigation }: any) => {
   const [childrenList, setChildrenList] = useState<any[]>([]);
   const [parentName, setParentName] = useState('Parent');
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -34,7 +37,7 @@ const ParentDashboardScreen = ({ navigation }: any) => {
         return;
       }
       const response = await fetch(
-        `https://bloomedu-production.up.railway.app/children/by-parent/${parentId}`
+        `${BASE_URL}/children/by-parent/${parentId}`
       );
       const json = await response.json();
       if (!json.success) {
@@ -53,10 +56,40 @@ const ParentDashboardScreen = ({ navigation }: any) => {
     }
   };
 
-  // Dashboard ekrana her odaklandığında hızlı istatistikleri güncelle
+  const fetchUnreadSummary = async () => {
+    try {
+      const parentId = await AsyncStorage.getItem('parent_id');
+      if (!parentId) return;
+
+      const res = await fetch(
+        `${BASE_URL}/messages/unread-summary/${parentId}`
+      );
+      const json = await res.json();
+
+      if (!json.success || !json.unread) {
+        setUnreadCount(0);
+        return;
+      }
+
+      let total = 0;
+      Object.values(json.unread).forEach((cat: any) => {
+        Object.values(cat || {}).forEach((n: any) => {
+          total += Number(n) || 0;
+        });
+      });
+
+      setUnreadCount(total);
+    } catch (e) {
+      console.log('Unread summary error:', e);
+      setUnreadCount(0);
+    }
+  };
+
+  // Dashboard ekrana her odaklandığında hızlı istatistikleri ve unread’i güncelle
   useFocusEffect(
     useCallback(() => {
       fetchChildrenForParent();
+      fetchUnreadSummary();
     }, [])
   );
 
@@ -98,6 +131,15 @@ const ParentDashboardScreen = ({ navigation }: any) => {
                 Official Message Channel
               </Text>
             </View>
+
+            {unreadCount > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            )}
+
             <Text style={styles.bannerArrow}>→</Text>
           </View>
         </TouchableOpacity>
@@ -148,7 +190,7 @@ const ParentDashboardScreen = ({ navigation }: any) => {
             <Text style={styles.actionArrow}>→</Text>
           </TouchableOpacity>
 
-          {/* View Progress → YENİ EKRANA GÖNDERİYOR */}
+          {/* View Progress */}
           <TouchableOpacity
             style={[styles.actionCard, styles.secondaryAction]}
             onPress={() => navigation.navigate('ParentChildrenOverview')}
@@ -307,6 +349,19 @@ const styles = StyleSheet.create({
     fontSize: 24,
     color: '#FFFFFF',
     fontWeight: 'bold',
+    marginLeft: 6,
+  },
+  unreadBadge: {
+    backgroundColor: '#FFB74D',
+    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginLeft: 6,
+  },
+  unreadBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   quickStatsContainer: {
     flexDirection: 'row',

@@ -1,4 +1,4 @@
-import React, { useLayoutEffect } from 'react';
+import React, { useLayoutEffect, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -7,8 +7,10 @@ import {
   ScrollView,
   Dimensions,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
+const BASE_URL = 'https://bloomedu-production.up.railway.app';
 
 const categories = [
   { id: 'development', title: 'Development Tracker', icon: '📘', color: '#4ECDC4', desc: 'Academic & social progress' },
@@ -20,12 +22,38 @@ const categories = [
 ];
 
 const ParentMessageCategoriesScreen = ({ navigation }: any) => {
-  
+  const [unreadSummary, setUnreadSummary] = useState<any>({});
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerShown: false,
     });
   }, [navigation]);
+
+  useEffect(() => {
+    loadUnread();
+  }, []);
+
+  const loadUnread = async () => {
+    try {
+      const parentId = await AsyncStorage.getItem('parent_id');
+      if (!parentId) return;
+
+      const res = await fetch(
+        `${BASE_URL}/messages/unread-summary/${parentId}`
+      );
+      const json = await res.json();
+
+      if (json.success && json.unread) {
+        setUnreadSummary(json.unread);
+      } else {
+        setUnreadSummary({});
+      }
+    } catch (e) {
+      console.log('Unread summary error:', e);
+      setUnreadSummary({});
+    }
+  };
 
   const handleCategorySelect = (category: any) => {
     navigation.navigate('ChildSelectScreen', { 
@@ -55,19 +83,42 @@ const ParentMessageCategoriesScreen = ({ navigation }: any) => {
         </Text>
 
         <View style={styles.grid}>
-          {categories.map((item) => (
-            <TouchableOpacity
-              key={item.id}
-              style={[styles.card, { borderColor: item.color }]}
-              onPress={() => handleCategorySelect(item)}
-            >
-              <View style={[styles.iconContainer, { backgroundColor: item.color }]}>
-                <Text style={styles.icon}>{item.icon}</Text>
-              </View>
-              <Text style={styles.cardTitle}>{item.title}</Text>
-              <Text style={styles.cardDesc}>{item.desc}</Text>
-            </TouchableOpacity>
-          ))}
+          {categories.map((item) => {
+            const unreadForCategory = unreadSummary[item.id]
+              ? Object.values(unreadSummary[item.id]).reduce(
+                  (sum: number, n: any) => sum + (Number(n) || 0),
+                  0
+                )
+              : 0;
+
+            return (
+              <TouchableOpacity
+                key={item.id}
+                style={[styles.card, { borderColor: item.color }]}
+                onPress={() => handleCategorySelect(item)}
+              >
+                <View
+                  style={[
+                    styles.iconContainer,
+                    { backgroundColor: item.color },
+                  ]}
+                >
+                  <Text style={styles.icon}>{item.icon}</Text>
+                </View>
+
+                <Text style={styles.cardTitle}>{item.title}</Text>
+                <Text style={styles.cardDesc}>{item.desc}</Text>
+
+                {unreadForCategory > 0 && (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>
+                      {unreadForCategory > 99 ? '99+' : unreadForCategory}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </ScrollView>
     </View>
@@ -150,6 +201,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 3,
+    position: 'relative',
   },
   iconContainer: {
     width: 60,
@@ -174,5 +226,19 @@ const styles = StyleSheet.create({
     color: '#718096',
     textAlign: 'center',
     lineHeight: 16,
+  },
+  badge: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    backgroundColor: '#FF6B6B',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
 });

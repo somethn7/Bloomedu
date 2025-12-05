@@ -50,8 +50,8 @@ const ChatScreen = ({ route, navigation }: any) => {
   const [myUserId, setMyUserId] = useState<number | null>(null);
   const [showWorkHoursWarning, setShowWorkHoursWarning] = useState(false);
 
-  // Parent tarafında şimdilik öğretmen ID = 1 (legacy davranış)
-  const receiverId = isTeacher ? otherUserId : 1;
+  // Artık her zaman diğer tarafın ID'si
+  const receiverId = otherUserId;
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -257,7 +257,7 @@ const ChatScreen = ({ route, navigation }: any) => {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: categoryColor }]}>
+      <View style={[styles.header, { backgroundColor: '#718096' }]}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.backButton}
