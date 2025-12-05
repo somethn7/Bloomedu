@@ -5,11 +5,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Dimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const { width } = Dimensions.get('window');
 const BASE_URL = 'https://bloomedu-production.up.railway.app';
 
 const ChildSelectScreen = ({ navigation, route }: any) => {
@@ -18,7 +16,6 @@ const ChildSelectScreen = ({ navigation, route }: any) => {
   const [children, setChildren] = useState<any[]>([]);
   const [unreadSummary, setUnreadSummary] = useState<any>({});
 
-  // ⭐ DEFAULT HEADER'I KAPAT
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
@@ -33,7 +30,9 @@ const ChildSelectScreen = ({ navigation, route }: any) => {
       const parentId = await AsyncStorage.getItem('parent_id');
       if (!parentId) return;
 
-      const res = await fetch(`${BASE_URL}/children/by-parent/${parentId}`);
+      const res = await fetch(
+        `${BASE_URL}/children/by-parent/${parentId}`
+      );
       const json = await res.json();
       if (json.success) setChildren(json.children);
     } catch (e) {
@@ -66,7 +65,7 @@ const ChildSelectScreen = ({ navigation, route }: any) => {
   };
 
   const handleSelect = (child: any) => {
-    navigation.navigate("ChatScreen", {
+    navigation.navigate('ChatScreen', {
       childId: child.id,
       childName: `${child.name} ${child.surname}`,
       category,
@@ -79,8 +78,6 @@ const ChildSelectScreen = ({ navigation, route }: any) => {
 
   return (
     <View style={styles.container}>
-
-      {/* CUSTOM MOR HEADER */}
       <View style={[styles.header, { backgroundColor: '#718096' }]}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -126,7 +123,7 @@ const ChildSelectScreen = ({ navigation, route }: any) => {
                 {unread > 0 && (
                   <View style={styles.badge}>
                     <Text style={styles.badgeText}>
-                      {unread > 99 ? "99+" : unread}
+                      {unread > 99 ? '99+' : unread}
                     </Text>
                   </View>
                 )}
@@ -134,7 +131,6 @@ const ChildSelectScreen = ({ navigation, route }: any) => {
             </TouchableOpacity>
           );
         })}
-
       </ScrollView>
     </View>
   );
@@ -154,7 +150,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -203,11 +198,9 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 18,
     marginBottom: 15,
-
     borderColor: '#E5E7EB',
     borderWidth: 2,
     borderBottomWidth: 6,
-
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.1,

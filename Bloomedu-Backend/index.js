@@ -8,7 +8,7 @@ const sendStudentCredentials = require('./utils/sendMail');
 
 const app = express();
 
-// === NEW ROUTES (Integrated cleanly) ===
+// === NEW ROUTES (chat) ===
 const messagesRouter = require('./routes/messages');
 
 // === FIREBASE INIT ===
@@ -18,8 +18,7 @@ admin.initializeApp({
 });
 
 app.use(cors());
-// payload limit for images
-app.use(express.json({ limit: '50mb' }));
+app.use(express.json({ limit: '50mb' })); // image base64
 
 // === LOG MIDDLEWARE ===
 app.use((req, res, next) => {
@@ -41,7 +40,9 @@ app.post('/teacher/login', async (req, res) => {
     if (teacher.rows.length > 0)
       res.json({ success: true, teacherId: teacher.rows[0].id });
     else
-      res.status(401).json({ success: false, message: 'Invalid credentials' });
+      res
+        .status(401)
+        .json({ success: false, message: 'Invalid credentials' });
   } catch (err) {
     console.error('DB Error (POST /teacher/login):', err);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -53,23 +54,33 @@ app.post('/parent/signup', async (req, res) => {
   const { name, surname, email, password } = req.body;
 
   if (!name || !surname || !email || !password)
-    return res.status(400).json({ success: false, message: 'All fields are required.' });
+    return res
+      .status(400)
+      .json({ success: false, message: 'All fields are required.' });
 
   try {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email))
-      return res.status(400).json({ success: false, message: 'Invalid email format.' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Invalid email format.' });
 
-    const existing = await pool.query('SELECT * FROM parents WHERE email = $1', [email]);
+    const existing = await pool.query(
+      'SELECT * FROM parents WHERE email = $1',
+      [email]
+    );
     if (existing.rows.length > 0)
-      return res.status(400).json({ success: false, message: 'Email already registered.' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Email already registered.' });
 
-    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const verificationCode = Math.floor(
+      100000 + Math.random() * 900000
+    ).toString();
 
     await sendVerificationCode(email, verificationCode);
     console.log(`📩 Verification code sent to ${email}: ${verificationCode}`);
 
-    // ✔ Surname eklendi
     await pool.query(
       `INSERT INTO parents (name, surname, email, password, is_verified, verification_code) 
        VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -79,22 +90,24 @@ app.post('/parent/signup', async (req, res) => {
     res.json({
       success: true,
       message: 'Verification email sent. Please check your inbox.',
-      verificationCode
+      verificationCode,
     });
-
   } catch (err) {
     console.error('Error (POST /parent/signup):', err);
-    res.status(500).json({ success: false, message: 'Server error during signup.' });
+    res
+      .status(500)
+      .json({ success: false, message: 'Server error during signup.' });
   }
 });
 
-
-// === NEW: VERIFY PARENT EMAIL ===
+// === VERIFY PARENT EMAIL ===
 app.post('/parent/verify-code', async (req, res) => {
   const { email, code } = req.body;
 
   if (!email || !code)
-    return res.status(400).json({ success: false, message: 'Email and code are required.' });
+    return res
+      .status(400)
+      .json({ success: false, message: 'Email and code are required.' });
 
   try {
     const result = await pool.query(
@@ -103,17 +116,25 @@ app.post('/parent/verify-code', async (req, res) => {
     );
 
     if (result.rows.length === 0)
-      return res.status(400).json({ success: false, message: 'Invalid verification code.' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Invalid verification code.' });
 
     await pool.query(
       'UPDATE parents SET is_verified = true, verification_code = NULL WHERE email = $1',
       [email]
     );
 
-    res.json({ success: true, message: 'Email verified successfully.' });
+    res.json({
+      success: true,
+      message: 'Email verified successfully.',
+    });
   } catch (err) {
     console.error('Error (POST /parent/verify-code):', err);
-    res.status(500).json({ success: false, message: 'Server error during verification.' });
+    res.status(500).json({
+      success: false,
+      message: 'Server error during verification.',
+    });
   }
 });
 
@@ -122,7 +143,9 @@ app.post('/parent/request-reset', async (req, res) => {
   const { email } = req.body;
 
   if (!email)
-    return res.status(400).json({ success: false, message: 'Email required.' });
+    return res
+      .status(400)
+      .json({ success: false, message: 'Email required.' });
 
   try {
     const parent = await pool.query(
@@ -131,11 +154,12 @@ app.post('/parent/request-reset', async (req, res) => {
     );
 
     if (parent.rows.length === 0)
-      return res.status(404).json({ success: false, message: 'Email not found.' });
+      return res
+        .status(404)
+        .json({ success: false, message: 'Email not found.' });
 
     const code = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // 🔥 ESKİSİ: verification_code'a yazıyordu → yanlış
     await pool.query(
       'UPDATE parents SET reset_code = $1 WHERE email = $2',
       [code, email]
@@ -146,13 +170,14 @@ app.post('/parent/request-reset', async (req, res) => {
     console.log(`📩 Reset code sent to ${email}: ${code}`);
 
     res.json({ success: true, message: 'Reset code sent to email.' });
-
   } catch (err) {
     console.error('Error (POST /parent/request-reset):', err);
-    res.status(500).json({ success: false, message: 'Server error sending reset code.' });
+    res.status(500).json({
+      success: false,
+      message: 'Server error sending reset code.',
+    });
   }
 });
-
 
 // === RESET PASSWORD ===
 app.post('/parent/reset-password', async (req, res) => {
@@ -160,7 +185,9 @@ app.post('/parent/reset-password', async (req, res) => {
     const { email, code, newPassword } = req.body;
 
     if (!email || !code || !newPassword) {
-      return res.status(400).json({ success: false, message: 'Missing fields.' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Missing fields.' });
     }
 
     const parent = await pool.query(
@@ -169,13 +196,17 @@ app.post('/parent/reset-password', async (req, res) => {
     );
 
     if (parent.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'Parent not found.' });
+      return res
+        .status(404)
+        .json({ success: false, message: 'Parent not found.' });
     }
 
     const savedCode = parent.rows[0].reset_code;
 
     if (!savedCode || savedCode !== code) {
-      return res.status(400).json({ success: false, message: 'Invalid reset code.' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Invalid reset code.' });
     }
 
     await pool.query(
@@ -183,18 +214,19 @@ app.post('/parent/reset-password', async (req, res) => {
       [newPassword, email]
     );
 
-    return res.json({ success: true, message: 'Password reset successful.' });
-
+    return res.json({
+      success: true,
+      message: 'Password reset successful.',
+    });
   } catch (err) {
     console.error('Error (POST /parent/reset-password):', err);
     return res.status(500).json({
       success: false,
       message: 'Server error resetting password.',
-      error: err.message
+      error: err.message,
     });
   }
 });
-
 
 // === ADD CHILD ===
 app.post('/teacher/add-child', async (req, res) => {
@@ -214,9 +246,13 @@ app.post('/teacher/add-child', async (req, res) => {
   } = req.body;
 
   if (!teacher_id)
-    return res.status(400).json({ success: false, message: 'Teacher ID required.' });
+    return res
+      .status(400)
+      .json({ success: false, message: 'Teacher ID required.' });
   if (!parent_email)
-    return res.status(400).json({ success: false, message: 'Parent email required.' });
+    return res
+      .status(400)
+      .json({ success: false, message: 'Parent email required.' });
 
   try {
     await pool.query(
@@ -224,21 +260,35 @@ app.post('/teacher/add-child', async (req, res) => {
        (name, surname, birthdate, birthplace, gender, diagnosis_date,
         communication_notes, general_notes, teacher_id, student_code, student_password, survey_completed) 
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,FALSE)`,
-      [name, surname, birthdate, birthplace, gender, diagnosis_date,
-       communication_notes, general_notes, teacher_id, student_code, student_password]
+      [
+        name,
+        surname,
+        birthdate,
+        birthplace,
+        gender,
+        diagnosis_date,
+        communication_notes,
+        general_notes,
+        teacher_id,
+        student_code,
+        student_password,
+      ]
     );
 
     await sendStudentCredentials(parent_email, student_code, student_password);
     console.log(`📨 Mail gönderildi: ${parent_email}`);
 
-    res.json({ success: true, message: 'Child added and credentials sent.' });
+    res.json({
+      success: true,
+      message: 'Child added and credentials sent.',
+    });
   } catch (err) {
     console.error('DB Error (POST /teacher/add-child):', err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
-// === GET CHILDREN BY TEACHER (WITH PARENT NAME) ===
+// === GET CHILDREN BY TEACHER ===
 app.get('/children/:teacherId', async (req, res) => {
   const { teacherId } = req.params;
 
@@ -270,12 +320,14 @@ app.get('/children/:teacherId', async (req, res) => {
   }
 });
 
-
 // === VERIFY CHILD ===
 app.post('/parent/verify-child', async (req, res) => {
-  const { firstName, lastName, studentCode, studentPassword, parentId } = req.body;
+  const { firstName, lastName, studentCode, studentPassword, parentId } =
+    req.body;
   if (!firstName || !lastName || !studentCode || !studentPassword || !parentId)
-    return res.status(400).json({ success: false, message: 'All fields required.' });
+    return res
+      .status(400)
+      .json({ success: false, message: 'All fields required.' });
 
   try {
     const result = await pool.query(
@@ -283,14 +335,25 @@ app.post('/parent/verify-child', async (req, res) => {
       [firstName, lastName, studentCode, studentPassword]
     );
     if (result.rows.length === 0)
-      return res.status(404).json({ success: false, message: 'Child not found.' });
+      return res
+        .status(404)
+        .json({ success: false, message: 'Child not found.' });
 
     const child = result.rows[0];
     if (child.parent_id && child.parent_id !== parentId)
-      return res.status(400).json({ success: false, message: 'Child already linked.' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Child already linked.' });
 
-    await pool.query('UPDATE children SET parent_id = $1 WHERE id = $2', [parentId, child.id]);
-    res.json({ success: true, message: 'Child linked successfully.', child });
+    await pool.query('UPDATE children SET parent_id = $1 WHERE id = $2', [
+      parentId,
+      child.id,
+    ]);
+    res.json({
+      success: true,
+      message: 'Child linked successfully.',
+      child,
+    });
   } catch (err) {
     console.error('Error (POST /parent/verify-child):', err);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -302,7 +365,9 @@ app.post('/feedback', async (req, res) => {
   const { child_id, parent_id, teacher_id, message } = req.body;
 
   if (!child_id || !teacher_id || !message)
-    return res.status(400).json({ success: false, message: 'Missing fields.' });
+    return res
+      .status(400)
+      .json({ success: false, message: 'Missing fields.' });
 
   try {
     let parentIdToUse = parent_id;
@@ -314,7 +379,6 @@ app.post('/feedback', async (req, res) => {
       parentIdToUse = parentResult.rows[0]?.parent_id || null;
     }
 
-    // 🔥 Burada is_read = false ekliyoruz
     await pool.query(
       `INSERT INTO feedbacks (child_id, parent_id, teacher_id, message, is_read)
        VALUES ($1,$2,$3,$4, FALSE)`,
@@ -324,17 +388,21 @@ app.post('/feedback', async (req, res) => {
     res.json({ success: true, message: 'Feedback saved successfully.' });
   } catch (err) {
     console.error('Error (POST /feedback):', err);
-    res.status(500).json({ success: false, message: 'Server error while saving feedback.' });
+    res.status(500).json({
+      success: false,
+      message: 'Server error while saving feedback.',
+    });
   }
 });
-
 
 // === GET FEEDBACKS BY PARENT ===
 app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
   const { parentId } = req.params;
 
   if (!parentId || isNaN(parentId)) {
-    return res.status(400).json({ success: false, message: 'Invalid Parent ID' });
+    return res
+      .status(400)
+      .json({ success: false, message: 'Invalid Parent ID' });
   }
 
   try {
@@ -357,7 +425,7 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
       [parentId]
     );
 
-    const feedbacks = result.rows.map(row => ({
+    const feedbacks = result.rows.map((row) => ({
       feedback_id: row.feedback_id,
       message: row.message,
       is_read: row.is_read,
@@ -366,22 +434,27 @@ app.get('/feedbacks/by-parent/:parentId', async (req, res) => {
         : '',
       child_name: row.child_name,
       child_surname: row.child_surname,
-      teacher_name: row.teacher_full_name || 'Unknown Teacher'
+      teacher_name: row.teacher_full_name || 'Unknown Teacher',
     }));
 
     res.json({ success: true, feedbacks });
   } catch (err) {
     console.error('DB Error (GET /feedbacks/by-parent/:parentId):', err);
-    res.status(500).json({ success: false, message: 'Server error while fetching feedbacks.' });
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching feedbacks.',
+    });
   }
 });
 
-// === GET FEEDBACKS BY TEACHER (for a specific child) ===
-app.get("/feedbacks/by-teacher/:teacherId/:childId", async (req, res) => {
+// === GET FEEDBACKS BY TEACHER ===
+app.get('/feedbacks/by-teacher/:teacherId/:childId', async (req, res) => {
   const { teacherId, childId } = req.params;
 
   if (!teacherId || !childId) {
-    return res.status(400).json({ success: false, message: "Missing IDs." });
+    return res
+      .status(400)
+      .json({ success: false, message: 'Missing IDs.' });
   }
 
   try {
@@ -391,52 +464,46 @@ app.get("/feedbacks/by-teacher/:teacherId/:childId", async (req, res) => {
         f.id AS feedback_id,
         f.message,
         f.created_at,
-
-        p.name AS parent_name,        -- 🔥 EKLENDİ
-        c.name AS child_name,         -- opsiyonel
-        c.surname AS child_surname    -- opsiyonel
+        p.name AS parent_name,
+        c.name AS child_name,
+        c.surname AS child_surname
       FROM feedbacks f
-      LEFT JOIN parents p ON f.parent_id = p.id      -- 🔥 EKLENDİ
+      LEFT JOIN parents p ON f.parent_id = p.id
       LEFT JOIN children c ON f.child_id = c.id
       WHERE f.teacher_id = $1
-      AND f.child_id = $2
+        AND f.child_id = $2
       ORDER BY f.created_at DESC
       `,
       [teacherId, childId]
     );
 
-    const feedbacks = result.rows.map(row => ({
+    const feedbacks = result.rows.map((row) => ({
       feedback_id: row.feedback_id,
       message: row.message,
-      parent_name: row.parent_name || "Parent",
-
+      parent_name: row.parent_name || 'Parent',
       created_at: row.created_at
-        ? new Date(row.created_at)
-            .toLocaleString("en-GB", { hour12: false }) // 🔥 güzel tarih formatı
-        : ""
+        ? new Date(row.created_at).toLocaleString('en-GB', { hour12: false })
+        : '',
     }));
 
     res.json({ success: true, feedbacks });
-
   } catch (err) {
-    console.error("DB Error (GET /feedbacks/by-teacher):", err);
+    console.error('DB Error (GET /feedbacks/by-teacher):', err);
     res.status(500).json({
       success: false,
-      message: "Server error while fetching teacher feedbacks."
+      message: 'Server error while fetching teacher feedbacks.',
     });
   }
 });
-
 
 // === MARK SINGLE FEEDBACK AS READ ===
 app.post('/feedbacks/mark-read-single', async (req, res) => {
   const { feedback_id } = req.body;
 
-  // Sadece feedback_id yeterli
   if (!feedback_id) {
     return res.status(400).json({
       success: false,
-      message: 'feedback_id is required.'
+      message: 'feedback_id is required.',
     });
   }
 
@@ -453,11 +520,10 @@ app.post('/feedbacks/mark-read-single', async (req, res) => {
     console.error('DB Error (POST /feedbacks/mark-read-single):', err);
     return res.status(500).json({
       success: false,
-      message: 'Server error marking feedback.'
+      message: 'Server error marking feedback.',
     });
   }
 });
-
 
 // === CHILDREN BY PARENT ===
 app.get('/children/by-parent/:parentId', async (req, res) => {
@@ -473,7 +539,7 @@ app.get('/children/by-parent/:parentId', async (req, res) => {
           level, 
           student_code
        FROM children 
-       WHERE parent_id = $1`, 
+       WHERE parent_id = $1`,
       [parentId]
     );
 
@@ -484,7 +550,6 @@ app.get('/children/by-parent/:parentId', async (req, res) => {
   }
 });
 
-
 // === MARK SURVEY AS COMPLETE ===
 app.put('/children/:id/mark-survey-complete', async (req, res) => {
   const { id } = req.params;
@@ -493,7 +558,10 @@ app.put('/children/:id/mark-survey-complete', async (req, res) => {
     res.json({ success: true, message: 'Survey marked as complete.' });
   } catch (err) {
     console.error('DB Error (PUT /children/:id/mark-survey-complete):', err);
-    res.status(500).json({ success: false, message: 'Server error while marking survey complete.' });
+    res.status(500).json({
+      success: false,
+      message: 'Server error while marking survey complete.',
+    });
   }
 });
 
@@ -503,7 +571,9 @@ app.post('/children/:id/update-level', async (req, res) => {
   const { correctAnswers } = req.body;
 
   if (correctAnswers === undefined)
-    return res.status(400).json({ success: false, message: 'Missing correctAnswers field.' });
+    return res
+      .status(400)
+      .json({ success: false, message: 'Missing correctAnswers field.' });
 
   let level = 1;
   if (correctAnswers <= 4) level = 1;
@@ -513,11 +583,17 @@ app.post('/children/:id/update-level', async (req, res) => {
   else level = 5;
 
   try {
-    await pool.query('UPDATE children SET level = $1 WHERE id = $2', [level, id]);
+    await pool.query('UPDATE children SET level = $1 WHERE id = $2', [
+      level,
+      id,
+    ]);
     res.json({ success: true, message: 'Level updated.', level });
   } catch (err) {
     console.error('DB Error (POST /children/:id/update-level):', err);
-    res.status(500).json({ success: false, message: 'Server error updating level.' });
+    res.status(500).json({
+      success: false,
+      message: 'Server error updating level.',
+    });
   }
 });
 
@@ -532,9 +608,15 @@ app.post('/parent/login', async (req, res) => {
     if (result.rows.length > 0) {
       const user = result.rows[0];
       if (!user.is_verified)
-        return res.status(403).json({ success: false, message: 'Please verify your email.' });
+        return res.status(403).json({
+          success: false,
+          message: 'Please verify your email.',
+        });
       res.json({ success: true, parentId: user.id });
-    } else res.status(401).json({ success: false, message: 'Invalid credentials' });
+    } else
+      res
+        .status(401)
+        .json({ success: false, message: 'Invalid credentials' });
   } catch (err) {
     console.error('DB Error (POST /parent/login):', err);
     res.status(500).json({ success: false, message: 'Server error.' });
@@ -553,14 +635,16 @@ app.post('/game-session', async (req, res) => {
     wrong_count,
     success_rate,
     details,
-    completed
+    completed,
   } = req.body;
 
   if (!child_id || !game_type || level === undefined || score === undefined) {
-    return res.status(400).json({ success: false, message: 'Missing required fields.' });
+    return res.status(400).json({
+      success: false,
+      message: 'Missing required fields.',
+    });
   }
 
-  // 🔥 EN ÖNEMLİ SATIRLAR — undefined → 0 yapar
   const safeWrong = Number(wrong_count) || 0;
   const safeSuccess = Number(success_rate) || 0;
 
@@ -579,17 +663,22 @@ app.post('/game-session', async (req, res) => {
         safeWrong,
         safeSuccess,
         details || null,
-        completed
+        completed,
       ]
     );
 
-    res.json({ success: true, message: 'Game session saved successfully.' });
+    res.json({
+      success: true,
+      message: 'Game session saved successfully.',
+    });
   } catch (err) {
     console.error('Error (POST /game-session):', err);
-    res.status(500).json({ success: false, message: 'Server error while saving game session.' });
+    res.status(500).json({
+      success: false,
+      message: 'Server error while saving game session.',
+    });
   }
 });
-
 
 // === GET GAME SESSIONS BY CHILD ===
 app.get('/game-sessions/by-child/:childId', async (req, res) => {
@@ -614,7 +703,7 @@ app.get('/game-sessions/by-child/:childId', async (req, res) => {
       [childId]
     );
 
-    console.log("🎮 GAME SESSIONS FOUND:", result.rows);
+    console.log('🎮 GAME SESSIONS FOUND:', result.rows);
 
     res.json({ success: true, sessions: result.rows });
   } catch (err) {
@@ -622,12 +711,12 @@ app.get('/game-sessions/by-child/:childId', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 });
+
 // === GET DAILY & TOTAL PLAYTIME FOR CHILD ===
-app.get("/children/playtime/:childId", async (req, res) => {
+app.get('/children/playtime/:childId', async (req, res) => {
   const { childId } = req.params;
 
   try {
-    // TOTAL PLAY TIME (ALL TIME)
     const totalResult = await pool.query(
       `
       SELECT COALESCE(SUM(duration_seconds), 0) AS total_seconds
@@ -637,7 +726,6 @@ app.get("/children/playtime/:childId", async (req, res) => {
       [childId]
     );
 
-    // DAILY PLAY TIME (ONLY TODAY)
     const dailyResult = await pool.query(
       `
       SELECT COALESCE(SUM(duration_seconds), 0) AS daily_seconds
@@ -654,18 +742,16 @@ app.get("/children/playtime/:childId", async (req, res) => {
     res.json({
       success: true,
       daily_minutes,
-      total_minutes
+      total_minutes,
     });
-
   } catch (err) {
-    console.error("🔥 Error (GET /children/playtime):", err);
+    console.error('🔥 Error (GET /children/playtime):', err);
     res.status(500).json({
       success: false,
-      message: "Server error while calculating playtime."
+      message: 'Server error while calculating playtime.',
     });
   }
 });
-
 
 // === GET CHILD PROGRESS ===
 app.get('/progress/:childId', async (req, res) => {
@@ -710,7 +796,10 @@ app.get('/progress/:childId', async (req, res) => {
     });
   } catch (err) {
     console.error('Error (GET /progress/:childId):', err);
-    res.status(500).json({ success: false, message: 'Server error while fetching progress.' });
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching progress.',
+    });
   }
 });
 
@@ -719,7 +808,9 @@ app.post('/ai-chat', async (req, res) => {
   const { message } = req.body;
 
   if (!message) {
-    return res.status(400).json({ success: false, message: 'Message is required.' });
+    return res
+      .status(400)
+      .json({ success: false, message: 'Message is required.' });
   }
 
   let aiResponse = '';
@@ -731,10 +822,18 @@ app.post('/ai-chat', async (req, res) => {
   } else if (lowerMsg.includes('oyun') || lowerMsg.includes('game')) {
     aiResponse =
       "Playing games is great for your child's development! Have you tried the **'Matching'** and **'Colors'** games in Bloomedu? These support attention and cognitive skills. You can also play simple 'what color is this?' games with objects at home.";
-  } else if (lowerMsg.includes('konuş') || lowerMsg.includes('speak') || lowerMsg.includes('iletişim')) {
+  } else if (
+    lowerMsg.includes('konuş') ||
+    lowerMsg.includes('speak') ||
+    lowerMsg.includes('iletişim')
+  ) {
     aiResponse =
       'To support communication skills, make plenty of eye contact with your child. Use short and clear sentences. When they point to something they want, name the object before giving it to them. Be patient, every child progresses at their own pace.';
-  } else if (lowerMsg.includes('öfke') || lowerMsg.includes('angry') || lowerMsg.includes('cry')) {
+  } else if (
+    lowerMsg.includes('öfke') ||
+    lowerMsg.includes('angry') ||
+    lowerMsg.includes('cry')
+  ) {
     aiResponse =
       "Tantrums can be challenging. Try to stay calm in such moments. Name your child's emotion: 'You are sad right now, I understand.' Wait for them to calm down in a safe space. Sometimes a hug is the best medicine.";
   } else if (lowerMsg.includes('uyku') || lowerMsg.includes('sleep')) {
@@ -748,7 +847,7 @@ app.post('/ai-chat', async (req, res) => {
   res.json({ success: true, reply: aiResponse });
 });
 
-// === CHAT ROUTES MUST BE LAST (MESSAGES ROUTER) ===
+// === CHAT ROUTES (en sonda, 404'dan önce) ===
 app.use('/', messagesRouter);
 
 // === 404 HANDLER ===
