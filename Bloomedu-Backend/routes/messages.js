@@ -49,7 +49,10 @@ router.post('/messages', async (req, res) => {
 /* =====================================================
    2) GET MESSAGES BETWEEN USERS
 ===================================================== */
-router.get("/", async (req, res) => {
+/* =====================================================
+   2) GET MESSAGES BETWEEN USERS
+===================================================== */
+router.get("/messages", async (req, res) => {
   const { user1_id, user2_id, category, child_id } = req.query;
 
   if (!user1_id || !user2_id || !category || !child_id) {
