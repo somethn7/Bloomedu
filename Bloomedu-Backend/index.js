@@ -464,15 +464,26 @@ app.get('/children/by-parent/:parentId', async (req, res) => {
   try {
     const { parentId } = req.params;
     const result = await pool.query(
-      `SELECT id, name, surname, survey_completed, level, student_code
-       FROM children WHERE parent_id = $1`, [parentId]
+      `SELECT 
+          id, 
+          name, 
+          surname, 
+          teacher_id,
+          survey_completed, 
+          level, 
+          student_code
+       FROM children 
+       WHERE parent_id = $1`, 
+      [parentId]
     );
+
     res.json({ success: true, children: result.rows });
   } catch (err) {
     console.error('Error (GET /children/by-parent):', err);
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 });
+
 
 // === MARK SURVEY AS COMPLETE ===
 app.put('/children/:id/mark-survey-complete', async (req, res) => {
