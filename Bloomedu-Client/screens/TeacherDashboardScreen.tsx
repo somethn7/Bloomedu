@@ -195,7 +195,10 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
       {/* 🔥 Parent Messages Banner (with unread badge) */}
       <TouchableOpacity
         style={styles.parentMessagesBanner}
-        onPress={() => navigation.navigate('TeacherChatList')}
+        onPress={() => {
+          setUnreadCount(0); // 🔥 UI baloncuğu anında sıfırlansın
+          navigation.navigate('TeacherChatList');
+        }}
       >
         <View style={styles.bannerContent}>
           <View style={styles.bannerIconContainer}>

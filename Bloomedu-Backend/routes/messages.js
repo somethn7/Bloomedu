@@ -17,34 +17,26 @@ router.post('/messages', async (req, res) => {
     child_id,
   } = req.body;
 
-  console.log('🟢 /messages POST body:', {
-    sender_id,
-    sender_type,
-    receiver_id,
-    category,
-    message_text,
-    child_id,
-  });
+  console.log('POST /messages BODY:', req.body);
 
   if (!sender_id || !receiver_id || !category || !message_text) {
-    console.log('❌ /messages MISSING FIELDS');
-    return res.status(400).json({
-      success: false,
-      message: 'Missing fields (sender, receiver, category, text).',
-    });
+    return res.status(400).json({ success: false, message: 'Missing fields.' });
   }
+
+  const trueSenderType =
+    sender_type === 'teacher' ? 'teacher' : 'parent';
 
   const safeChildId = child_id ? Number(child_id) : null;
 
   try {
     const result = await pool.query(
       `INSERT INTO messages
-       (sender_id, sender_type, receiver_id, category, message_text, content_type, content_url, child_id, is_read)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,FALSE)
+       (sender_id, sender_type, receiver_id, category, message_text, content_type, content_url, child_id, is_read, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,FALSE,NOW())
        RETURNING id, created_at`,
       [
         sender_id,
-        sender_type || 'parent',
+        trueSenderType,
         receiver_id,
         category,
         message_text,
@@ -56,31 +48,27 @@ router.post('/messages', async (req, res) => {
 
     return res.json({ success: true, data: result.rows[0] });
   } catch (err) {
-    console.error('SEND ERROR (/messages POST):', err);
-    return res.status(500).json({
-      success: false,
-      message: 'Server error while sending message.',
-    });
+    console.error('SEND ERROR:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
 /* =====================================================
-   2) GET MESSAGES (SAFE)
+   2) GET MESSAGES
 ===================================================== */
 router.get('/messages', async (req, res) => {
   const { user1_id, user2_id, category, child_id } = req.query;
 
-  // Parametre eksikse hata değil, boş liste dön
   if (!user1_id || !user2_id || !category) {
     return res.json({ success: true, messages: [] });
   }
 
   try {
-    let query = `
+    let sql = `
       SELECT *
       FROM messages
       WHERE 
-        ((sender_id = $1 AND receiver_id = $2) 
+        ((sender_id = $1 AND receiver_id = $2)
          OR (sender_id = $2 AND receiver_id = $1))
         AND category = $3
     `;
@@ -88,13 +76,13 @@ router.get('/messages', async (req, res) => {
     const params = [user1_id, user2_id, category];
 
     if (child_id) {
-      query += ` AND child_id = $4`;
+      sql += ` AND child_id = $4`;
       params.push(child_id);
     }
 
-    query += ` ORDER BY created_at ASC`;
+    sql += ` ORDER BY created_at ASC`;
 
-    const result = await pool.query(query, params);
+    const result = await pool.query(sql, params);
 
     return res.json({ success: true, messages: result.rows });
   } catch (err) {
@@ -115,29 +103,24 @@ router.post('/messages/mark-read', async (req, res) => {
 
   try {
     await pool.query(
-      `
-      UPDATE messages
-      SET is_read = TRUE
-      WHERE sender_id = $1
-        AND receiver_id = $2
-        AND category = $3
-        AND child_id = $4
-      `,
+      `UPDATE messages
+       SET is_read = TRUE
+       WHERE sender_id = $1
+         AND receiver_id = $2
+         AND category = $3
+         AND child_id = $4`,
       [sender_id, receiver_id, category, child_id]
     );
 
     return res.json({ success: true });
   } catch (err) {
-    console.error('MARK READ ERROR (/messages/mark-read):', err);
-    return res
-      .status(500)
-      .json({ success: false, message: 'Server error marking read.' });
+    console.error('MARK READ ERROR:', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
 /* =====================================================
-   4) UNREAD SUMMARY FOR PARENT
-   (sadece TEACHER -> PARENT mesajları)
+   4) UNREAD SUMMARY — Parent dashboard badges
 ===================================================== */
 router.get('/messages/unread-summary/:parentId', async (req, res) => {
   const { parentId } = req.params;
@@ -157,7 +140,7 @@ router.get('/messages/unread-summary/:parentId', async (req, res) => {
 
     const grouped = {};
 
-    result.rows.forEach((row) => {
+    result.rows.forEach(row => {
       if (!grouped[row.category]) grouped[row.category] = {};
       grouped[row.category][row.child_id] = Number(row.unread_count);
     });
@@ -165,15 +148,12 @@ router.get('/messages/unread-summary/:parentId', async (req, res) => {
     return res.json({ success: true, unread: grouped });
   } catch (err) {
     console.error('UNREAD SUMMARY ERROR:', err);
-    return res.status(500).json({
-      success: false,
-      message: 'Server error while fetching unread summary.',
-    });
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
 /* =====================================================
-   5) TEACHER – CHAT LIST (+ unread_count, TR saati)
+   5) TEACHER CHAT LIST — Öğretmen için badge & son mesaj
 ===================================================== */
 router.get('/messages/teacher/conversations/:teacherId', async (req, res) => {
   const { teacherId } = req.params;
@@ -181,30 +161,64 @@ router.get('/messages/teacher/conversations/:teacherId', async (req, res) => {
   try {
     const result = await pool.query(
       `
-      SELECT DISTINCT ON (m.sender_id, m.child_id, m.category)
-        m.sender_id AS parent_id,
+      SELECT 
+        p.id AS parent_id,
         p.name AS parent_name,
-        m.child_id,
+        c.id AS child_id,
         c.name || ' ' || c.surname AS child_name,
         m.category,
-        m.message_text AS last_message,
-        (m.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Istanbul') AS last_message_time,
+
+        (
+          SELECT m2.message_text
+          FROM messages m2
+          WHERE 
+            (
+              (m2.sender_id = p.id AND m2.receiver_id = $1)
+              OR (m2.sender_id = $1 AND m2.receiver_id = p.id)
+            )
+            AND m2.child_id = c.id
+            AND m2.category = m.category
+          ORDER BY m2.created_at DESC
+          LIMIT 1
+        ) AS last_message,
+
+        (
+          SELECT m2.created_at
+          FROM messages m2
+          WHERE 
+            (
+              (m2.sender_id = p.id AND m2.receiver_id = $1)
+              OR (m2.sender_id = $1 AND m2.receiver_id = p.id)
+            )
+            AND m2.child_id = c.id
+            AND m2.category = m.category
+          ORDER BY m2.created_at DESC
+          LIMIT 1
+        ) AS last_message_time,
+
         (
           SELECT COUNT(*)
-          FROM messages m2
-          WHERE m2.sender_id = m.sender_id
-            AND m2.receiver_id = $1
-            AND m2.category = m.category
-            AND m2.child_id = m.child_id
-            AND m2.sender_type = 'parent'
-            AND m2.is_read = FALSE
+          FROM messages m3
+          WHERE 
+            m3.sender_id = p.id
+            AND m3.receiver_id = $1
+            AND m3.child_id = c.id
+            AND m3.category = m.category
+            AND m3.sender_type = 'parent'
+            AND m3.is_read = FALSE
         ) AS unread_count
+
       FROM messages m
-      JOIN parents p ON m.sender_id = p.id
-      JOIN children c ON m.child_id = c.id
-      WHERE m.receiver_id = $1
+      JOIN parents p 
+        ON p.id = m.sender_id 
         AND m.sender_type = 'parent'
-      ORDER BY m.sender_id, m.child_id, m.category, m.created_at DESC
+      JOIN children c 
+        ON c.id = m.child_id
+      WHERE 
+        m.receiver_id = $1
+        OR m.sender_id = $1
+      GROUP BY p.id, c.id, m.category
+      ORDER BY last_message_time DESC;
       `,
       [teacherId]
     );

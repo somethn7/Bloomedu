@@ -85,7 +85,6 @@ const ParentDashboardScreen = ({ navigation }: any) => {
     }
   };
 
-  // Dashboard ekrana her odaklandığında hızlı istatistikleri ve unread’i güncelle
   useFocusEffect(
     useCallback(() => {
       fetchChildrenForParent();
@@ -243,7 +242,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
   },
   contentContainer: {
-    paddingBottom: 80, // Extra padding for FAB
+    paddingBottom: 80,
   },
   header: {
     backgroundColor: '#FF6B9A',

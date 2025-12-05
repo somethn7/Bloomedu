@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useEffect, useState } from 'react';
+import React, { useState, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   Dimensions,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 const BASE_URL = 'https://bloomedu-production.up.railway.app';
@@ -30,10 +31,6 @@ const ParentMessageCategoriesScreen = ({ navigation }: any) => {
     });
   }, [navigation]);
 
-  useEffect(() => {
-    loadUnread();
-  }, []);
-
   const loadUnread = async () => {
     try {
       const parentId = await AsyncStorage.getItem('parent_id');
@@ -54,6 +51,12 @@ const ParentMessageCategoriesScreen = ({ navigation }: any) => {
       setUnreadSummary({});
     }
   };
+
+  useFocusEffect(
+    React.useCallback(() => {
+      loadUnread();
+    }, [])
+  );
 
   const handleCategorySelect = (category: any) => {
     navigation.navigate('ChildSelectScreen', { 

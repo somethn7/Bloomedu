@@ -26,7 +26,6 @@ const TeacherChatListScreen = ({ navigation }: any) => {
   useEffect(() => {
     loadConversations();
 
-    // ekrana her geri dönüldüğünde yeniden yükle
     const unsubscribe = navigation.addListener('focus', () => {
       loadConversations();
     });
@@ -47,7 +46,6 @@ const TeacherChatListScreen = ({ navigation }: any) => {
       const json = await response.json();
 
       if (json.success) {
-        // en yeni mesaj en üstte
         const sorted = json.conversations.sort(
           (a: any, b: any) =>
             new Date(b.last_message_time).getTime() -
@@ -69,7 +67,7 @@ const TeacherChatListScreen = ({ navigation }: any) => {
       categoryTitle: `${item.parent_name} - ${item.category}`,
       categoryColor: '#6C5CE7',
 
-      otherUserId: item.parent_id, // teacher -> parent
+      otherUserId: item.parent_id,
       isTeacher: true,
 
       childId: item.child_id,
@@ -87,7 +85,9 @@ const TeacherChatListScreen = ({ navigation }: any) => {
 
       <View style={styles.content}>
         <Text style={styles.name}>{item.child_name || 'Unknown Child'}</Text>
-        <Text style={styles.subLine}>Parent: {item.parent_name || 'Unknown'}</Text>
+        <Text style={styles.subLine}>
+          Parent: {item.parent_name || 'Unknown'}
+        </Text>
 
         <Text style={styles.categoryBadge}>{item.category}</Text>
 
@@ -106,7 +106,6 @@ const TeacherChatListScreen = ({ navigation }: any) => {
             : ''}
         </Text>
 
-        {/* unread_count > 0 ise kırmızı nokta */}
         {item.unread_count > 0 && (
           <View style={styles.unreadDot}>
             <Text style={styles.unreadText}>
@@ -123,12 +122,18 @@ const TeacherChatListScreen = ({ navigation }: any) => {
   return (
     <View style={styles.container}>
       {loading ? (
-        <ActivityIndicator size="large" color="#6C5CE7" style={{ marginTop: 50 }} />
+        <ActivityIndicator
+          size="large"
+          color="#6C5CE7"
+          style={{ marginTop: 50 }}
+        />
       ) : (
         <FlatList
           data={conversations}
           renderItem={renderItem}
-          keyExtractor={(item) => `${item.parent_id}-${item.child_id}-${item.category}`}
+          keyExtractor={item =>
+            `${item.parent_id}-${item.child_id}-${item.category}`
+          }
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <View style={styles.emptyState}>
