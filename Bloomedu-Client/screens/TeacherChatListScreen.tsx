@@ -24,13 +24,22 @@ const TeacherChatListScreen = ({ navigation }: any) => {
   }, [navigation]);
 
   useEffect(() => {
-    fetchConversations();
-  }, []);
+    loadConversations();
 
-  const fetchConversations = async () => {
+    // ekrana her geri dönüldüğünde yeniden yükle
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadConversations();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  const loadConversations = async () => {
     try {
       const teacherId = await AsyncStorage.getItem('teacher_id');
       if (!teacherId) return;
+
+      setLoading(true);
 
       const response = await fetch(
         `${BASE_URL}/messages/teacher/conversations/${teacherId}`
@@ -38,7 +47,13 @@ const TeacherChatListScreen = ({ navigation }: any) => {
       const json = await response.json();
 
       if (json.success) {
-        setConversations(json.conversations);
+        // en yeni mesaj en üstte
+        const sorted = json.conversations.sort(
+          (a: any, b: any) =>
+            new Date(b.last_message_time).getTime() -
+            new Date(a.last_message_time).getTime()
+        );
+        setConversations(sorted);
       }
     } catch (error) {
       console.error('Error fetching conversations:', error);
@@ -53,18 +68,17 @@ const TeacherChatListScreen = ({ navigation }: any) => {
       category: item.category,
       categoryTitle: `${item.parent_name} - ${item.category}`,
       categoryColor: '#6C5CE7',
+
       otherUserId: item.parent_id, // teacher -> parent
       isTeacher: true,
+
       childId: item.child_id,
       childName: item.child_name,
     });
   };
 
   const renderItem = ({ item }: { item: any }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => handleOpenChat(item)}
-    >
+    <TouchableOpacity style={styles.card} onPress={() => handleOpenChat(item)}>
       <View style={styles.avatarContainer}>
         <Text style={styles.avatarText}>
           {item.parent_name?.charAt(0).toUpperCase() || '?'}
@@ -73,9 +87,8 @@ const TeacherChatListScreen = ({ navigation }: any) => {
 
       <View style={styles.content}>
         <Text style={styles.name}>{item.child_name || 'Unknown Child'}</Text>
-        <Text style={styles.subLine}>
-          Parent: {item.parent_name || 'Unknown'}
-        </Text>
+        <Text style={styles.subLine}>Parent: {item.parent_name || 'Unknown'}</Text>
+
         <Text style={styles.categoryBadge}>{item.category}</Text>
 
         <Text style={styles.message} numberOfLines={1}>
@@ -84,14 +97,6 @@ const TeacherChatListScreen = ({ navigation }: any) => {
       </View>
 
       <View style={styles.meta}>
-        {item.unread_count > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>
-              {item.unread_count > 99 ? '99+' : item.unread_count}
-            </Text>
-          </View>
-        )}
-
         <Text style={styles.time}>
           {item.last_message_time
             ? new Date(item.last_message_time).toLocaleTimeString([], {
@@ -100,6 +105,16 @@ const TeacherChatListScreen = ({ navigation }: any) => {
               })
             : ''}
         </Text>
+
+        {/* unread_count > 0 ise kırmızı nokta */}
+        {item.unread_count > 0 && (
+          <View style={styles.unreadDot}>
+            <Text style={styles.unreadText}>
+              {item.unread_count > 99 ? '99+' : item.unread_count}
+            </Text>
+          </View>
+        )}
+
         <Text style={styles.arrow}>→</Text>
       </View>
     </TouchableOpacity>
@@ -108,18 +123,12 @@ const TeacherChatListScreen = ({ navigation }: any) => {
   return (
     <View style={styles.container}>
       {loading ? (
-        <ActivityIndicator
-          size="large"
-          color="#6C5CE7"
-          style={{ marginTop: 50 }}
-        />
+        <ActivityIndicator size="large" color="#6C5CE7" style={{ marginTop: 50 }} />
       ) : (
         <FlatList
           data={conversations}
           renderItem={renderItem}
-          keyExtractor={(item) =>
-            `${item.parent_id}-${item.child_id}-${item.category}`
-          }
+          keyExtractor={(item) => `${item.parent_id}-${item.child_id}-${item.category}`}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <View style={styles.emptyState}>
@@ -205,6 +214,20 @@ const styles = StyleSheet.create({
   arrow: {
     fontSize: 18,
     color: '#D1D5DB',
+    marginTop: 4,
+  },
+  unreadDot: {
+    backgroundColor: '#FF4B5C',
+    borderRadius: 999,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  unreadText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
   },
   emptyState: {
     alignItems: 'center',
@@ -213,17 +236,5 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 16,
     color: '#9CA3AF',
-  },
-  badge: {
-    backgroundColor: '#FF6B6B',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-    marginBottom: 4,
-  },
-  badgeText: {
-    color: '#FFF',
-    fontSize: 10,
-    fontWeight: '700',
   },
 });

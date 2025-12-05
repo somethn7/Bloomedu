@@ -1,9 +1,4 @@
-import React, {
-  useState,
-  useEffect,
-  useRef,
-  useLayoutEffect,
-} from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import {
   View,
   Text,
@@ -45,8 +40,8 @@ const ChatScreen = ({ route, navigation }: any) => {
   const category = route.params.category;
   const categoryTitle = route.params.categoryTitle;
   const categoryColor = route.params.categoryColor;
-  const otherUserId = route.params.otherUserId;
-  const isTeacher: boolean = route.params.isTeacher;
+  const otherUserId = route.params.otherUserId; // karşı taraf
+  const isTeacher = route.params.isTeacher;
   const childName = route.params.childName || 'Child';
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -57,8 +52,6 @@ const ChatScreen = ({ route, navigation }: any) => {
 
   const flatListRef = useRef<FlatList>(null);
 
-  const myType: 'parent' | 'teacher' = isTeacher ? 'teacher' : 'parent';
-
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
@@ -67,14 +60,15 @@ const ChatScreen = ({ route, navigation }: any) => {
     loadUserAndMessages();
   }, []);
 
+  // userId geldikten sonra mesajları okunmuş işaretle
   useEffect(() => {
     if (myUserId && finalChildId) {
-      markMessagesAsRead();
+      markMessagesAsRead(myUserId);
     }
   }, [myUserId, finalChildId]);
 
-  const markMessagesAsRead = async () => {
-    if (!myUserId || !finalChildId) return;
+  const markMessagesAsRead = async (myId: number) => {
+    if (!myId || !finalChildId) return;
 
     try {
       await fetch(`${BASE_URL}/messages/mark-read`, {
@@ -82,7 +76,7 @@ const ChatScreen = ({ route, navigation }: any) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sender_id: otherUserId,
-          receiver_id: myUserId,
+          receiver_id: myId,
           category,
           child_id: finalChildId,
         }),
@@ -127,6 +121,9 @@ const ChatScreen = ({ route, navigation }: any) => {
       }
 
       if (json.success) setMessages(json.messages);
+
+      // mesajlar geldikten sonra da bir kez daha mark-read
+      await markMessagesAsRead(myId);
     } catch (err) {
       console.log('fetch error:', err);
     } finally {
@@ -145,7 +142,7 @@ const ChatScreen = ({ route, navigation }: any) => {
 
     const payload = {
       sender_id: myUserId,
-      sender_type: myType,
+      sender_type: isTeacher ? 'teacher' : 'parent',
       receiver_id: otherUserId,
       category,
       child_id: finalChildId,
@@ -191,7 +188,7 @@ const ChatScreen = ({ route, navigation }: any) => {
     if (result.assets?.length > 0) {
       const a = result.assets[0];
 
-      if (a.base64 && a.type) {
+      if (a.base64) {
         const uri = `data:${a.type};base64,${a.base64}`;
         handleSend('image', '📷 Photo', uri);
       }
@@ -199,47 +196,27 @@ const ChatScreen = ({ route, navigation }: any) => {
   };
 
   const renderItem = ({ item }: { item: Message }) => {
-    const isMe = item.sender_type === myType; // 🔥 sadece type'a bak
+    const isMe = item.sender_id === myUserId;
 
     return (
-      <View
-        style={[
-          styles.bubble,
-          isMe ? styles.myBubble : styles.otherBubble,
-        ]}
-      >
+      <View style={[styles.bubble, isMe ? styles.myBubble : styles.otherBubble]}>
         {item.content_type === 'image' && item.content_url ? (
-          <Image
-            source={{ uri: item.content_url }}
-            style={styles.chatImage}
-          />
+          <Image source={{ uri: item.content_url }} style={styles.chatImage} />
         ) : (
-          <Text
-            style={[
-              styles.messageText,
-              isMe ? styles.myText : styles.otherText,
-            ]}
-          >
+          <Text style={[styles.messageText, isMe ? styles.myText : styles.otherText]}>
             {item.message_text}
           </Text>
         )}
 
         <View style={styles.bubbleFooter}>
-          <Text
-            style={[
-              styles.timeText,
-              isMe ? styles.myTime : styles.otherTime,
-            ]}
-          >
+          <Text style={[styles.timeText, isMe ? styles.myTime : styles.otherTime]}>
             {new Date(item.created_at).toLocaleTimeString([], {
               hour: '2-digit',
               minute: '2-digit',
             })}
           </Text>
           {isMe && (
-            <Text style={styles.readReceipt}>
-              {item.is_read ? '✓✓' : '✓'}
-            </Text>
+            <Text style={styles.readReceipt}>{item.is_read ? '✓✓' : '✓'}</Text>
           )}
         </View>
       </View>
@@ -248,11 +225,7 @@ const ChatScreen = ({ route, navigation }: any) => {
 
   return (
     <View style={styles.container}>
-      {/* DEBUG PANEL istersen kaldır */}
-      {/* <View style={{ padding: 10, backgroundColor: 'yellow' }}>
-        <Text>FINAL CHILD ID: {finalChildId}</Text>
-      </View> */}
-
+      {/* HEADER */}
       <View style={[styles.header, { backgroundColor: categoryColor }]}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -269,6 +242,7 @@ const ChatScreen = ({ route, navigation }: any) => {
         <View style={{ width: 40 }} />
       </View>
 
+      {/* MESAJ LİSTESİ */}
       {loading ? (
         <ActivityIndicator size="large" style={{ marginTop: 20 }} />
       ) : (
@@ -284,14 +258,12 @@ const ChatScreen = ({ route, navigation }: any) => {
         />
       )}
 
+      {/* INPUT */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <View style={styles.inputContainer}>
-          <TouchableOpacity
-            onPress={onPickImage}
-            style={styles.attachButton}
-          >
+          <TouchableOpacity onPress={onPickImage} style={styles.attachButton}>
             <Text style={styles.attachIcon}>📎</Text>
           </TouchableOpacity>
 
@@ -303,10 +275,7 @@ const ChatScreen = ({ route, navigation }: any) => {
           />
 
           <TouchableOpacity
-            style={[
-              styles.sendButton,
-              { backgroundColor: categoryColor },
-            ]}
+            style={[styles.sendButton, { backgroundColor: categoryColor }]}
             disabled={sending || !inputText.trim()}
             onPress={() => handleSend('text', inputText.trim())}
           >
@@ -355,17 +324,9 @@ const styles = StyleSheet.create({
 
   listContent: { padding: 20 },
 
-  bubble: {
-    maxWidth: '75%',
-    padding: 12,
-    borderRadius: 16,
-    marginBottom: 12,
-  },
+  bubble: { maxWidth: '75%', padding: 12, borderRadius: 16, marginBottom: 12 },
 
-  myBubble: {
-    alignSelf: 'flex-end',
-    backgroundColor: '#4ECDC4',
-  },
+  myBubble: { alignSelf: 'flex-end', backgroundColor: '#4ECDC4' },
   otherBubble: {
     alignSelf: 'flex-start',
     backgroundColor: '#FFF',

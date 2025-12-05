@@ -25,9 +25,10 @@ interface Student {
 const TeacherDashboardScreen = ({ navigation }: any) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // 🔥 Unread count state
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // LOAD CHILDREN
   const fetchChildren = async () => {
     const teacherId = await AsyncStorage.getItem('teacher_id');
     if (!teacherId) {
@@ -37,12 +38,14 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
 
     setLoading(true);
     try {
-      const response = await fetch(`https://bloomedu-production.up.railway.app/children/${teacherId}`);
+      const response = await fetch(
+        `https://bloomedu-production.up.railway.app/children/${teacherId}`
+      );
       if (!response.ok) throw new Error(`Server error ${response.status}`);
 
       const data: Student[] = await response.json();
 
-      const studentsWithProgress = data.map(student => ({
+      const studentsWithProgress = data.map((student) => ({
         ...student,
         dailyPlayMinutes: Math.floor(Math.random() * 60),
         totalPlayMinutes: Math.floor(Math.random() * 1000),
@@ -62,52 +65,74 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
     }
   };
 
-  // LOAD UNREAD COUNT
+  // 🔥 FETCH UNREAD MESSAGES
   const fetchUnread = async () => {
     const teacherId = await AsyncStorage.getItem('teacher_id');
     if (!teacherId) return;
 
     try {
       const res = await fetch(
-        `https://bloomedu-production.up.railway.app/messages/unread-summary-teacher/${teacherId}`
+        `https://bloomedu-production.up.railway.app/messages/teacher/conversations/${teacherId}`
       );
 
       const json = await res.json();
-      if (json.success) setUnreadCount(json.totalUnread || 0);
-    } catch (e) {
-      console.log("Unread error:", e);
-      setUnreadCount(0);
+      if (!json.success) return;
+
+      let total = 0;
+      json.conversations.forEach((conv: any) => {
+        total += Number(conv.unread_count);
+      });
+
+      setUnreadCount(total);
+    } catch (err) {
+      console.error('Unread fetch error:', err);
     }
   };
 
   useEffect(() => {
     fetchChildren();
     fetchUnread();
+
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchUnread();
+    });
+
+    return unsubscribe;
   }, []);
 
   const renderStudent = ({ item }: { item: Student }) => (
     <View style={styles.studentCard}>
-      <Text style={styles.studentName}>{item.name} {item.surname}</Text>
+      <Text style={styles.studentName}>
+        {item.name} {item.surname}
+      </Text>
 
       <Text style={{ fontSize: 15, color: '#475569', marginBottom: 6 }}>
-        🎯 Level: <Text style={{ fontWeight: '700', color: '#f564dacf' }}>{item.level ?? 'N/A'}</Text>
+        🎯 Level:{' '}
+        <Text style={{ fontWeight: '700', color: '#f564dacf' }}>
+          {item.level ?? 'N/A'}
+        </Text>
       </Text>
 
       <Text style={{ fontSize: 14, color: '#6b7280', marginBottom: 8 }}>
-        🆔 Student ID: <Text style={{ fontWeight: '700', color: '#2563eb' }}>{item.id}</Text>
+        🆔 Student ID:{' '}
+        <Text style={{ fontWeight: '700', color: '#2563eb' }}>{item.id}</Text>
       </Text>
 
       <View style={styles.progressDetails}>
         <Text style={styles.progressText}>
-          Daily Play Time: <Text style={styles.valueText}>{item.dailyPlayMinutes} minutes</Text>
+          Daily Play Time:{' '}
+          <Text style={styles.valueText}>{item.dailyPlayMinutes} minutes</Text>
         </Text>
         <Text style={styles.progressText}>
-          Total Play Time: <Text style={styles.valueText}>{item.totalPlayMinutes} minutes</Text>
+          Total Play Time:{' '}
+          <Text style={styles.valueText}>{item.totalPlayMinutes} minutes</Text>
         </Text>
         <Text style={styles.progressText}>Favorite Games:</Text>
         <View style={styles.gamesList}>
           {item.favoriteGames?.map((game, index) => (
-            <Text key={index} style={styles.gameItem}>• {game}</Text>
+            <Text key={index} style={styles.gameItem}>
+              • {game}
+            </Text>
           ))}
         </View>
       </View>
@@ -145,8 +170,7 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
 
   return (
     <View style={styles.container}>
-
-      {/* HEADER */}
+      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -168,7 +192,7 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
         </TouchableOpacity>
       </View>
 
-      {/* PARENT MESSAGES */}
+      {/* 🔥 Parent Messages Banner (with unread badge) */}
       <TouchableOpacity
         style={styles.parentMessagesBanner}
         onPress={() => navigation.navigate('TeacherChatList')}
@@ -176,25 +200,28 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
         <View style={styles.bannerContent}>
           <View style={styles.bannerIconContainer}>
             <Text style={styles.bannerIcon}>💬</Text>
+
+            {unreadCount > 0 && (
+              <View style={styles.unreadBadge}>
+                <Text style={styles.unreadBadgeText}>
+                  {unreadCount > 9 ? '9+' : unreadCount}
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.bannerTextContainer}>
             <Text style={styles.bannerTitle}>Parent Messages</Text>
-            <Text style={styles.bannerSubtitle}>Official communication channel</Text>
+            <Text style={styles.bannerSubtitle}>
+              Official communication channel
+            </Text>
           </View>
 
-          {/* 🔥 UNREAD BADGE */}
-          {unreadCount > 0 && (
-            <View style={styles.unreadBadge}>
-              <Text style={styles.unreadBadgeText}>
-                {unreadCount > 99 ? "99+" : unreadCount}
-              </Text>
-            </View>
-          )}
+          <Text style={styles.bannerArrow}>→</Text>
         </View>
       </TouchableOpacity>
 
-      {/* STAT CARDS */}
+      {/* Quick Stats */}
       <View style={styles.quickStatsContainer}>
         <View style={styles.quickStatCard}>
           <Text style={styles.quickStatIcon}>👥</Text>
@@ -205,7 +232,7 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
         <View style={[styles.quickStatCard, { backgroundColor: '#D1FAE5' }]}>
           <Text style={styles.quickStatIcon}>📈</Text>
           <Text style={styles.quickStatValue}>
-            {students.filter(s => s.level && s.level >= 2).length}
+            {students.filter((s) => s.level && s.level >= 2).length}
           </Text>
           <Text style={styles.quickStatLabel}>Advanced</Text>
         </View>
@@ -213,30 +240,57 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
         <View style={[styles.quickStatCard, { backgroundColor: '#FEF3C7' }]}>
           <Text style={styles.quickStatIcon}>⭐</Text>
           <Text style={styles.quickStatValue}>
-            {students.filter(s => s.level === 1).length}
+            {students.filter((s) => s.level === 1).length}
           </Text>
           <Text style={styles.quickStatLabel}>Beginners</Text>
         </View>
       </View>
 
-      {/* STUDENTS LIST */}
-      <FlatList
-        data={students}
-        renderItem={renderStudent}
-        keyExtractor={(item) => item.id.toString()}
-        contentContainerStyle={{ padding: 20 }}
-      />
+      {/* Action Cards */}
+      <View style={styles.actionsContainer}>
+        <TouchableOpacity
+          style={[styles.actionCard, styles.primaryAction]}
+          onPress={() => navigation.navigate('TeacherAddChild')}
+        >
+          <View style={styles.actionIconContainer}>
+            <Text style={styles.actionIcon}>➕</Text>
+          </View>
+
+          <View style={styles.actionContent}>
+            <Text style={styles.actionTitle}>Add Student</Text>
+            <Text style={styles.actionSubtitle}>Register a new learner</Text>
+          </View>
+
+          <Text style={styles.actionArrow}>→</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.actionCard, styles.secondaryAction]}
+          onPress={() => navigation.navigate('TeacherStudentsOverview')}
+        >
+          <View style={styles.actionIconContainer}>
+            <Text style={styles.actionIcon}>📊</Text>
+          </View>
+
+          <View style={styles.actionContent}>
+            <Text style={styles.actionTitle}>View Progress</Text>
+            <Text style={styles.actionSubtitle}>Track student learning</Text>
+          </View>
+
+          <Text style={styles.actionArrow}>→</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
 
 export default TeacherDashboardScreen;
 
-/* ============================================================
-   🔥 ALL STYLES + UNREAD BADGE HERE
-=============================================================== */
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  container: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+  },
 
   header: {
     backgroundColor: '#4ECDC4',
@@ -248,6 +302,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    shadowColor: '#4ECDC4',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
 
   greeting: {
@@ -267,7 +326,7 @@ const styles = StyleSheet.create({
     width: 45,
     height: 45,
     borderRadius: 23,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -282,12 +341,14 @@ const styles = StyleSheet.create({
     width: 45,
     height: 45,
     borderRadius: 23,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  settingsIcon: { fontSize: 22 },
+  settingsIcon: {
+    fontSize: 22,
+  },
 
   parentMessagesBanner: {
     marginHorizontal: 20,
@@ -296,6 +357,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#4A148C',
     borderRadius: 20,
     padding: 16,
+    shadowColor: '#4A148C',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 6,
   },
 
   bannerContent: {
@@ -313,41 +379,51 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
 
-  bannerIcon: { fontSize: 26 },
+  bannerIcon: {
+    fontSize: 26,
+  },
 
-  bannerTextContainer: { flex: 1 },
+  unreadBadge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    backgroundColor: '#FF3B30',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+
+  unreadBadgeText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+
+  bannerTextContainer: {
+    flex: 1,
+  },
 
   bannerTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
+    marginBottom: 2,
   },
 
   bannerSubtitle: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.85)',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
 
   bannerArrow: {
     fontSize: 24,
     color: '#FFFFFF',
     fontWeight: '700',
-  },
-
-  /* 🔥 UNREAD BADGE HERE 🔥 */
-  unreadBadge: {
-    backgroundColor: "#FF6B6B",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  unreadBadgeText: {
-    color: "#FFFFFF",
-    fontWeight: "700",
-    fontSize: 12,
   },
 
   quickStatsContainer: {
@@ -364,20 +440,92 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     padding: 16,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
   },
 
-  quickStatIcon: { fontSize: 26, marginBottom: 6 },
+  quickStatIcon: {
+    fontSize: 26,
+    marginBottom: 6,
+  },
 
   quickStatValue: {
     fontSize: 22,
     fontWeight: '700',
     color: '#2D3748',
+    marginBottom: 3,
   },
 
   quickStatLabel: {
     fontSize: 11,
     color: '#718096',
     fontWeight: '600',
+  },
+
+  actionsContainer: {
+    paddingHorizontal: 20,
+    marginTop: 20,
+  },
+
+  actionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+
+  primaryAction: {
+    backgroundColor: '#FFB74D',
+  },
+
+  secondaryAction: {
+    backgroundColor: '#64B5F6',
+  },
+
+  actionIconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+
+  actionIcon: {
+    fontSize: 24,
+  },
+
+  actionContent: {
+    flex: 1,
+  },
+
+  actionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginBottom: 2,
+  },
+
+  actionSubtitle: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    opacity: 0.85,
+  },
+
+  actionArrow: {
+    fontSize: 22,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
 
   studentCard: {
@@ -387,6 +535,11 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     borderLeftWidth: 5,
     borderLeftColor: '#4ECDC4',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
 
   studentName: {
@@ -401,15 +554,32 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 
-  progressText: { fontSize: 15, color: '#334155', marginBottom: 4 },
+  progressText: {
+    fontSize: 15,
+    color: '#334155',
+    marginBottom: 4,
+  },
 
-  valueText: { fontWeight: '700', color: '#4ECDC4' },
+  valueText: {
+    fontWeight: '700',
+    color: '#4ECDC4',
+  },
 
-  gamesList: { marginLeft: 10, marginTop: 2 },
+  gamesList: {
+    marginLeft: 10,
+    marginTop: 2,
+  },
 
-  gameItem: { fontSize: 14, color: '#475569' },
+  gameItem: {
+    fontSize: 14,
+    color: '#475569',
+  },
 
-  actionButtons: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
 
   progressButton: {
     flex: 1,
@@ -417,6 +587,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     alignItems: 'center',
+    shadowColor: '#64B5F6',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
 
   progressButtonText: {
@@ -431,6 +605,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 10,
     alignItems: 'center',
+    shadowColor: '#FF6B9A',
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 4,
   },
 
   feedbackButtonText: {

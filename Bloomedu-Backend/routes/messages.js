@@ -171,41 +171,9 @@ router.get('/messages/unread-summary/:parentId', async (req, res) => {
     });
   }
 });
-/* =====================================================
-   4B) UNREAD SUMMARY FOR TEACHER
-   (sadece PARENT → TEACHER gelen okunmamış mesajlar)
-===================================================== */
-router.get('/messages/unread-summary-teacher/:teacherId', async (req, res) => {
-  const { teacherId } = req.params;
-
-  try {
-    const result = await pool.query(
-      `
-      SELECT COUNT(*) AS unread_count
-      FROM messages
-      WHERE receiver_id = $1
-        AND sender_type = 'parent'
-        AND is_read = FALSE
-      `,
-      [teacherId]
-    );
-
-    return res.json({
-      success: true,
-      unread: Number(result.rows[0].unread_count) || 0
-    });
-
-  } catch (err) {
-    console.error('UNREAD SUMMARY TEACHER ERROR:', err);
-    return res.status(500).json({
-      success: false,
-      message: 'Server error while fetching teacher unread summary.'
-    });
-  }
-});
 
 /* =====================================================
-   5) TEACHER – CHAT LIST (+ unread_count)
+   5) TEACHER – CHAT LIST (+ unread_count, TR saati)
 ===================================================== */
 router.get('/messages/teacher/conversations/:teacherId', async (req, res) => {
   const { teacherId } = req.params;
@@ -220,7 +188,7 @@ router.get('/messages/teacher/conversations/:teacherId', async (req, res) => {
         c.name || ' ' || c.surname AS child_name,
         m.category,
         m.message_text AS last_message,
-        m.created_at AS last_message_time,
+        (m.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Europe/Istanbul') AS last_message_time,
         (
           SELECT COUNT(*)
           FROM messages m2
