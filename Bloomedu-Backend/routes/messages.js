@@ -49,10 +49,11 @@ router.post('/messages', async (req, res) => {
 /* =====================================================
    2) GET MESSAGES BETWEEN USERS — TEK VERSİYON
 ===================================================== */
-router.get('/messages', async (req, res) => {
+/* GET MESSAGES BETWEEN USERS (CLEAN + FINAL VERSION) */
+router.get("/messages", async (req, res) => {
   const { user1_id, user2_id, category, child_id } = req.query;
 
-  if (!user1_id || !user2_id || !category || !child_id) {
+  if (!user1_id || !user2_id || !category) {
     return res.status(400).json({
       success: false,
       message: "Missing required fields",
@@ -60,29 +61,34 @@ router.get('/messages', async (req, res) => {
   }
 
   try {
-    const result = await pool.query(
-      `
+    let query = `
       SELECT *
       FROM messages
       WHERE 
-        (
-          sender_id = $1 AND receiver_id = $2
-        ) OR (
-          sender_id = $2 AND receiver_id = $1
-        )
+        ((sender_id = $1 AND receiver_id = $2) 
+         OR (sender_id = $2 AND receiver_id = $1))
         AND category = $3
-        AND child_id = $4
-      ORDER BY created_at ASC
-      `,
-      [user1_id, user2_id, category, child_id]
-    );
+    `;
+
+    const params = [user1_id, user2_id, category];
+
+    // child_id varsa filtrele, yoksa tümünü getir
+    if (child_id) {
+      query += ` AND child_id = $4`;
+      params.push(child_id);
+    }
+
+    query += ` ORDER BY created_at ASC`;
+
+    const result = await pool.query(query, params);
 
     return res.json({ success: true, messages: result.rows });
   } catch (err) {
-    console.error('MESSAGE FETCH ERROR:', err);
-    return res.status(500).json({ success: false, message: 'Server error' });
+    console.error("MESSAGE FETCH ERROR:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 });
+
 
 /* =====================================================
    3) MARK READ
