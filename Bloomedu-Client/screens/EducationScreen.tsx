@@ -34,34 +34,26 @@ const categories = [
   },
   { 
     title: 'Family', 
-    image: require('./assets/child.png'), // Mevcut bir asset kullanıyoruz
+    image: require('./assets/child.png'),
     gradient: ['#FF6B9A', '#FF8FAB'],
     emoji: '👨‍👩‍👧‍👦',
     description: 'Meet your family'
   },
 ];
 
-// -umut: Child parametresi eklendi - oyunlara child bilgisini iletmek için (28.10.2025)
 const EducationScreen = ({ navigation, route }: any) => {
   const { child } = route.params || {};
-  const childLevel = child?.level || 1; // -umut: Çocuğun seviyesi
+  const childLevel = child?.level || 1;
 
-  // Header back davranışı: Parent Dashboard'a dön
+  // 🔥 DEFAULT HEADER’I KALDIR
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerLeft: () => (
-        <TouchableOpacity onPress={() => navigation.navigate('Dashboard')} style={{ paddingHorizontal: 12 }}>
-          <Text style={{ color: '#7a8a91', fontWeight: '700' }}>← Back</Text>
-        </TouchableOpacity>
-      ),
-    });
-  }, [navigation]);
+    navigation.setOptions({ headerShown: false });
+  }, []);
 
-  // -umut: Kategori seçimi - yeni CategoryGamesScreen'e yönlendir (31.10.2025)
   const handleCategoryPress = (categoryTitle: string) => {
     navigation.navigate('CategoryGames', { categoryTitle, child });
   };
-  // -umut: Seviye adı (28.10.2025)
+
   const getLevelName = (level: number) => {
     if (level === 1) return 'Beginner';
     if (level === 2) return 'Intermediate';
@@ -71,45 +63,56 @@ const EducationScreen = ({ navigation, route }: any) => {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      {/* -umut: Başlık bölümü - çocuk bilgisi ile (28.10.2025) */}
-      <View style={styles.header}>
-        <Text style={styles.welcomeText}>Learning Time! 🎓</Text>
+    <View style={{ flex: 1, backgroundColor: '#F8F9FA' }}>
+
+      {/* ⭐⭐⭐ OVAL CUSTOM HEADER PANEL (YALNIZCA BU EKLENDİ) */}
+      <View style={styles.topPanel}>
+        <TouchableOpacity onPress={() => navigation.navigate('Dashboard')}>
+          <Text style={styles.backArrow}>←</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.topTitle}>Learning Time! 🎓</Text>
+
+        <View style={{ width: 40 }} />
+      </View>
+
+      <ScrollView style={styles.container}>
+        
+        {/* Mevcut içerik aynen duruyor */}
         {child && (
           <View style={styles.levelBadge}>
             <Text style={styles.levelText}>Level {childLevel}</Text>
             <Text style={styles.levelName}>{getLevelName(childLevel)}</Text>
           </View>
         )}
-      </View>
 
-      <Text style={styles.subtitle}>Choose a category to start learning</Text>
+        <Text style={styles.subtitle}>Choose a category to start learning</Text>
 
-      {/* -umut: Kategori kartları - Direkt tıklanabilir (28.10.2025) */}
-      <View style={styles.grid}>
-        {categories.map((category, index) => (
-          <TouchableOpacity
-            key={index}
-            style={[
-              styles.card,
-              { 
-                backgroundColor: category.gradient[0],
-                shadowColor: category.gradient[0],
-              }
-            ]}
-            onPress={() => handleCategoryPress(category.title)}
-            activeOpacity={0.8}
-          >
-            <View style={styles.cardContent}>
-              <Text style={styles.categoryEmoji}>{category.emoji}</Text>
-              <Image source={category.image} style={styles.image} />
-              <Text style={styles.cardTitle}>{category.title}</Text>
-              <Text style={styles.cardDescription}>{category.description}</Text>
-            </View>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </ScrollView>
+        <View style={styles.grid}>
+          {categories.map((category, index) => (
+            <TouchableOpacity
+              key={index}
+              style={[
+                styles.card,
+                { 
+                  backgroundColor: category.gradient[0],
+                  shadowColor: category.gradient[0],
+                }
+              ]}
+              onPress={() => handleCategoryPress(category.title)}
+              activeOpacity={0.8}
+            >
+              <View style={styles.cardContent}>
+                <Text style={styles.categoryEmoji}>{category.emoji}</Text>
+                <Image source={category.image} style={styles.image} />
+                <Text style={styles.cardTitle}>{category.title}</Text>
+                <Text style={styles.cardDescription}>{category.description}</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
   );
 };
 
@@ -119,6 +122,32 @@ const styles = StyleSheet.create({
     flex: 1, 
     backgroundColor: '#F8F9FA',
   },
+
+  /* 🔥 YENİ EKLENEN OVAL PANEL */
+  topPanel: {
+    backgroundColor: '#FF6B9A',
+    paddingTop: 55,
+    paddingBottom: 25,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  backArrow: {
+    fontSize: 26,
+    color: '#FFF',
+    fontWeight: '700',
+  },
+
+  topTitle: {
+    fontSize: 22,
+    color: '#FFF',
+    fontWeight: '700',
+  },
+
   header: {
     padding: 20,
     paddingTop: 30,
@@ -137,6 +166,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 20,
     alignSelf: 'center',
+    marginTop: 20,
     shadowColor: '#FF6B9A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
@@ -162,6 +192,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 25,
     paddingHorizontal: 20,
+    marginTop: 15,
   },
   grid: { 
     flexDirection: 'row', 

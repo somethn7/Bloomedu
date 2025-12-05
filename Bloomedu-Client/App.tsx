@@ -168,12 +168,27 @@ export default function App() {
 
           {/* === TEACHER SIDE === */}
           <Stack.Screen name="Teacher" component={TeacherLoginScreen} />
-          <Stack.Screen name="TeacherStudents" component={TeacherDashboardScreen} />
-          <Stack.Screen name="TeacherStudentsOverview" component={TeacherStudentsOverviewScreen} />
+          <Stack.Screen 
+           name="TeacherStudents" 
+          component={TeacherDashboardScreen}
+          options={{ headerShown: false }}
+           />
+
+          <Stack.Screen 
+            name="TeacherStudentsOverview" 
+            component={TeacherStudentsOverviewScreen}
+            options={{ headerShown: false }}
+          />
+
           <Stack.Screen name="TeacherAddChild" component={TeacherAddChildScreen} />
           <Stack.Screen name="TeacherChatList" component={TeacherChatListScreen} />
           <Stack.Screen name="TeacherFeedback" component={TeacherFeedbackScreen} />
-          <Stack.Screen name="ChildProgress" component={ChildProgressScreen} />
+          <Stack.Screen 
+              name="ChildProgress" 
+              component={ChildProgressScreen}
+              options={{ headerShown: false }}
+            />
+
 
           {/* === OTHER === */}
           <Stack.Screen name="Settings" component={SettingsScreen} />

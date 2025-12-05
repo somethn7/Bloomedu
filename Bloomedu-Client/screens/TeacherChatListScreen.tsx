@@ -16,12 +16,10 @@ const TeacherChatListScreen = ({ navigation }: any) => {
   const [conversations, setConversations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // 🔥 DEFAULT HEADER'I KAPAT
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerTitle: 'Parent Messages',
-      headerTintColor: '#4A148C',
-    });
-  }, [navigation]);
+    navigation.setOptions({ headerShown: false });
+  }, []);
 
   useEffect(() => {
     loadConversations();
@@ -66,10 +64,8 @@ const TeacherChatListScreen = ({ navigation }: any) => {
       category: item.category,
       categoryTitle: `${item.parent_name} - ${item.category}`,
       categoryColor: '#6C5CE7',
-
       otherUserId: item.parent_id,
       isTeacher: true,
-
       childId: item.child_id,
       childName: item.child_name,
     });
@@ -121,6 +117,18 @@ const TeacherChatListScreen = ({ navigation }: any) => {
 
   return (
     <View style={styles.container}>
+
+      {/* 🔥🔥 OVAL ÜST PANEL (Teacher Dashboard ile aynı stil) */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={styles.backArrow}>←</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.headerTitle}>Parent Messages</Text>
+
+        <View style={{ width: 40 }} />
+      </View>
+
       {loading ? (
         <ActivityIndicator
           size="large"
@@ -131,7 +139,7 @@ const TeacherChatListScreen = ({ navigation }: any) => {
         <FlatList
           data={conversations}
           renderItem={renderItem}
-          keyExtractor={item =>
+          keyExtractor={(item) =>
             `${item.parent_id}-${item.child_id}-${item.category}`
           }
           contentContainerStyle={styles.listContent}
@@ -153,6 +161,34 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F7FA',
   },
+
+  /* 🔥 NEW HEADER STYLE */
+  header: {
+    backgroundColor: '#6C5CE7',
+    paddingTop: 50,
+    paddingBottom: 22,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  backArrow: {
+    fontSize: 26,
+    color: '#FFF',
+    fontWeight: '700',
+  },
+
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+
+  /* existing styles unchanged below */
+
   listContent: {
     padding: 20,
   },

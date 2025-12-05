@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert, BackHandler } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 
@@ -35,6 +35,11 @@ const SurveyScreen = () => {
 
   const questionsPerPage = 5;
   const totalPages = Math.ceil(questions.length / questionsPerPage);
+
+  // 💥 DEFAULT HEADER'I KAPAT
+  useLayoutEffect(() => {
+    navigation.setOptions({ headerShown: false });
+  }, []);
 
   useEffect(() => {
     const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -77,37 +82,39 @@ const SurveyScreen = () => {
   return (
     <View style={{ flex: 1, backgroundColor: '#f2f2f2' }}>
 
-      {/* 🔥🔥 OVAL GRİ HEADER – diğer sayfalar ile birebir uyumlu */}
+      {/* 🌟 PERFECT OVAL HEADER - Sabit, tam ortalanmış, estetik */}
       <View
         style={{
           backgroundColor: '#d9d9d9',
-          height: 110,
-          borderBottomLeftRadius: 40,
-          borderBottomRightRadius: 40,
-          justifyContent: 'flex-end',
-          paddingBottom: 15,
+          paddingTop: 55,
+          paddingBottom: 25,
+          paddingHorizontal: 20,
+          borderBottomLeftRadius: 35,
+          borderBottomRightRadius: 35,
+          flexDirection: 'row',
           alignItems: 'center',
+          justifyContent: 'space-between',
         }}
       >
-        {/* Back Button */}
+        {/* Back button */}
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={{
-            position: 'absolute',
-            left: 20,
-            top: 45,
-            backgroundColor: '#ff6b9a',
             width: 40,
             height: 40,
             borderRadius: 20,
+            backgroundColor: '#FF6B9A',
             justifyContent: 'center',
             alignItems: 'center',
           }}
         >
-          <Text style={{ color: 'white', fontSize: 20 }}>←</Text>
+          <Text style={{ color: 'white', fontSize: 20, fontWeight: '700' }}>←</Text>
         </TouchableOpacity>
 
         <Text style={{ fontSize: 22, fontWeight: '700', color: '#444' }}>Survey</Text>
+
+        {/* Sağ tarafı boş bırakarak başlığı tam ortaya alıyoruz */}
+        <View style={{ width: 40 }} />
       </View>
 
       {/* MAIN CONTENT */}
@@ -134,13 +141,7 @@ const SurveyScreen = () => {
                     }}
                     onPress={() => handleAnswer(questionIndex, 'yes')}
                   >
-                    <Text
-                      style={{
-                        color: '#222',
-                        fontSize: 16,
-                        fontWeight: isYes ? '700' : '500',
-                      }}
-                    >
+                    <Text style={{ color: '#222', fontSize: 16, fontWeight: isYes ? '700' : '500' }}>
                       Yes
                     </Text>
                   </TouchableOpacity>
@@ -154,13 +155,7 @@ const SurveyScreen = () => {
                     }}
                     onPress={() => handleAnswer(questionIndex, 'no')}
                   >
-                    <Text
-                      style={{
-                        color: '#222',
-                        fontSize: 16,
-                        fontWeight: isNo ? '700' : '500',
-                      }}
-                    >
+                    <Text style={{ color: '#222', fontSize: 16, fontWeight: isNo ? '700' : '500' }}>
                       No
                     </Text>
                   </TouchableOpacity>
@@ -194,16 +189,16 @@ const SurveyScreen = () => {
               paddingVertical: 12,
               paddingHorizontal: 25,
               borderRadius: 25,
+              flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'center',
-              flexDirection: 'row',
             }}
             onPress={handleNext}
           >
-            <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold', marginRight: 5 }}>
+            <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold', marginRight: 5 }}>
               {currentPage < totalPages - 1 ? 'Next' : 'Finish'}
             </Text>
-            <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold' }}>→</Text>
+            <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold' }}>→</Text>
           </TouchableOpacity>
         </View>
 
