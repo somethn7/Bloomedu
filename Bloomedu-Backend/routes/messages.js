@@ -64,16 +64,14 @@ router.post('/messages', async (req, res) => {
 });
 
 /* =====================================================
-   2) GET MESSAGES BETWEEN USERS — TEK VERSİYON
+   2) SAFE GET MESSAGES
 ===================================================== */
-router.get('/messages', async (req, res) => {
+router.get("/messages", async (req, res) => {
   const { user1_id, user2_id, category, child_id } = req.query;
 
+  // ❗ Parametre yoksa error değil, boş mesaj dön
   if (!user1_id || !user2_id || !category) {
-    return res.status(400).json({
-      success: false,
-      message: 'Missing required fields',
-    });
+    return res.json({ success: true, messages: [] });
   }
 
   try {
@@ -88,7 +86,6 @@ router.get('/messages', async (req, res) => {
 
     const params = [user1_id, user2_id, category];
 
-    // child_id varsa bu çocuk özelindeki konuşmayı getir
     if (child_id) {
       query += ` AND child_id = $4`;
       params.push(child_id);
@@ -100,8 +97,8 @@ router.get('/messages', async (req, res) => {
 
     return res.json({ success: true, messages: result.rows });
   } catch (err) {
-    console.error('MESSAGE FETCH ERROR (/messages GET):', err);
-    return res.status(500).json({ success: false, message: 'Server error' });
+    console.error("MESSAGE FETCH ERROR:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
