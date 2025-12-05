@@ -14,12 +14,27 @@ router.post('/messages', async (req, res) => {
     message_text,
     content_type,
     content_url,
-    child_id
+    child_id,
   } = req.body;
 
-  if (!sender_id || !receiver_id || !category || !message_text || !child_id) {
-    return res.status(400).json({ success: false, message: 'Missing fields' });
+  console.log('🟢 /messages POST body:', {
+    sender_id,
+    sender_type,
+    receiver_id,
+    category,
+    message_text,
+    child_id,
+  });
+
+  // child_id'i zorunlu yapmayalım, ama varsa DB'ye yazalım
+  if (!sender_id || !receiver_id || !category || !message_text) {
+    console.log('❌ /messages MISSING FIELDS');
+    return res
+      .status(400)
+      .json({ success: false, message: 'Missing fields (sender, receiver, category, text).' });
   }
+
+  const safeChildId = child_id ? Number(child_id) : null;
 
   try {
     const result = await pool.query(
@@ -29,34 +44,35 @@ router.post('/messages', async (req, res) => {
        RETURNING id, created_at`,
       [
         sender_id,
-        sender_type,
+        sender_type || 'parent',
         receiver_id,
         category,
         message_text,
         content_type || 'text',
         content_url || null,
-        child_id
+        safeChildId,
       ]
     );
 
     return res.json({ success: true, data: result.rows[0] });
   } catch (err) {
-    console.error('SEND ERROR:', err);
-    return res.status(500).json({ success: false, message: 'Server error while sending message.' });
+    console.error('SEND ERROR (/messages POST):', err);
+    return res
+      .status(500)
+      .json({ success: false, message: 'Server error while sending message.' });
   }
 });
 
 /* =====================================================
    2) GET MESSAGES BETWEEN USERS — TEK VERSİYON
 ===================================================== */
-/* GET MESSAGES BETWEEN USERS (CLEAN + FINAL VERSION) */
-router.get("/messages", async (req, res) => {
+router.get('/messages', async (req, res) => {
   const { user1_id, user2_id, category, child_id } = req.query;
 
   if (!user1_id || !user2_id || !category) {
     return res.status(400).json({
       success: false,
-      message: "Missing required fields",
+      message: 'Missing required fields',
     });
   }
 
@@ -72,7 +88,7 @@ router.get("/messages", async (req, res) => {
 
     const params = [user1_id, user2_id, category];
 
-    // child_id varsa filtrele, yoksa tümünü getir
+    // child_id varsa bu çocuk özelindeki konuşmayı getir
     if (child_id) {
       query += ` AND child_id = $4`;
       params.push(child_id);
@@ -84,11 +100,10 @@ router.get("/messages", async (req, res) => {
 
     return res.json({ success: true, messages: result.rows });
   } catch (err) {
-    console.error("MESSAGE FETCH ERROR:", err);
-    return res.status(500).json({ success: false, message: "Server error" });
+    console.error('MESSAGE FETCH ERROR (/messages GET):', err);
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
 });
-
 
 /* =====================================================
    3) MARK READ
@@ -115,7 +130,7 @@ router.post('/messages/mark-read', async (req, res) => {
 
     return res.json({ success: true });
   } catch (err) {
-    console.error('MARK READ ERROR:', err);
+    console.error('MARK READ ERROR (/messages/mark-read):', err);
     return res.status(500).json({ success: false, message: 'Server error marking read.' });
   }
 });

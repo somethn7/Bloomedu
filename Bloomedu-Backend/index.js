@@ -9,17 +9,16 @@ const sendStudentCredentials = require('./utils/sendMail');
 const app = express();
 
 // === NEW ROUTES (Integrated cleanly) ===
-// Messages Route for Chat System
 const messagesRouter = require('./routes/messages');
 
 // === FIREBASE INIT ===
 const serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
 admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount)
+  credential: admin.credential.cert(serviceAccount),
 });
 
 app.use(cors());
-// -umut: (23.11.2025) Increased payload limit to 50mb to support Base64 images
+// payload limit for images
 app.use(express.json({ limit: '50mb' }));
 
 // === LOG MIDDLEWARE ===
@@ -712,26 +711,31 @@ app.post('/ai-chat', async (req, res) => {
     return res.status(400).json({ success: false, message: 'Message is required.' });
   }
 
-  let aiResponse = "";
+  let aiResponse = '';
   const lowerMsg = message.toLowerCase();
 
-  if (lowerMsg.includes("merhaba") || lowerMsg.includes("selam")) {
-    aiResponse = "Hello! I am your Bloomedu Pedagogue Assistant. How can I help you and your child today?";
-  } else if (lowerMsg.includes("oyun") || lowerMsg.includes("game")) {
-    aiResponse = "Playing games is great for your child's development! Have you tried the **'Matching'** and **'Colors'** games in Bloomedu? These support attention and cognitive skills. You can also play simple 'what color is this?' games with objects at home.";
-  } else if (lowerMsg.includes("konuş") || lowerMsg.includes("speak") || lowerMsg.includes("iletişim")) {
-    aiResponse = "To support communication skills, make plenty of eye contact with your child. Use short and clear sentences. When they point to something they want, name the object before giving it to them. Be patient, every child progresses at their own pace.";
-  } else if (lowerMsg.includes("öfke") || lowerMsg.includes("angry") || lowerMsg.includes("cry")) {
-    aiResponse = "Tantrums can be challenging. Try to stay calm in such moments. Name your child's emotion: 'You are sad right now, I understand.' Wait for them to calm down in a safe space. Sometimes a hug is the best medicine.";
-  } else if (lowerMsg.includes("uyku") || lowerMsg.includes("sleep")) {
-    aiResponse = "Sleep routines are very important. Turn off screens before bed, try calming activities like a warm bath and reading a story. Keeping the room dark and quiet also makes it easier to fall asleep.";
+  if (lowerMsg.includes('merhaba') || lowerMsg.includes('selam')) {
+    aiResponse =
+      'Hello! I am your Bloomedu Pedagogue Assistant. How can I help you and your child today?';
+  } else if (lowerMsg.includes('oyun') || lowerMsg.includes('game')) {
+    aiResponse =
+      "Playing games is great for your child's development! Have you tried the **'Matching'** and **'Colors'** games in Bloomedu? These support attention and cognitive skills. You can also play simple 'what color is this?' games with objects at home.";
+  } else if (lowerMsg.includes('konuş') || lowerMsg.includes('speak') || lowerMsg.includes('iletişim')) {
+    aiResponse =
+      'To support communication skills, make plenty of eye contact with your child. Use short and clear sentences. When they point to something they want, name the object before giving it to them. Be patient, every child progresses at their own pace.';
+  } else if (lowerMsg.includes('öfke') || lowerMsg.includes('angry') || lowerMsg.includes('cry')) {
+    aiResponse =
+      "Tantrums can be challenging. Try to stay calm in such moments. Name your child's emotion: 'You are sad right now, I understand.' Wait for them to calm down in a safe space. Sometimes a hug is the best medicine.";
+  } else if (lowerMsg.includes('uyku') || lowerMsg.includes('sleep')) {
+    aiResponse =
+      'Sleep routines are very important. Turn off screens before bed, try calming activities like a warm bath and reading a story. Keeping the room dark and quiet also makes it easier to fall asleep.';
   } else {
-    aiResponse = "I understand. Could you please elaborate on your question so I can give you more detailed information? Generally, consistency, love, and patience are the most important keys in child development.";
+    aiResponse =
+      'I understand. Could you please elaborate on your question so I can give you more detailed information? Generally, consistency, love, and patience are the most important keys in child development.';
   }
 
   res.json({ success: true, reply: aiResponse });
 });
-
 
 // === CHAT ROUTES MUST BE LAST (MESSAGES ROUTER) ===
 app.use('/', messagesRouter);
@@ -741,11 +745,11 @@ app.use((req, res) => {
   console.log('❌ Route not found:', req.method, req.url);
   return res.status(404).json({
     success: false,
-    message: 'Route not found.'
+    message: 'Route not found.',
   });
 });
 
 const port = process.env.PORT || 8080;
-app.listen(port, "0.0.0.0", () => {
+app.listen(port, '0.0.0.0', () => {
   console.log(`✅ Backend is running on 0.0.0.0:${port}`);
 });
