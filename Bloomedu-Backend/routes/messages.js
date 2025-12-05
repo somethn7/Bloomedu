@@ -17,21 +17,11 @@ router.post('/messages', async (req, res) => {
     child_id,
   } = req.body;
 
-  console.log('🟢 /messages POST body:', {
-    sender_id,
-    sender_type,
-    receiver_id,
-    category,
-    message_text,
-    child_id,
-  });
-
-  // child_id'i zorunlu yapmayalım, ama varsa DB'ye yazalım
   if (!sender_id || !receiver_id || !category || !message_text) {
-    console.log('❌ /messages MISSING FIELDS');
-    return res
-      .status(400)
-      .json({ success: false, message: 'Missing fields (sender, receiver, category, text).' });
+    return res.status(400).json({
+      success: false,
+      message: 'Missing fields.'
+    });
   }
 
   const safeChildId = child_id ? Number(child_id) : null;
@@ -56,20 +46,18 @@ router.post('/messages', async (req, res) => {
 
     return res.json({ success: true, data: result.rows[0] });
   } catch (err) {
-    console.error('SEND ERROR (/messages POST):', err);
-    return res
-      .status(500)
-      .json({ success: false, message: 'Server error while sending message.' });
+    console.error('SEND ERROR:', err);
+    return res.status(500).json({ success: false, message: 'Server error.' });
   }
 });
 
+
 /* =====================================================
-   2) SAFE GET MESSAGES
+   2) GET MESSAGES BETWEEN TWO USERS
 ===================================================== */
 router.get("/messages", async (req, res) => {
   const { user1_id, user2_id, category, child_id } = req.query;
 
-  // ❗ Parametre yoksa error değil, boş mesaj dön
   if (!user1_id || !user2_id || !category) {
     return res.json({ success: true, messages: [] });
   }
@@ -102,6 +90,7 @@ router.get("/messages", async (req, res) => {
   }
 });
 
+
 /* =====================================================
    3) MARK READ
 ===================================================== */
@@ -127,16 +116,17 @@ router.post('/messages/mark-read', async (req, res) => {
 
     return res.json({ success: true });
   } catch (err) {
-    console.error('MARK READ ERROR (/messages/mark-read):', err);
-    return res.status(500).json({ success: false, message: 'Server error marking read.' });
+    console.error('MARK READ ERROR:', err);
+    return res.status(500).json({ success: false, message: 'Server error.' });
   }
 });
 
+
 /* =====================================================
-   4) UNREAD SUMMARY FOR PARENT
+   4) UNREAD SUMMARY (ONLY COUNT RECEIVED MESSAGES)
 ===================================================== */
-router.get('/messages/unread-summary/:parentId', async (req, res) => {
-  const { parentId } = req.params;
+router.get('/messages/unread-summary/:userId', async (req, res) => {
+  const { userId } = req.params;
 
   try {
     const result = await pool.query(
@@ -147,28 +137,26 @@ router.get('/messages/unread-summary/:parentId', async (req, res) => {
         AND is_read = FALSE
       GROUP BY category, child_id
       `,
-      [parentId]
+      [userId]
     );
 
     const grouped = {};
 
     result.rows.forEach((row) => {
       if (!grouped[row.category]) grouped[row.category] = {};
-      grouped[row.category][row.child_id] = parseInt(row.unread_count, 10);
+      grouped[row.category][row.child_id] = Number(row.unread_count);
     });
 
     return res.json({ success: true, unread: grouped });
   } catch (err) {
     console.error('UNREAD SUMMARY ERROR:', err);
-    return res.status(500).json({
-      success: false,
-      message: 'Server error while fetching unread summary.',
-    });
+    return res.status(500).json({ success: false });
   }
 });
 
+
 /* =====================================================
-   5) TEACHER – CHAT LIST
+   5) TEACHER CHAT LIST (FIXED URL)
 ===================================================== */
 router.get('/messages/teacher/conversations/:teacherId', async (req, res) => {
   const { teacherId } = req.params;
@@ -183,7 +171,7 @@ router.get('/messages/teacher/conversations/:teacherId', async (req, res) => {
         c.name || ' ' || c.surname AS child_name,
         m.category,
         m.message_text AS last_message,
-        m.created_at AS last_message_time
+    m.created_at AS last_message_time
       FROM messages m
       JOIN parents p ON m.sender_id = p.id
       JOIN children c ON m.child_id = c.id
@@ -197,10 +185,7 @@ router.get('/messages/teacher/conversations/:teacherId', async (req, res) => {
     return res.json({ success: true, conversations: result.rows });
   } catch (err) {
     console.error('TEACHER CHAT LIST ERROR:', err);
-    return res.status(500).json({
-      success: false,
-      message: 'Server error loading teacher conversations.',
-    });
+    return res.status(500).json({ success: false });
   }
 });
 

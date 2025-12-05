@@ -31,8 +31,8 @@ const TeacherChatListScreen = ({ navigation }: any) => {
       if (!teacherId) return;
 
       const response = await fetch(
-        `https://bloomedu-production.up.railway.app/teacher/conversations/${teacherId}`
-      );
+  `https://bloomedu-production.up.railway.app/messages/teacher/conversations/${teacherId}`
+  );
       const json = await response.json();
 
       if (json.success) {
