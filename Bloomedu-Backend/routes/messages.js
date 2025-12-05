@@ -2,9 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 
-/* =====================================================
-   1) SEND MESSAGE
-===================================================== */
+/* SEND MESSAGE */
 router.post('/messages', async (req, res) => {
   const {
     sender_id,
@@ -46,12 +44,7 @@ router.post('/messages', async (req, res) => {
   }
 });
 
-/* =====================================================
-   2) GET MESSAGES BETWEEN USERS
-===================================================== */
-/* =====================================================
-   2) GET MESSAGES BETWEEN USERS
-===================================================== */
+/* GET MESSAGES BETWEEN USERS */
 router.get("/messages", async (req, res) => {
   const { user1_id, user2_id, category, child_id } = req.query;
 
@@ -84,10 +77,7 @@ router.get("/messages", async (req, res) => {
   }
 });
 
-
-/* =====================================================
-   3) MARK READ
-===================================================== */
+/* MARK READ */
 router.post('/messages/mark-read', async (req, res) => {
   const { sender_id, receiver_id, category, child_id } = req.body;
 
@@ -96,22 +86,17 @@ router.post('/messages/mark-read', async (req, res) => {
   }
 
   try {
-    const params = [sender_id, receiver_id, category];
-
-    let query = `
+    await pool.query(
+      `
       UPDATE messages
       SET is_read = TRUE
       WHERE sender_id = $1
         AND receiver_id = $2
         AND category = $3
-    `;
-
-    if (child_id) {
-      query += ' AND child_id = $4';
-      params.push(child_id);
-    }
-
-    await pool.query(query, params);
+        AND child_id = $4
+      `,
+      [sender_id, receiver_id, category, child_id]
+    );
 
     return res.json({ success: true });
   } catch (err) {
@@ -120,9 +105,7 @@ router.post('/messages/mark-read', async (req, res) => {
   }
 });
 
-/* =====================================================
-   4) UNREAD SUMMARY FOR PARENT
-===================================================== */
+/* UNREAD SUMMARY */
 router.get('/messages/unread-summary/:parentId', async (req, res) => {
   const { parentId } = req.params;
 
@@ -155,46 +138,45 @@ router.get('/messages/unread-summary/:parentId', async (req, res) => {
   }
 });
 
-/* =====================================================
-   5) TEACHER – CONVERSATION LIST
-===================================================== */
-router.get('/teacher/conversations/:teacherId', async (req, res) => {
-  const { teacherId } = req.params;
+/* TEACHER CONVERSATIONS */
+router.get("/messages", async (req, res) => {
+  const { user1_id, user2_id, category, child_id } = req.query;
 
-  try {
-    const result = await pool.query(
-      `
-      SELECT DISTINCT ON (m.sender_id, m.child_id, m.category)
-        m.sender_id AS parent_id,
-        p.name AS parent_name,
-
-        m.child_id,
-        c.name || ' ' || c.surname AS child_name,
-
-        m.category,
-        m.message_text AS last_message,
-        m.created_at AS last_message_time
-
-      FROM messages m
-      JOIN parents p ON m.sender_id = p.id
-      JOIN children c ON m.child_id = c.id
-
-      WHERE m.receiver_id = $1
-        AND m.sender_type = 'parent'
-
-      ORDER BY m.sender_id, m.child_id, m.category, m.created_at DESC
-      `,
-      [teacherId]
-    );
-
-    return res.json({ success: true, conversations: result.rows });
-  } catch (err) {
-    console.error('TEACHER CHAT LIST ERROR:', err);
-    return res.status(500).json({
+  if (!user1_id || !user2_id || !category) {
+    return res.status(400).json({
       success: false,
-      message: 'Error loading teacher conversations.',
+      message: "Missing required fields",
     });
   }
+
+  try {
+    let query = `
+      SELECT *
+      FROM messages
+      WHERE 
+        ((sender_id = $1 AND receiver_id = $2) 
+         OR (sender_id = $2 AND receiver_id = $1))
+        AND category = $3
+    `;
+
+    const params = [user1_id, user2_id, category];
+
+    // Eğer DB’de child_id kolonu yoksa buraya eklemeyeceğiz.
+    if (child_id) {
+      query += ` AND child_id = $4`;
+      params.push(child_id);
+    }
+
+    query += ` ORDER BY created_at ASC`;
+
+    const result = await pool.query(query, params);
+
+    return res.json({ success: true, messages: result.rows });
+  } catch (err) {
+    console.error("MESSAGE FETCH ERROR:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
 });
+
 
 module.exports = router;
