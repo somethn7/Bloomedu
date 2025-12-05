@@ -33,19 +33,19 @@ interface Message {
 const BASE_URL = 'https://bloomedu-production.up.railway.app';
 
 const ChatScreen = ({ route, navigation }: any) => {
-  let {
-    category,
-    categoryTitle,
-    categoryColor,
-    otherUserId,
-    isTeacher,
-    childId,
-    childName,
-    child_id,
-  } = route.params;
+  // ---- PARAM SABİTLEME ----
+  const finalChildId =
+    route.params.childId ||
+    route.params.child_id ||
+    route.params.child?.id ||
+    null;
 
-  // 🔥 En sağlam çözüm: childId yoksa child_id'yi kullan
-  const finalChildId = childId ?? child_id;
+  const category = route.params.category;
+  const categoryTitle = route.params.categoryTitle;
+  const categoryColor = route.params.categoryColor;
+  const otherUserId = route.params.otherUserId; // karşı taraf
+  const isTeacher = route.params.isTeacher;
+  const childName = route.params.childName || "Child";
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
@@ -55,13 +55,8 @@ const ChatScreen = ({ route, navigation }: any) => {
 
   const flatListRef = useRef<FlatList>(null);
 
-  // Teacher mı parent mı → receiverId belirle
-  const receiverId = otherUserId;
-
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: false,
-    });
+    navigation.setOptions({ headerShown: false });
   }, []);
 
   useEffect(() => {
@@ -69,11 +64,10 @@ const ChatScreen = ({ route, navigation }: any) => {
   }, []);
 
   useEffect(() => {
-    if (myUserId) {
-      markMessagesAsRead();
-    }
+    if (myUserId) markMessagesAsRead();
   }, [myUserId]);
 
+  // ---- MESAJLARI OKUNDU İŞARETLE ----
   const markMessagesAsRead = async () => {
     if (!myUserId || !finalChildId) return;
 
@@ -82,62 +76,62 @@ const ChatScreen = ({ route, navigation }: any) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          sender_id: receiverId,
+          sender_id: otherUserId,
           receiver_id: myUserId,
           category,
           child_id: finalChildId,
         }),
       });
     } catch (e) {
-      console.error("Failed to mark messages read:", e);
+      console.log("mark-read error:", e);
     }
   };
 
+  // ---- USER ID + MESAJLAR ----
   const loadUserAndMessages = async () => {
     try {
       const key = isTeacher ? "teacher_id" : "parent_id";
       const idString = await AsyncStorage.getItem(key);
 
-      if (idString) {
-        const uid = parseInt(idString, 10);
-        setMyUserId(uid);
-        fetchMessages(uid);
-      }
-    } catch (error) {
-      console.error("Error loading user ID:", error);
+      if (!idString) return;
+
+      const uid = parseInt(idString, 10);
+      setMyUserId(uid);
+
+      fetchMessages(uid);
+    } catch (e) {
+      console.log("load user error:", e);
     }
   };
 
+  // ---- MESAJ GETİR ----
   const fetchMessages = async (myId: number) => {
     if (!finalChildId) return;
-
     setLoading(true);
 
     try {
-      const response = await fetch(
-        `${BASE_URL}/messages?user1_id=${myId}&user2_id=${receiverId}&category=${category}&child_id=${finalChildId}`
+      const res = await fetch(
+        `${BASE_URL}/messages?user1_id=${myId}&user2_id=${otherUserId}&category=${category}&child_id=${finalChildId}`
       );
+      const text = await res.text();
 
-      const text = await response.text();
       let json;
-
       try {
         json = JSON.parse(text);
-      } catch (err) {
-        console.error("INVALID JSON:", text.substring(0, 200));
+      } catch {
+        console.log("JSON ERROR:", text.substring(0, 150));
         return;
       }
 
-      if (json.success) {
-        setMessages(json.messages);
-      }
-    } catch (error) {
-      console.error("FETCH ERROR:", error);
+      if (json.success) setMessages(json.messages);
+    } catch (err) {
+      console.log("fetch error:", err);
     } finally {
       setLoading(false);
     }
   };
 
+  // ---- MESAJ GÖNDER ----
   const handleSend = async (type: "text" | "image", content: string, url?: string) => {
     if (!myUserId || !finalChildId) return;
 
@@ -146,7 +140,7 @@ const ChatScreen = ({ route, navigation }: any) => {
     const payload = {
       sender_id: myUserId,
       sender_type: isTeacher ? "teacher" : "parent",
-      receiver_id: receiverId,
+      receiver_id: otherUserId,
       category,
       child_id: finalChildId,
       message_text: content,
@@ -155,20 +149,19 @@ const ChatScreen = ({ route, navigation }: any) => {
     };
 
     try {
-      const response = await fetch(`${BASE_URL}/messages`, {
+      const res = await fetch(`${BASE_URL}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      const text = await response.text();
-
+      const text = await res.text();
       let json;
+
       try {
         json = JSON.parse(text);
       } catch {
-        console.error("SEND MSG INVALID JSON:", text);
-        Alert.alert("Error", "Server JSON error");
+        console.log("SEND JSON ERROR:", text);
         return;
       }
 
@@ -177,49 +170,45 @@ const ChatScreen = ({ route, navigation }: any) => {
         fetchMessages(myUserId);
       }
     } catch (err) {
-      console.error("SEND ERROR:", err);
-      Alert.alert("Error", "Network error");
+      console.log("send error:", err);
     } finally {
       setSending(false);
     }
   };
 
+  // ---- FOTO PICK ----
   const onPickImage = async () => {
     const result = await launchImageLibrary({ mediaType: 'photo', includeBase64: true });
 
-    if (result.assets && result.assets.length > 0) {
-      const asset = result.assets[0];
+    if (result.assets?.length > 0) {
+      const a = result.assets[0];
 
-      if (asset.base64) {
-        const dataUri = `data:${asset.type};base64,${asset.base64}`;
-        handleSend("image", "📷 Photo", dataUri);
+      if (a.base64) {
+        const uri = `data:${a.type};base64,${a.base64}`;
+        handleSend("image", "📷 Photo", uri);
       }
     }
   };
 
   const renderItem = ({ item }: { item: Message }) => {
-    const myType = isTeacher ? "teacher" : "parent";
-    const isMe = item.sender_type === myType;
-
-    let content = (
-      <Text style={[styles.messageText, isMe ? styles.myText : styles.otherText]}>
-        {item.message_text}
-      </Text>
-    );
-
-    if (item.content_type === "image" && item.content_url) {
-      content = (
-        <Image source={{ uri: item.content_url }} style={styles.chatImage} resizeMode="cover" />
-      );
-    }
+    const isMe = item.sender_id === myUserId;
 
     return (
       <View style={[styles.bubble, isMe ? styles.myBubble : styles.otherBubble]}>
-        {content}
+        {item.content_type === "image" && item.content_url ? (
+          <Image source={{ uri: item.content_url }} style={styles.chatImage} />
+        ) : (
+          <Text style={[styles.messageText, isMe ? styles.myText : styles.otherText]}>
+            {item.message_text}
+          </Text>
+        )}
 
         <View style={styles.bubbleFooter}>
           <Text style={[styles.timeText, isMe ? styles.myTime : styles.otherTime]}>
-            {new Date(item.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            {new Date(item.created_at).toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
           </Text>
           {isMe && <Text style={styles.readReceipt}>{item.is_read ? "✓✓" : "✓"}</Text>}
         </View>
@@ -229,6 +218,14 @@ const ChatScreen = ({ route, navigation }: any) => {
 
   return (
     <View style={styles.container}>
+
+      {/* 🔥 DEBUG PANEL — sorunu teşhis ediyoruz */}
+      <View style={{ padding: 10, backgroundColor: "yellow" }}>
+        <Text>FINAL CHILD ID: {finalChildId}</Text>
+        <Text>RAW childId: {route.params.childId?.toString()}</Text>
+        <Text>RAW child_id: {route.params.child_id?.toString()}</Text>
+      </View>
+
       {/* HEADER */}
       <View style={[styles.header, { backgroundColor: categoryColor }]}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
@@ -237,15 +234,13 @@ const ChatScreen = ({ route, navigation }: any) => {
 
         <View style={styles.headerInfo}>
           <Text style={styles.headerTitle}>{categoryTitle}</Text>
-          <Text style={styles.headerSubtitle}>
-            {childName ? childName : isTeacher ? "Parent Chat" : "Teacher Chat"}
-          </Text>
+          <Text style={styles.headerSubtitle}>{childName}</Text>
         </View>
 
         <View style={{ width: 40 }} />
       </View>
 
-      {/* MESSAGE LIST */}
+      {/* MESAJ LİSTESİ */}
       {loading ? (
         <ActivityIndicator size="large" style={{ marginTop: 20 }} />
       ) : (
@@ -259,7 +254,7 @@ const ChatScreen = ({ route, navigation }: any) => {
         />
       )}
 
-      {/* INPUT BAR */}
+      {/* INPUT */}
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={styles.inputContainer}>
           <TouchableOpacity onPress={onPickImage} style={styles.attachButton}>
@@ -275,13 +270,14 @@ const ChatScreen = ({ route, navigation }: any) => {
 
           <TouchableOpacity
             style={[styles.sendButton, { backgroundColor: categoryColor }]}
-            disabled={sending || inputText.trim().length === 0}
+            disabled={sending || !inputText.trim()}
             onPress={() => handleSend("text", inputText.trim())}
           >
             {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendButtonText}>→</Text>}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
     </View>
   );
 };
@@ -303,7 +299,8 @@ const styles = StyleSheet.create({
   },
 
   backButton: {
-    width: 40, height: 40,
+    width: 40,
+    height: 40,
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "rgba(255,255,255,0.2)",
@@ -313,9 +310,7 @@ const styles = StyleSheet.create({
   backButtonText: { fontSize: 24, color: "#FFF", fontWeight: "bold" },
 
   headerInfo: { alignItems: "center" },
-
   headerTitle: { fontSize: 18, fontWeight: "700", color: "#FFF" },
-
   headerSubtitle: { fontSize: 12, color: "rgba(255,255,255,0.9)" },
 
   listContent: { padding: 20 },
@@ -323,26 +318,21 @@ const styles = StyleSheet.create({
   bubble: { maxWidth: "75%", padding: 12, borderRadius: 16, marginBottom: 12 },
 
   myBubble: { alignSelf: "flex-end", backgroundColor: "#4ECDC4" },
-
-  otherBubble: {
-    alignSelf: "flex-start",
-    backgroundColor: "#FFF",
-    borderWidth: 1,
-    borderColor: "#E2E8F0",
-  },
+  otherBubble: { alignSelf: "flex-start", backgroundColor: "#FFF", borderWidth: 1, borderColor: "#E2E8F0" },
 
   messageText: { fontSize: 16 },
-
   myText: { color: "#FFF" },
-
   otherText: { color: "#333" },
 
-  bubbleFooter: { flexDirection: "row", justifyContent: "flex-end", marginTop: 5 },
+  bubbleFooter: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    marginTop: 5,
+    alignItems: "center",
+  },
 
   timeText: { fontSize: 10 },
-
   myTime: { color: "rgba(255,255,255,0.8)" },
-
   otherTime: { color: "#999" },
 
   readReceipt: { marginLeft: 6, color: "#FFF", fontSize: 10 },
@@ -368,7 +358,6 @@ const styles = StyleSheet.create({
   },
 
   attachButton: { padding: 8 },
-
   attachIcon: { fontSize: 24, color: "#555" },
 
   sendButton: {
@@ -381,10 +370,5 @@ const styles = StyleSheet.create({
 
   sendButtonText: { fontSize: 22, color: "#FFF", fontWeight: "bold" },
 
-  chatImage: {
-    width: 200,
-    height: 150,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
+  chatImage: { width: 200, height: 150, borderRadius: 12, marginBottom: 8 },
 });

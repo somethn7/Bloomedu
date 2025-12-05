@@ -49,48 +49,38 @@ router.post('/messages', async (req, res) => {
 /* =====================================================
    2) GET MESSAGES BETWEEN USERS
 ===================================================== */
-router.get('/messages', async (req, res) => {
+router.get("/", async (req, res) => {
+  const { user1_id, user2_id, category, child_id } = req.query;
+
+  if (!user1_id || !user2_id || !category || !child_id) {
+    return res.status(400).json({
+      success: false,
+      message: "Missing required fields",
+    });
+  }
+
   try {
-    const { user1_id, user2_id, category, child_id } = req.query;
-
-    if (!user1_id || !user2_id || !category) {
-      return res.status(400).json({ success: false, message: 'Missing query params.' });
-    }
-
-    const u1 = parseInt(user1_id, 10);
-    const u2 = parseInt(user2_id, 10);
-    const cid = child_id ? parseInt(child_id, 10) : null;
-
-    if (Number.isNaN(u1) || Number.isNaN(u2)) {
-      return res.status(400).json({ success: false, message: 'Invalid user ids.' });
-    }
-
-    let query = `
+    const result = await pool.query(
+      `
       SELECT *
       FROM messages
-      WHERE category = $1
-        AND (
-          (sender_id = $2 AND receiver_id = $3) OR
-          (sender_id = $3 AND receiver_id = $2)
-        )
-    `;
-    const params = [category, u1, u2];
-
-    if (cid && !Number.isNaN(cid)) {
-      query += ' AND child_id = $4';
-      params.push(cid);
-    }
-
-    query += ' ORDER BY created_at ASC';
-
-    const result = await pool.query(query, params);
+      WHERE 
+        ((sender_id = $1 AND receiver_id = $2) 
+         OR (sender_id = $2 AND receiver_id = $1))
+        AND category = $3
+        AND child_id = $4
+      ORDER BY created_at ASC
+      `,
+      [user1_id, user2_id, category, child_id]
+    );
 
     return res.json({ success: true, messages: result.rows });
   } catch (err) {
-    console.error('FETCH ERROR (/messages GET):', err);
-    return res.status(500).json({ success: false, message: 'Server error while fetching messages.' });
+    console.error("MESSAGE FETCH ERROR:", err);
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 });
+
 
 /* =====================================================
    3) MARK READ
