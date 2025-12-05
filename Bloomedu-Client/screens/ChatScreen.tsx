@@ -18,7 +18,6 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary } from 'react-native-image-picker';
-import { useFocusEffect } from '@react-navigation/native';
 
 interface Message {
   id: number;
@@ -47,7 +46,7 @@ const ChatScreen = ({ route, navigation }: any) => {
   const categoryTitle = route.params.categoryTitle;
   const categoryColor = route.params.categoryColor;
   const otherUserId = route.params.otherUserId;
-  const isTeacher = route.params.isTeacher;
+  const isTeacher: boolean = route.params.isTeacher;
   const childName = route.params.childName || 'Child';
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -58,12 +57,24 @@ const ChatScreen = ({ route, navigation }: any) => {
 
   const flatListRef = useRef<FlatList>(null);
 
+  const myType: 'parent' | 'teacher' = isTeacher ? 'teacher' : 'parent';
+
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
-  const markMessagesAsRead = async (myId: number) => {
-    if (!myId || !finalChildId) return;
+  useEffect(() => {
+    loadUserAndMessages();
+  }, []);
+
+  useEffect(() => {
+    if (myUserId && finalChildId) {
+      markMessagesAsRead();
+    }
+  }, [myUserId, finalChildId]);
+
+  const markMessagesAsRead = async () => {
+    if (!myUserId || !finalChildId) return;
 
     try {
       await fetch(`${BASE_URL}/messages/mark-read`, {
@@ -71,7 +82,7 @@ const ChatScreen = ({ route, navigation }: any) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sender_id: otherUserId,
-          receiver_id: myId,
+          receiver_id: myUserId,
           category,
           child_id: finalChildId,
         }),
@@ -81,40 +92,11 @@ const ChatScreen = ({ route, navigation }: any) => {
     }
   };
 
-  const fetchMessages = async (myId: number) => {
-    if (!finalChildId) return;
-    setLoading(true);
-
-    try {
-      const res = await fetch(
-        `${BASE_URL}/messages?user1_id=${myId}&user2_id=${otherUserId}&category=${category}&child_id=${finalChildId}`
-      );
-
-      const text = await res.text();
-      let json;
-      try {
-        json = JSON.parse(text);
-      } catch {
-        console.log('JSON ERROR:', text.substring(0, 150));
-        return;
-      }
-
-      if (json.success) {
-        setMessages(json.messages);
-      }
-
-      await markMessagesAsRead(myId);
-    } catch (err) {
-      console.log('fetch error:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const loadUserAndMessages = async () => {
     try {
       const key = isTeacher ? 'teacher_id' : 'parent_id';
       const idString = await AsyncStorage.getItem(key);
+
       if (!idString) return;
 
       const uid = parseInt(idString, 10);
@@ -126,17 +108,31 @@ const ChatScreen = ({ route, navigation }: any) => {
     }
   };
 
-  useEffect(() => {
-    loadUserAndMessages();
-  }, []);
+  const fetchMessages = async (myId: number) => {
+    if (!finalChildId) return;
+    setLoading(true);
 
-  useFocusEffect(
-    React.useCallback(() => {
-      if (myUserId && finalChildId) {
-        markMessagesAsRead(myUserId);
+    try {
+      const res = await fetch(
+        `${BASE_URL}/messages?user1_id=${myId}&user2_id=${otherUserId}&category=${category}&child_id=${finalChildId}`
+      );
+      const text = await res.text();
+
+      let json;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        console.log('JSON ERROR:', text.substring(0, 150));
+        return;
       }
-    }, [myUserId, finalChildId])
-  );
+
+      if (json.success) setMessages(json.messages);
+    } catch (err) {
+      console.log('fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSend = async (
     type: 'text' | 'image',
@@ -144,13 +140,12 @@ const ChatScreen = ({ route, navigation }: any) => {
     url?: string
   ) => {
     if (!myUserId || !finalChildId) return;
-    if (type === 'text' && !content.trim()) return;
 
     setSending(true);
 
     const payload = {
       sender_id: myUserId,
-      sender_type: isTeacher ? 'teacher' : 'parent',
+      sender_type: myType,
       receiver_id: otherUserId,
       category,
       child_id: finalChildId,
@@ -195,7 +190,8 @@ const ChatScreen = ({ route, navigation }: any) => {
 
     if (result.assets?.length > 0) {
       const a = result.assets[0];
-      if (a.base64) {
+
+      if (a.base64 && a.type) {
         const uri = `data:${a.type};base64,${a.base64}`;
         handleSend('image', '📷 Photo', uri);
       }
@@ -203,7 +199,7 @@ const ChatScreen = ({ route, navigation }: any) => {
   };
 
   const renderItem = ({ item }: { item: Message }) => {
-    const isMe = item.sender_id === myUserId;
+    const isMe = item.sender_type === myType; // 🔥 sadece type'a bak
 
     return (
       <View
@@ -213,7 +209,10 @@ const ChatScreen = ({ route, navigation }: any) => {
         ]}
       >
         {item.content_type === 'image' && item.content_url ? (
-          <Image source={{ uri: item.content_url }} style={styles.chatImage} />
+          <Image
+            source={{ uri: item.content_url }}
+            style={styles.chatImage}
+          />
         ) : (
           <Text
             style={[
@@ -249,7 +248,11 @@ const ChatScreen = ({ route, navigation }: any) => {
 
   return (
     <View style={styles.container}>
-      {/* HEADER */}
+      {/* DEBUG PANEL istersen kaldır */}
+      {/* <View style={{ padding: 10, backgroundColor: 'yellow' }}>
+        <Text>FINAL CHILD ID: {finalChildId}</Text>
+      </View> */}
+
       <View style={[styles.header, { backgroundColor: categoryColor }]}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -266,7 +269,6 @@ const ChatScreen = ({ route, navigation }: any) => {
         <View style={{ width: 40 }} />
       </View>
 
-      {/* MESSAGES */}
       {loading ? (
         <ActivityIndicator size="large" style={{ marginTop: 20 }} />
       ) : (
@@ -274,7 +276,7 @@ const ChatScreen = ({ route, navigation }: any) => {
           ref={flatListRef}
           data={messages}
           renderItem={renderItem}
-          keyExtractor={item => item.id.toString()}
+          keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={styles.listContent}
           onContentSizeChange={() =>
             flatListRef.current?.scrollToEnd({ animated: true })
@@ -282,7 +284,6 @@ const ChatScreen = ({ route, navigation }: any) => {
         />
       )}
 
-      {/* INPUT */}
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
@@ -361,7 +362,10 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
 
-  myBubble: { alignSelf: 'flex-end', backgroundColor: '#4ECDC4' },
+  myBubble: {
+    alignSelf: 'flex-end',
+    backgroundColor: '#4ECDC4',
+  },
   otherBubble: {
     alignSelf: 'flex-start',
     backgroundColor: '#FFF',
