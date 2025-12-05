@@ -10,9 +10,8 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// -umut: (22.11.2025) New screen for teachers to see parent messages
 const TeacherChatListScreen = ({ navigation }: any) => {
-  const [conversations, setConversations] = useState([]);
+  const [conversations, setConversations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useLayoutEffect(() => {
@@ -35,6 +34,7 @@ const TeacherChatListScreen = ({ navigation }: any) => {
         `https://bloomedu-production.up.railway.app/teacher/conversations/${teacherId}`
       );
       const json = await response.json();
+
       if (json.success) {
         setConversations(json.conversations);
       }
@@ -46,37 +46,50 @@ const TeacherChatListScreen = ({ navigation }: any) => {
     }
   };
 
-  const renderItem = ({ item }: any) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() =>
-        navigation.navigate('ChatScreen', {
-          category: item.category,
-          categoryTitle: `${item.parent_name} - ${item.category}`,
-          categoryColor: '#6C5CE7',
-          otherUserId: item.parent_id, // Pass parent ID to chat screen
-          isTeacher: true, // Flag to indicate teacher mode
-        })
-      }
-    >
+  const handleOpenChat = (item: any) => {
+    navigation.navigate('ChatScreen', {
+      category: item.category,
+      categoryTitle: `${item.parent_name} - ${item.category}`,
+      categoryColor: '#6C5CE7',
+
+      otherUserId: item.parent_id,   // teacher -> parent
+      isTeacher: true,
+
+      childId: item.child_id,
+      childName: item.child_name,
+    });
+  };
+
+  const renderItem = ({ item }: { item: any }) => (
+    <TouchableOpacity style={styles.card} onPress={() => handleOpenChat(item)}>
       <View style={styles.avatarContainer}>
         <Text style={styles.avatarText}>
-          {item.parent_name.charAt(0).toUpperCase()}
+          {item.parent_name?.charAt(0).toUpperCase() || '?'}
         </Text>
       </View>
+
       <View style={styles.content}>
-        <Text style={styles.name}>{item.parent_name}</Text>
+        <Text style={styles.name}>
+          {item.child_name || 'Unknown Child'}
+        </Text>
+        <Text style={styles.subLine}>
+          Parent: {item.parent_name || 'Unknown'}
+        </Text>
         <Text style={styles.categoryBadge}>{item.category}</Text>
+
         <Text style={styles.message} numberOfLines={1}>
           {item.last_message}
         </Text>
       </View>
-      <View style={styles.meta}>
+
+      <View className="meta" style={styles.meta}>
         <Text style={styles.time}>
-          {new Date(item.last_message_time).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
+          {item.last_message_time
+            ? new Date(item.last_message_time).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : ''}
         </Text>
         <Text style={styles.arrow}>→</Text>
       </View>
@@ -91,7 +104,9 @@ const TeacherChatListScreen = ({ navigation }: any) => {
         <FlatList
           data={conversations}
           renderItem={renderItem}
-          keyExtractor={(item: any) => item.parent_id.toString() + item.category}
+          keyExtractor={(item) =>
+            `${item.parent_id}-${item.child_id}-${item.category}`
+          }
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <View style={styles.emptyState}>
@@ -148,6 +163,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#1F2937',
+    marginBottom: 2,
+  },
+  subLine: {
+    fontSize: 12,
+    color: '#6B7280',
     marginBottom: 4,
   },
   categoryBadge: {
@@ -182,4 +202,3 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
 });
-

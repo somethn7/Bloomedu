@@ -16,38 +16,42 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary } from 'react-native-image-picker';
 import RNFS from 'react-native-fs';
 
-// -umut: (23.11.2025) Removed Audio Support per request
-// Only text and image messages are supported now.
-
 interface Message {
   id: number;
   sender_id: number;
-  sender_type: 'parent' | 'teacher'; // -umut: (23.11.2025) Added for correct bubble placement
+  sender_type: 'parent' | 'teacher';
   receiver_id: number;
   message_text: string;
   created_at: string;
   category: string;
-  content_type: 'text' | 'image'; // Removed 'audio'
+  child_id?: number;
+  content_type: 'text' | 'image';
   content_url?: string;
   is_read?: boolean;
 }
 
-// -umut: (22.11.2025) Base URL
 const BASE_URL = 'https://bloomedu-production.up.railway.app';
-// For local testing (Emulator): 'http://10.0.2.2:8080'
 
 const ChatScreen = ({ route, navigation }: any) => {
-  const { category, categoryTitle, categoryColor, otherUserId, isTeacher } = route.params;
-  
+  const {
+    category,
+    categoryTitle,
+    categoryColor,
+    otherUserId,
+    isTeacher,
+    childId,
+    childName,
+  } = route.params;
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [myUserId, setMyUserId] = useState<number | null>(null);
   const [showWorkHoursWarning, setShowWorkHoursWarning] = useState(false);
-  
-  // If I am parent, I talk to Teacher(1). If I am Teacher, I talk to Parent(otherUserId)
-  const receiverId = isTeacher ? otherUserId : 1; 
+
+  // Parent tarafında şimdilik öğretmen ID = 1 (legacy davranış)
+  const receiverId = isTeacher ? otherUserId : 1;
 
   const flatListRef = useRef<FlatList>(null);
 
@@ -59,12 +63,7 @@ const ChatScreen = ({ route, navigation }: any) => {
 
   useEffect(() => {
     loadUserAndMessages();
-    if (!isTeacher) checkWorkHours(); // Only show warning to parents
-    
-    // Mark messages as read on mount
-    if (myUserId) {
-      markMessagesAsRead();
-    }
+    if (!isTeacher) checkWorkHours();
   }, []);
 
   useEffect(() => {
@@ -76,22 +75,22 @@ const ChatScreen = ({ route, navigation }: any) => {
   const checkWorkHours = () => {
     const now = new Date();
     const hour = now.getHours();
-    // Work hours: 09:00 - 18:00
     if (hour < 9 || hour >= 18) {
       setShowWorkHoursWarning(true);
     }
   };
 
   const markMessagesAsRead = async () => {
-    if (!myUserId) return;
+    if (!myUserId || !childId) return;
     try {
       await fetch(`${BASE_URL}/messages/mark-read`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sender_id: receiverId, // Mark messages FROM the other person
-          receiver_id: myUserId, // TO me
-          category: category
+          sender_id: receiverId, // karşı taraf
+          receiver_id: myUserId, // ben
+          category,
+          child_id: childId,
         }),
       });
     } catch (e) {
@@ -101,14 +100,13 @@ const ChatScreen = ({ route, navigation }: any) => {
 
   const loadUserAndMessages = async () => {
     try {
-      // -umut: Determine my ID based on role
       const key = isTeacher ? 'teacher_id' : 'parent_id';
       const idString = await AsyncStorage.getItem(key);
-      
+
       if (idString) {
-        const pid = parseInt(idString, 10);
-        setMyUserId(pid);
-        fetchMessages(pid);
+        const uid = parseInt(idString, 10);
+        setMyUserId(uid);
+        fetchMessages(uid);
       }
     } catch (error) {
       console.error('Error loading user ID:', error);
@@ -116,37 +114,36 @@ const ChatScreen = ({ route, navigation }: any) => {
   };
 
   const fetchMessages = async (myId: number) => {
+    if (!childId) return;
+
     setLoading(true);
-    
-    // -umut: (22.11.2025) Offline Logic: Load from cache first
-    const cacheKey = `messages_${myId}_${receiverId}_${category}`;
+
+    const cacheKey = `messages_${myId}_${receiverId}_${category}_${childId}`;
     try {
-        const cached = await AsyncStorage.getItem(cacheKey);
-        if (cached) {
-            setMessages(JSON.parse(cached));
-            setLoading(false); // Show cached data immediately
-        }
+      const cached = await AsyncStorage.getItem(cacheKey);
+      if (cached) {
+        setMessages(JSON.parse(cached));
+        setLoading(false);
+      }
     } catch (e) {
-        console.log('Cache error:', e);
+      console.log('Cache error:', e);
     }
 
     try {
       const response = await fetch(
-        `${BASE_URL}/messages?user1_id=${myId}&user2_id=${receiverId}&category=${category}`
+        `${BASE_URL}/messages?user1_id=${myId}&user2_id=${receiverId}&category=${category}&child_id=${childId}`
       );
-      
+
       const text = await response.text();
       try {
         const json = JSON.parse(text);
         if (json.success) {
           setMessages(json.messages);
-          // Update cache with fresh data
           await AsyncStorage.setItem(cacheKey, JSON.stringify(json.messages));
         }
       } catch (e) {
         console.warn('Invalid JSON response:', text.substring(0, 100));
       }
-
     } catch (error) {
       console.error('Error fetching messages:', error);
     } finally {
@@ -155,14 +152,16 @@ const ChatScreen = ({ route, navigation }: any) => {
   };
 
   const handleSend = async (type: 'text' | 'image', content: string, url?: string) => {
-    if (!myUserId) return;
+    if (!myUserId || !childId) return;
 
     setSending(true);
+
     const payload = {
       sender_id: myUserId,
       sender_type: isTeacher ? 'teacher' : 'parent',
       receiver_id: receiverId,
-      category: category,
+      category,
+      child_id: childId,
       message_text: content,
       content_type: type,
       content_url: url || '',
@@ -174,11 +173,10 @@ const ChatScreen = ({ route, navigation }: any) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      
+
       const text = await response.text();
       try {
         const json = JSON.parse(text);
-        
         if (json.success) {
           setInputText('');
           fetchMessages(myUserId);
@@ -189,7 +187,6 @@ const ChatScreen = ({ route, navigation }: any) => {
         console.error('Send message invalid JSON:', text);
         Alert.alert('Error', 'Server communication error.');
       }
-
     } catch (error) {
       console.error('Error sending message:', error);
       Alert.alert('Error', 'Network error.');
@@ -198,43 +195,40 @@ const ChatScreen = ({ route, navigation }: any) => {
     }
   };
 
-  // === IMAGE PICKER ===
   const onPickImage = async () => {
-    const result = await launchImageLibrary({ 
-      mediaType: 'photo', 
-      quality: 0.5, // Compress image to reduce Base64 size
-      includeBase64: true // Request Base64 directly from picker
+    const result = await launchImageLibrary({
+      mediaType: 'photo',
+      quality: 0.5,
+      includeBase64: true,
     });
 
     if (result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
+
       if (asset.base64) {
         const dataUri = `data:${asset.type};base64,${asset.base64}`;
         handleSend('image', '📷 Photo', dataUri);
-      } else {
-        // Fallback if picker doesn't return base64 (shouldn't happen with includeBase64: true)
-        if (asset.uri) {
-             try {
-                const base64Img = await RNFS.readFile(asset.uri, 'base64');
-                const dataUri = `data:${asset.type || 'image/jpeg'};base64,${base64Img}`;
-                handleSend('image', '📷 Photo', dataUri);
-             } catch(e) {
-                 console.error("Image read error", e);
-             }
+      } else if (asset.uri) {
+        try {
+          const base64Img = await RNFS.readFile(asset.uri, 'base64');
+          const dataUri = `data:${asset.type || 'image/jpeg'};base64,${base64Img}`;
+          handleSend('image', '📷 Photo', dataUri);
+        } catch (e) {
+          console.error('Image read error', e);
         }
       }
     }
   };
 
-  // === RENDER ITEM ===
   const renderItem = ({ item }: { item: Message }) => {
-    // -umut: (23.11.2025) Fixed: Use sender_type to determine message ownership
-    // Parent sees their messages on right (sender_type='parent'), teacher messages on left
-    // Teacher sees their messages on right (sender_type='teacher'), parent messages on left
     const myType = isTeacher ? 'teacher' : 'parent';
     const isMe = item.sender_type === myType;
-    
-    let content = <Text style={[styles.messageText, isMe ? styles.myText : styles.otherText]}>{item.message_text}</Text>;
+
+    let content = (
+      <Text style={[styles.messageText, isMe ? styles.myText : styles.otherText]}>
+        {item.message_text}
+      </Text>
+    );
 
     if (item.content_type === 'image' && item.content_url) {
       content = (
@@ -247,12 +241,13 @@ const ChatScreen = ({ route, navigation }: any) => {
         {content}
         <View style={styles.bubbleFooter}>
           <Text style={[styles.timeText, isMe ? styles.myTime : styles.otherTime]}>
-            {new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {new Date(item.created_at).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
           </Text>
           {isMe && (
-            <Text style={styles.readReceipt}>
-              {item.is_read ? '✓✓' : '✓'}
-            </Text>
+            <Text style={styles.readReceipt}>{item.is_read ? '✓✓' : '✓'}</Text>
           )}
         </View>
       </View>
@@ -263,22 +258,28 @@ const ChatScreen = ({ route, navigation }: any) => {
     <View style={styles.container}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: categoryColor }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+        >
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
+
         <View style={styles.headerInfo}>
           <Text style={styles.headerTitle}>{categoryTitle}</Text>
           <Text style={styles.headerSubtitle}>
-            {isTeacher ? 'Parent Chat' : 'Teacher Chat'}
+            {childName ? childName : isTeacher ? 'Parent Chat' : 'Teacher Chat'}
           </Text>
         </View>
+
         <View style={{ width: 40 }} />
       </View>
 
-      {/* Work Hours Warning */}
-      {showWorkHoursWarning && (
+      {showWorkHoursWarning && !isTeacher && (
         <View style={styles.warningBanner}>
-          <Text style={styles.warningText}>🌙 You are messaging outside of work hours. The teacher will see your message in the morning.</Text>
+          <Text style={styles.warningText}>
+            🌙 You are messaging outside of work hours. The teacher will see your message later.
+          </Text>
         </View>
       )}
 
@@ -297,16 +298,18 @@ const ChatScreen = ({ route, navigation }: any) => {
             renderItem={renderItem}
             keyExtractor={(item) => item.id.toString()}
             contentContainerStyle={styles.listContent}
-            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+            onContentSizeChange={() =>
+              flatListRef.current?.scrollToEnd({ animated: true })
+            }
           />
         )}
 
-        {/* Input Area */}
+        {/* Input */}
         <View style={styles.inputContainer}>
           <TouchableOpacity onPress={onPickImage} style={styles.attachButton}>
             <Text style={styles.attachIcon}>📎</Text>
           </TouchableOpacity>
-          
+
           <TextInput
             style={styles.input}
             value={inputText}
@@ -315,17 +318,21 @@ const ChatScreen = ({ route, navigation }: any) => {
             placeholderTextColor="#999"
             multiline
           />
-          
+
           <TouchableOpacity
             style={[styles.sendButton, { backgroundColor: categoryColor }]}
             onPress={() => {
-                if (inputText.trim().length > 0) {
-                    handleSend('text', inputText.trim());
-                }
+              if (inputText.trim().length > 0) {
+                handleSend('text', inputText.trim());
+              }
             }}
             disabled={sending || inputText.trim().length === 0}
           >
-            {sending ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.sendButtonText}>→</Text>}
+            {sending ? (
+              <ActivityIndicator size="small" color="#FFF" />
+            ) : (
+              <Text style={styles.sendButtonText}>→</Text>
+            )}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -354,7 +361,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 6,
     elevation: 6,
-    zIndex: 10,
   },
   backButton: {
     width: 40,
@@ -412,7 +418,7 @@ const styles = StyleSheet.create({
   },
   myBubble: {
     alignSelf: 'flex-end',
-    backgroundColor: '#4ECDC4', 
+    backgroundColor: '#4ECDC4',
     borderBottomRightRadius: 4,
   },
   otherBubble: {

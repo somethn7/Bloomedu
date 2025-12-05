@@ -22,6 +22,8 @@ import ChatScreen from './screens/ChatScreen';
 import ChildInfoScreen from './screens/ChildInfoScreen';
 import SurveyScreen from './screens/SurveyScreen';
 import ResultScreen from './screens/ResultScreen';
+import WelcomeSuccessScreen from './screens/WelcomeSuccessScreen';
+
 import EducationScreen from './screens/EducationScreen';
 import CategoryGamesScreen from './screens/CategoryGamesScreen';
 import ColorsGameScreen from './screens/ColorsGameScreen';
@@ -51,10 +53,11 @@ import TeacherAddChildScreen from './screens/TeacherAddChildScreen';
 import TeacherFeedbackScreen from './screens/TeacherFeedbackScreen';
 import TeacherChatListScreen from './screens/TeacherChatListScreen';
 
-import WelcomeSuccessScreen from './screens/WelcomeSuccessScreen';
 import ChildProgressScreen from './screens/ChildProgressScreen';
-
 import SettingsScreen from './screens/SettingsScreen';
+
+// ⭐⭐⭐ YENİ: Child Select Screen (Communication akışı için)
+import ChildSelectScreen from './screens/ChildSelectScreen';
 
 import { FeedbackProvider } from './screens/Contexts/FeedbackContext';
 
@@ -72,9 +75,11 @@ export default function App() {
             component={SplashScreen}
             options={{ headerShown: false }}
           />
+
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="Login" component={ParentLoginScreen} />
           <Stack.Screen name="Signup" component={ParentSignUpScreen} />
+
           <Stack.Screen name="ParentVerifyCode" component={ParentVerifyCodeScreen} />
 
           <Stack.Screen
@@ -85,12 +90,24 @@ export default function App() {
 
           <Stack.Screen name="AddChild" component={ParentAddChildScreen} />
           <Stack.Screen name="ParentFeedbacks" component={ParentFeedbacksScreen} />
-          <Stack.Screen name="ParentAIChat" component={ParentAIChatScreen} options={{ headerShown: false }} />
+
+          <Stack.Screen 
+            name="ParentAIChat" 
+            component={ParentAIChatScreen} 
+            options={{ headerShown: false }} 
+          />
 
           <Stack.Screen 
             name="ParentMessageCategories" 
             component={ParentMessageCategoriesScreen}
             options={{ title: 'Communication Board' }}
+          />
+
+          {/* ⭐ NEW — Parent Child Select Screen */}
+          <Stack.Screen
+            name="ChildSelectScreen"
+            component={ChildSelectScreen}
+            options={{ title: 'Select Child' }}
           />
 
           <Stack.Screen 
@@ -99,25 +116,39 @@ export default function App() {
             options={{ title: 'Your Children', headerTintColor: '#7a8a91' }}
           />
 
-          <Stack.Screen name="ChatScreen" component={ChatScreen} options={{ headerShown: false }} />
+          <Stack.Screen 
+            name="ChatScreen" 
+            component={ChatScreen} 
+            options={{ headerShown: false }} 
+          />
+
           <Stack.Screen name="ChildInfo" component={ChildInfoScreen} />
           <Stack.Screen name="Survey" component={SurveyScreen} />
           <Stack.Screen name="Result" component={ResultScreen} />
-          <Stack.Screen name="WelcomeSuccess" component={WelcomeSuccessScreen} options={{ headerShown: false }} />
+
+          <Stack.Screen 
+            name="WelcomeSuccess" 
+            component={WelcomeSuccessScreen} 
+            options={{ headerShown: false }} 
+          />
 
           <Stack.Screen name="Education" component={EducationScreen} />
-          <Stack.Screen name="CategoryGames" component={CategoryGamesScreen} options={{ headerShown: false }} />
+          <Stack.Screen 
+            name="CategoryGames" 
+            component={CategoryGamesScreen} 
+            options={{ headerShown: false }} 
+          />
+
           <Stack.Screen name="ColorsGame" component={ColorsGameScreen} />
           <Stack.Screen name="ColorsMatchingGame" component={ColorsMatchingGameScreen} />
 
-          {/* === PARENT CHILD DETAILS === */}
           <Stack.Screen
             name="ChildGameDetails"
             component={ChildGameDetailsScreen}
             options={{ headerShown: false }}
           />
 
-          {/* === Level Games === */}
+          {/* === LEVEL GAMES === */}
           <Stack.Screen name="ColorsRecognitionLevel1" component={ColorsRecognitionLevel1} />
           <Stack.Screen name="StarTrackingLevel1" component={StarTrackingLevel1} />
           <Stack.Screen name="LearnNumbersLevel1" component={LearnNumbersLevel1} />
@@ -142,13 +173,7 @@ export default function App() {
           <Stack.Screen name="TeacherAddChild" component={TeacherAddChildScreen} />
           <Stack.Screen name="TeacherChatList" component={TeacherChatListScreen} />
           <Stack.Screen name="TeacherFeedback" component={TeacherFeedbackScreen} />
-
-          {/* === TEACHER CHILD PROGRESS === */}
-          <Stack.Screen
-            name="ChildProgress"
-            component={ChildProgressScreen}
-            options={{ headerShown: false }}
-          />
+          <Stack.Screen name="ChildProgress" component={ChildProgressScreen} />
 
           {/* === OTHER === */}
           <Stack.Screen name="Settings" component={SettingsScreen} />

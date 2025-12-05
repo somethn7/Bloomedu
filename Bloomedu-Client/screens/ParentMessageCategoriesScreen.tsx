@@ -10,7 +10,6 @@ import {
 
 const { width } = Dimensions.get('window');
 
-// -umut: (22.11.2025) Updated categories to English for consistency
 const categories = [
   { id: 'development', title: 'Development Tracker', icon: '📘', color: '#4ECDC4', desc: 'Academic & social progress' },
   { id: 'behavior', title: 'Behavioral Obs.', icon: '🧠', color: '#FF6B6B', desc: 'Mood & behavioral notes' },
@@ -29,8 +28,8 @@ const ParentMessageCategoriesScreen = ({ navigation }: any) => {
   }, [navigation]);
 
   const handleCategorySelect = (category: any) => {
-    navigation.navigate('ChatScreen', { 
-      category: category.id, 
+    navigation.navigate('ChildSelectScreen', { 
+      category: category.id,
       categoryTitle: category.title,
       categoryColor: category.color 
     });
@@ -38,7 +37,6 @@ const ParentMessageCategoriesScreen = ({ navigation }: any) => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity 
           style={styles.backButton} 
@@ -84,7 +82,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
   },
   header: {
-    backgroundColor: '#6C5CE7', // Purple Theme for Communication
+    backgroundColor: '#6C5CE7',
     paddingTop: 50,
     paddingBottom: 25,
     paddingHorizontal: 20,
@@ -98,7 +96,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
-    zIndex: 10,
   },
   backButton: {
     width: 45,
@@ -140,14 +137,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   card: {
-    width: (width - 50) / 2, // Two column grid
+    width: (width - 50) / 2,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 16,
     marginBottom: 20,
     alignItems: 'center',
     borderWidth: 2,
-    borderBottomWidth: 6, // 3D effect
+    borderBottomWidth: 6,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,

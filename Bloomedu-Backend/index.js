@@ -731,6 +731,56 @@ app.post('/ai-chat', async (req, res) => {
 
   res.json({ success: true, reply: aiResponse });
 });
+// === GET TEACHER CONVERSATIONS (CHILD + PARENT + TOPIC + LAST MESSAGE) ===
+app.get("/teacher/conversations/:teacherId", async (req, res) => {
+  const { teacherId } = req.params;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT 
+        c.id AS child_id,
+        c.name AS child_name,
+
+        p.id AS parent_id,
+        p.name AS parent_name,
+
+        m.category,
+        m.message_text AS last_message,
+        m.created_at AS last_message_time
+
+      FROM children c
+      LEFT JOIN parents p ON p.id = c.parent_id
+
+      LEFT JOIN LATERAL (
+        SELECT message_text, created_at, category
+        FROM messages
+        WHERE child_id = c.id
+        AND teacher_id = $1
+        ORDER BY created_at DESC
+        LIMIT 1
+      ) m ON TRUE
+
+      WHERE c.teacher_id = $1
+      ORDER BY m.created_at DESC NULLS LAST;
+      `,
+      [teacherId]
+    );
+
+    res.json({
+      success: true,
+      conversations: result.rows
+    });
+
+  } catch (err) {
+    console.error("DB Error (GET /teacher/conversations):", err);
+    res.status(500).json({
+      success: false,
+      message: "Server error while fetching teacher conversations."
+    });
+  }
+});
+
 
 // === CHAT ROUTES MUST BE LAST (MESSAGES ROUTER) ===
 app.use('/', messagesRouter);
