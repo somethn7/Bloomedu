@@ -171,6 +171,38 @@ router.get('/messages/unread-summary/:parentId', async (req, res) => {
     });
   }
 });
+/* =====================================================
+   4B) UNREAD SUMMARY FOR TEACHER
+   (sadece PARENT → TEACHER gelen okunmamış mesajlar)
+===================================================== */
+router.get('/messages/unread-summary-teacher/:teacherId', async (req, res) => {
+  const { teacherId } = req.params;
+
+  try {
+    const result = await pool.query(
+      `
+      SELECT COUNT(*) AS unread_count
+      FROM messages
+      WHERE receiver_id = $1
+        AND sender_type = 'parent'
+        AND is_read = FALSE
+      `,
+      [teacherId]
+    );
+
+    return res.json({
+      success: true,
+      unread: Number(result.rows[0].unread_count) || 0
+    });
+
+  } catch (err) {
+    console.error('UNREAD SUMMARY TEACHER ERROR:', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while fetching teacher unread summary.'
+    });
+  }
+});
 
 /* =====================================================
    5) TEACHER – CHAT LIST (+ unread_count)

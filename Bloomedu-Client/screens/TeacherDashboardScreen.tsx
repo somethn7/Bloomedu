@@ -25,8 +25,9 @@ interface Student {
 const TeacherDashboardScreen = ({ navigation }: any) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(false);
-  // -umut: (23.11.2025) We keep students here only for quick stats on the dashboard
+  const [unreadCount, setUnreadCount] = useState(0);
 
+  // LOAD CHILDREN
   const fetchChildren = async () => {
     const teacherId = await AsyncStorage.getItem('teacher_id');
     if (!teacherId) {
@@ -61,9 +62,27 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
     }
   };
 
-  // -umut: (23.11.2025) Load students once for stats when dashboard mounts
+  // LOAD UNREAD COUNT
+  const fetchUnread = async () => {
+    const teacherId = await AsyncStorage.getItem('teacher_id');
+    if (!teacherId) return;
+
+    try {
+      const res = await fetch(
+        `https://bloomedu-production.up.railway.app/messages/unread-summary-teacher/${teacherId}`
+      );
+
+      const json = await res.json();
+      if (json.success) setUnreadCount(json.totalUnread || 0);
+    } catch (e) {
+      console.log("Unread error:", e);
+      setUnreadCount(0);
+    }
+  };
+
   useEffect(() => {
     fetchChildren();
+    fetchUnread();
   }, []);
 
   const renderStudent = ({ item }: { item: Student }) => (
@@ -93,7 +112,6 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
         </View>
       </View>
 
-      {/* -umut: Butonlar - Progress ve Feedback (28.10.2025) */}
       <View style={styles.actionButtons}>
         <TouchableOpacity
           style={styles.progressButton}
@@ -127,7 +145,8 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
+
+      {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
@@ -135,10 +154,12 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
         >
           <Text style={styles.backButtonText}>←</Text>
         </TouchableOpacity>
+
         <View>
           <Text style={styles.greeting}>Welcome Teacher! 👋</Text>
           <Text style={styles.title}>My Classroom</Text>
         </View>
+
         <TouchableOpacity
           style={styles.settingsButton}
           onPress={() => navigation.navigate('Settings')}
@@ -147,7 +168,7 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
         </TouchableOpacity>
       </View>
 
-      {/* -umut: (23.11.2025) Official Parent Messages banner for teachers */}
+      {/* PARENT MESSAGES */}
       <TouchableOpacity
         style={styles.parentMessagesBanner}
         onPress={() => navigation.navigate('TeacherChatList')}
@@ -156,21 +177,31 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
           <View style={styles.bannerIconContainer}>
             <Text style={styles.bannerIcon}>💬</Text>
           </View>
+
           <View style={styles.bannerTextContainer}>
             <Text style={styles.bannerTitle}>Parent Messages</Text>
             <Text style={styles.bannerSubtitle}>Official communication channel</Text>
           </View>
-          <Text style={styles.bannerArrow}>→</Text>
+
+          {/* 🔥 UNREAD BADGE */}
+          {unreadCount > 0 && (
+            <View style={styles.unreadBadge}>
+              <Text style={styles.unreadBadgeText}>
+                {unreadCount > 99 ? "99+" : unreadCount}
+              </Text>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
 
-      {/* Quick Stats */}
+      {/* STAT CARDS */}
       <View style={styles.quickStatsContainer}>
         <View style={styles.quickStatCard}>
           <Text style={styles.quickStatIcon}>👥</Text>
           <Text style={styles.quickStatValue}>{students.length}</Text>
           <Text style={styles.quickStatLabel}>Students</Text>
         </View>
+
         <View style={[styles.quickStatCard, { backgroundColor: '#D1FAE5' }]}>
           <Text style={styles.quickStatIcon}>📈</Text>
           <Text style={styles.quickStatValue}>
@@ -178,6 +209,7 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
           </Text>
           <Text style={styles.quickStatLabel}>Advanced</Text>
         </View>
+
         <View style={[styles.quickStatCard, { backgroundColor: '#FEF3C7' }]}>
           <Text style={styles.quickStatIcon}>⭐</Text>
           <Text style={styles.quickStatValue}>
@@ -187,48 +219,25 @@ const TeacherDashboardScreen = ({ navigation }: any) => {
         </View>
       </View>
 
-      {/* Action Cards */}
-      <View style={styles.actionsContainer}>
-        <TouchableOpacity
-          style={[styles.actionCard, styles.primaryAction]}
-          onPress={() => navigation.navigate('TeacherAddChild')}
-        >
-          <View style={styles.actionIconContainer}>
-            <Text style={styles.actionIcon}>➕</Text>
-          </View>
-          <View style={styles.actionContent}>
-            <Text style={styles.actionTitle}>Add Student</Text>
-            <Text style={styles.actionSubtitle}>Register a new learner</Text>
-          </View>
-          <Text style={styles.actionArrow}>→</Text>
-        </TouchableOpacity>
-
-        {/* -umut: (23.11.2025) View Progress navigates to full-screen overview screen */}
-        <TouchableOpacity
-          style={[styles.actionCard, styles.secondaryAction]}
-          onPress={() => navigation.navigate('TeacherStudentsOverview')}
-        >
-          <View style={styles.actionIconContainer}>
-            <Text style={styles.actionIcon}>📊</Text>
-          </View>
-          <View style={styles.actionContent}>
-            <Text style={styles.actionTitle}>View Progress</Text>
-            <Text style={styles.actionSubtitle}>Track student learning</Text>
-          </View>
-          <Text style={styles.actionArrow}>→</Text>
-        </TouchableOpacity>
-      </View>
+      {/* STUDENTS LIST */}
+      <FlatList
+        data={students}
+        renderItem={renderStudent}
+        keyExtractor={(item) => item.id.toString()}
+        contentContainerStyle={{ padding: 20 }}
+      />
     </View>
   );
 };
 
 export default TeacherDashboardScreen;
 
+/* ============================================================
+   🔥 ALL STYLES + UNREAD BADGE HERE
+=============================================================== */
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
+
   header: {
     backgroundColor: '#4ECDC4',
     paddingTop: 50,
@@ -239,23 +248,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    shadowColor: '#4ECDC4',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
+
   greeting: {
     fontSize: 16,
     color: '#FFFFFF',
     opacity: 0.9,
     marginBottom: 4,
   },
+
   title: {
     fontSize: 28,
     fontWeight: '700',
     color: '#FFFFFF',
   },
+
   backButton: {
     width: 45,
     height: 45,
@@ -264,11 +271,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+
   backButtonText: {
     fontSize: 24,
     color: '#FFFFFF',
     fontWeight: '700',
   },
+
   settingsButton: {
     width: 45,
     height: 45,
@@ -277,10 +286,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  settingsIcon: {
-    fontSize: 22,
-  },
-  // -umut: (23.11.2025) Official Parent Messages banner styles
+
+  settingsIcon: { fontSize: 22 },
+
   parentMessagesBanner: {
     marginHorizontal: 20,
     marginTop: 15,
@@ -288,16 +296,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#4A148C',
     borderRadius: 20,
     padding: 16,
-    shadowColor: '#4A148C',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 6,
   },
+
   bannerContent: {
     flexDirection: 'row',
     alignItems: 'center',
   },
+
   bannerIconContainer: {
     width: 50,
     height: 50,
@@ -307,29 +312,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 14,
   },
-  bannerIcon: {
-    fontSize: 26,
-  },
-  bannerTextContainer: {
-    flex: 1,
-  },
+
+  bannerIcon: { fontSize: 26 },
+
+  bannerTextContainer: { flex: 1 },
+
   bannerTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 2,
   },
+
   bannerSubtitle: {
     fontSize: 12,
     color: 'rgba(255,255,255,0.85)',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
+
   bannerArrow: {
     fontSize: 24,
     color: '#FFFFFF',
     fontWeight: '700',
   },
+
+  /* 🔥 UNREAD BADGE HERE 🔥 */
+  unreadBadge: {
+    backgroundColor: "#FF6B6B",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  unreadBadgeText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 12,
+  },
+
   quickStatsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -337,138 +357,29 @@ const styles = StyleSheet.create({
     marginTop: 0,
     gap: 12,
   },
+
   quickStatCard: {
     flex: 1,
     backgroundColor: '#DBEAFE',
     borderRadius: 18,
     padding: 16,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
   },
-  quickStatIcon: {
-    fontSize: 26,
-    marginBottom: 6,
-  },
+
+  quickStatIcon: { fontSize: 26, marginBottom: 6 },
+
   quickStatValue: {
     fontSize: 22,
     fontWeight: '700',
     color: '#2D3748',
-    marginBottom: 3,
   },
+
   quickStatLabel: {
     fontSize: 11,
     color: '#718096',
     fontWeight: '600',
   },
-  actionsContainer: {
-    paddingHorizontal: 20,
-    marginTop: 20,
-  },
-  actionCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  primaryAction: {
-    backgroundColor: '#FFB74D',
-  },
-  secondaryAction: {
-    backgroundColor: '#64B5F6',
-  },
-  actionIconContainer: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: 'rgba(255, 255, 255, 0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 14,
-  },
-  actionIcon: {
-    fontSize: 24,
-  },
-  actionContent: {
-    flex: 1,
-  },
-  actionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 2,
-  },
-  actionSubtitle: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    opacity: 0.85,
-  },
-  actionArrow: {
-    fontSize: 22,
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  studentsSection: {
-    paddingHorizontal: 20,
-    marginTop: 20,
-    flex: 1,
-  },
-  sectionTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#2D3748',
-    marginBottom: 15,
-  },
-  studentsHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  closeOverviewButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: '#E5E7EB',
-  },
-  closeOverviewText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#374151',
-  },
-  searchInput: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    marginBottom: 15,
-    fontSize: 16,
-    color: '#1e293b',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  loadingContainer: {
-    paddingVertical: 40,
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#718096',
-  },
+
   studentCard: {
     backgroundColor: '#FFFFFF',
     padding: 18,
@@ -476,95 +387,55 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     borderLeftWidth: 5,
     borderLeftColor: '#4ECDC4',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
   },
+
   studentName: {
     fontSize: 20,
     fontWeight: '700',
     marginBottom: 8,
     color: '#1e293b',
   },
+
   progressDetails: {
     marginLeft: 10,
     marginBottom: 10,
   },
-  progressText: {
-    fontSize: 15,
-    color: '#334155',
-    marginBottom: 4,
-  },
-  valueText: {
-    fontWeight: '700',
-    color: '#4ECDC4',
-  },
-  gamesList: {
-    marginLeft: 10,
-    marginTop: 2,
-  },
-  gameItem: {
-    fontSize: 14,
-    color: '#475569',
-  },
-  actionButtons: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 10,
-  },
+
+  progressText: { fontSize: 15, color: '#334155', marginBottom: 4 },
+
+  valueText: { fontWeight: '700', color: '#4ECDC4' },
+
+  gamesList: { marginLeft: 10, marginTop: 2 },
+
+  gameItem: { fontSize: 14, color: '#475569' },
+
+  actionButtons: { flexDirection: 'row', gap: 8, marginTop: 10 },
+
   progressButton: {
     flex: 1,
     backgroundColor: '#64B5F6',
     paddingVertical: 10,
     borderRadius: 10,
     alignItems: 'center',
-    shadowColor: '#64B5F6',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
   },
+
   progressButtonText: {
     color: 'white',
     fontWeight: '700',
     fontSize: 14,
   },
+
   feedbackButton: {
     flex: 1,
     backgroundColor: '#FF6B9A',
     paddingVertical: 10,
     borderRadius: 10,
     alignItems: 'center',
-    shadowColor: '#FF6B9A',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 4,
   },
+
   feedbackButtonText: {
     color: 'white',
     fontWeight: '700',
     fontSize: 14,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 60,
-    paddingHorizontal: 40,
-  },
-  emptyIcon: {
-    fontSize: 80,
-    marginBottom: 20,
-  },
-  emptyTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#2D3748',
-    marginBottom: 10,
-  },
-  emptyText: {
-    fontSize: 15,
-    color: '#718096',
-    textAlign: 'center',
-    lineHeight: 22,
   },
 });
