@@ -1,3 +1,8 @@
+// -umut: LEVEL 2 SortingBasketsLevel2 - YENİDEN DÜZENLEME (07.12.2025)
+// Bu oyun, otizmli çocukların nesneleri kategorize etme becerilerini geliştirmek için tasarlanmıştır
+// Oyun sonuçları database'e kaydedilir (wrong_count, success_rate)
+// Özellikler: Hayvan/Yiyecek ayrımı, Sürükleme benzeri seçim, Sesli geri bildirim, Puan Kırma
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -6,13 +11,15 @@ import {
   TouchableOpacity,
   Animated,
   Dimensions,
+  SafeAreaView,
+  ScrollView,
 } from 'react-native';
 import Tts from 'react-native-tts';
 import { useRoute } from '@react-navigation/native';
 import { createGameCompletionHandler } from '../../../utils/gameNavigation';
 import { sendGameResult } from '../../../config/api';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 // Responsive sizing
 const ITEM_SIZE = width * 0.35;
@@ -36,7 +43,6 @@ interface ItemData {
   category: 'food' | 'animal';
 }
 
-// Kategori Verileri
 const CATEGORIES = {
   food: {
     name: 'Foods',
@@ -64,7 +70,6 @@ const CATEGORIES = {
   },
 };
 
-// Tüm nesneleri karıştır
 const createShuffledItems = (): ItemData[] => {
   const allItems: ItemData[] = [
     ...CATEGORIES.food.items.map(item => ({ ...item, category: 'food' as const })),
@@ -73,183 +78,180 @@ const createShuffledItems = (): ItemData[] => {
   return allItems.sort(() => Math.random() - 0.5);
 };
 
-const SortingBasketsLevel2 = ({ navigation }: any) => {
+export default function SortingBasketsLevel2({ navigation }: any) {
   const route = useRoute();
-  const { child, gameSequence, currentGameIndex, categoryTitle } = (route.params as RouteParams) || {};
+  const { child, gameSequence, currentGameIndex, categoryTitle } = (route.params as any) || {};
 
+  // Game State
   const [items] = useState<ItemData[]>(createShuffledItems());
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [correctAnswers, setCorrectAnswers] = useState(0); // Doğru cevap sayısı
-  const [feedback, setFeedback] = useState<'correct' | 'incorrect' | ''>('');
-  const [gameStartTime] = useState(Date.now());
+  const [feedback, setFeedback] = useState<'correct' | 'wrong' | ''>('');
+  const [gameFinished, setGameFinished] = useState(false);
 
+  // Metrics (Gold Standard)
+  const [score, setScore] = useState(0);
+  const [wrongCount, setWrongCount] = useState(0);
+  const [answeredCount, setAnsweredCount] = useState(0);
+
+  // Refs
+  const gameStartTimeRef = useRef<number>(Date.now());
   const itemScale = useRef(new Animated.Value(1)).current;
   const itemShake = useRef(new Animated.Value(0)).current;
   const basketPulseFood = useRef(new Animated.Value(1)).current;
   const basketPulseAnimal = useRef(new Animated.Value(1)).current;
   const successOpacity = useRef(new Animated.Value(0)).current;
 
-  const currentItem = items[currentIndex];
+  const currentItem = items[currentIndex] || items[items.length - 1]; 
   const totalQuestions = items.length;
-  const isGameOver = currentIndex >= totalQuestions;
 
+  // --- INIT & TTS ---
   useEffect(() => {
-    // Initialize TTS
     Tts.setDefaultLanguage('en-US').catch(() => {});
     Tts.setDefaultRate(0.3);
     Tts.setDefaultPitch(1.0);
     Tts.setIgnoreSilentSwitch('ignore');
 
-    // Start basket pulse animations
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(basketPulseFood, {
-          toValue: 1.08,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(basketPulseFood, {
-          toValue: 1,
-          duration: 1200,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(basketPulseAnimal, {
-          toValue: 1.08,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(basketPulseAnimal, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    setTimeout(() => {
-      speakInstruction();
-    }, 500);
+    // Pulse loops
+    const pulseLoop = (anim: Animated.Value, duration: number) => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(anim, { toValue: 1.08, duration, useNativeDriver: true }),
+          Animated.timing(anim, { toValue: 1, duration, useNativeDriver: true }),
+        ])
+      ).start();
+    };
+    pulseLoop(basketPulseFood, 1200);
+    pulseLoop(basketPulseAnimal, 1500);
 
     return () => {
       Tts.stop();
     };
   }, []);
 
+  // --- INSTRUCTION ---
   useEffect(() => {
-    if (!isGameOver && currentIndex > 0) {
-      speakInstruction();
+    if (!gameFinished && currentItem) {
+      setTimeout(() => {
+        speakInstruction();
+      }, 500);
     }
-  }, [currentIndex]);
+  }, [currentIndex, gameFinished]);
 
   const speakInstruction = () => {
-    if (currentItem) {
+    if (currentItem && !gameFinished) {
       Tts.speak(`Where does the ${currentItem.name} belong?`);
     }
   };
 
+  // --- INTERACTION ---
   const handleBasketTap = (tappedCategory: 'food' | 'animal') => {
-    if (feedback || isGameOver) return;
+    if (feedback || gameFinished) return;
 
     if (tappedCategory === currentItem.category) {
-      // DOĞRU CEVAP
-      setFeedback('correct');
-      setCorrectAnswers(correctAnswers + 1); // Doğru cevap sayısını artır
+      // ✅ Correct Answer
+      const newScore = score + 1; // Calculate updated score immediately
+      setScore(newScore);
+      
+      const newAnsweredCount = answeredCount + 1; // Calculate updated count
+      setAnsweredCount(newAnsweredCount);
 
-      // Success animation
+      setFeedback('correct');
+
       Animated.parallel([
         Animated.sequence([
-          Animated.timing(itemScale, {
-            toValue: 1.3,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-          Animated.timing(itemScale, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-          }),
+          Animated.timing(itemScale, { toValue: 1.3, duration: 200, useNativeDriver: true }),
+          Animated.timing(itemScale, { toValue: 0, duration: 300, useNativeDriver: true }),
         ]),
-        Animated.timing(successOpacity, {
-          toValue: 1,
-          duration: 200,
-          useNativeDriver: true,
-        }),
+        Animated.timing(successOpacity, { toValue: 1, duration: 200, useNativeDriver: true }),
       ]).start();
 
-      Tts.speak('Great! Correct!');
+      Tts.speak('Correct!');
 
       setTimeout(() => {
         if (currentIndex < totalQuestions - 1) {
-          setCurrentIndex(currentIndex + 1);
+          setCurrentIndex(prev => prev + 1);
           setFeedback('');
           itemScale.setValue(1);
           successOpacity.setValue(0);
         } else {
-          completeGame();
+          // Game Over - Pass updated values directly
+          setGameFinished(true);
+          completeGame(newScore, newAnsweredCount);
         }
       }, 1500);
     } else {
-      // YANLIŞ CEVAP - Puan düşer!
-      setFeedback('incorrect');
+      // ❌ Wrong Answer
+      setFeedback('wrong');
+      setWrongCount(prev => prev + 1);
       
-      // Puanı düş (negatif olmayacak şekilde)
-      if (correctAnswers > 0) {
-        setCorrectAnswers(correctAnswers - 1);
-      }
+      // Decrease score (min 0)
+      setScore(prev => Math.max(0, prev - 1));
 
-      // Shake animation
       Animated.sequence([
-        Animated.timing(itemShake, {
-          toValue: 10,
-          duration: 50,
-          useNativeDriver: true,
-        }),
-        Animated.timing(itemShake, {
-          toValue: -10,
-          duration: 50,
-          useNativeDriver: true,
-        }),
-        Animated.timing(itemShake, {
-          toValue: 10,
-          duration: 50,
-          useNativeDriver: true,
-        }),
-        Animated.timing(itemShake, {
-          toValue: 0,
-          duration: 50,
-          useNativeDriver: true,
-        }),
+        Animated.timing(itemShake, { toValue: 10, duration: 50, useNativeDriver: true }),
+        Animated.timing(itemShake, { toValue: -10, duration: 50, useNativeDriver: true }),
+        Animated.timing(itemShake, { toValue: 10, duration: 50, useNativeDriver: true }),
+        Animated.timing(itemShake, { toValue: 0, duration: 50, useNativeDriver: true }),
       ]).start();
 
-      Tts.speak('Oops! Try again!');
-
-      setTimeout(() => {
-        setFeedback('');
-      }, 1000);
+      Tts.speak('Try again!');
+      setTimeout(() => setFeedback(''), 1000);
     }
   };
 
-  const completeGame = async () => {
-    const totalTime = Date.now() - gameStartTime;
+  const handleHearAgain = () => {
+    speakInstruction();
+  };
 
-    if (child?.id) {
+  // --- DATABASE & COMPLETION ---
+  const completeGame = async (finalScore?: number, finalAnswered?: number) => {
+    if (!child?.id) return;
+
+    const totalTimeMs = Date.now() - gameStartTimeRef.current;
+    
+    // Use passed values or fallback to state (safety check)
+    const scoreToUse = finalScore !== undefined ? finalScore : score;
+    const answeredToUse = finalAnswered !== undefined ? finalAnswered : answeredCount;
+
+    // Success Rate: (Correct / (Correct + Wrong)) * 100
+    // Total attempts = score (net correct) + wrongCount? No.
+    // Total attempts = Total Questions + Wrong Attempts.
+    const totalAttempts = totalQuestions + wrongCount;
+    const successRate = Math.round((totalQuestions / totalAttempts) * 100);
+
+    try {
       await sendGameResult({
         child_id: child.id,
         game_type: 'sorting_baskets',
         level: 2,
-        score: correctAnswers, // Sadece doğru cevaplar
+        score: scoreToUse,
         max_score: totalQuestions,
-        duration_seconds: Math.floor(totalTime / 1000),
+        duration_seconds: Math.floor(totalTimeMs / 1000),
+        wrong_count: wrongCount,
+        success_rate: successRate,
+        details: {
+          totalQuestions,
+          answeredCount: answeredToUse,
+          wrongCount,
+          successRate,
+        },
         completed: true,
       });
+    } catch (err) {
+      console.log('❌ Error sending game result:', err);
     }
 
-    const gameNavigation = createGameCompletionHandler({
+    // Dynamic Message
+    let completionMessage = '';
+    if (scoreToUse === totalQuestions) {
+      completionMessage = 'Amazing! You sorted everything correctly! 🌟';
+    } else if (scoreToUse >= totalQuestions * 0.7) {
+      completionMessage = 'Great job! You are getting better! 👏';
+    } else {
+      completionMessage = 'Good try! Keep practicing! 💪';
+    }
+
+    const gameNav = createGameCompletionHandler({
       navigation,
       child,
       gameSequence,
@@ -257,170 +259,182 @@ const SortingBasketsLevel2 = ({ navigation }: any) => {
       categoryTitle,
       resetGame: () => {
         setCurrentIndex(0);
-        setCorrectAnswers(0);
+        setScore(0);
+        setWrongCount(0);
+        setAnsweredCount(0);
         setFeedback('');
         itemScale.setValue(1);
         itemShake.setValue(0);
         successOpacity.setValue(0);
+        setGameFinished(false);
+        gameStartTimeRef.current = Date.now();
       },
     });
 
-    gameNavigation.showCompletionMessage(
-      correctAnswers,
+    gameNav.showCompletionMessage(
+      scoreToUse,
       totalQuestions,
-      'Amazing! You sorted everything correctly!'
+      completionMessage
     );
   };
 
-  const handleHearAgain = () => {
-    speakInstruction();
-  };
-
+  // --- RENDER HELPERS ---
   const sequenceInfo = gameSequence && currentGameIndex !== undefined
     ? `Game ${currentGameIndex + 1}/${gameSequence.length}`
     : '';
 
-  if (isGameOver) {
-    return null;
-  }
+  // Calculate success rate for display (Real-time)
+  const displaySuccessRate = answeredCount > 0 ? Math.round((Math.max(score, 0) / answeredCount) * 100) : 0;
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>🧺 Sorting Baskets</Text>
-          {sequenceInfo ? <Text style={styles.sequenceText}>{sequenceInfo}</Text> : null}
-        </View>
-        <View style={styles.scoreContainer}>
-          <Text style={styles.scoreText}>⭐ {correctAnswers}/{totalQuestions}</Text>
-        </View>
-      </View>
-
-      {/* Progress Bar */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: `${((currentIndex + 1) / totalQuestions) * 100}%` },
-            ]}
-          />
-        </View>
-        <Text style={styles.progressText}>Item {currentIndex + 1} of {totalQuestions}</Text>
-      </View>
-
-      {/* Game Area */}
-      <View style={styles.gameArea}>
-        {/* Instruction */}
-        <View style={styles.instructionBox}>
-          <Text style={styles.instructionText}>Where does it belong? 🤔</Text>
-          <TouchableOpacity style={styles.hearAgainButton} onPress={handleHearAgain}>
-            <Text style={styles.hearAgainText}>🔊 Hear again</Text>
+      <SafeAreaView style={{ flex: 1 }}>
+        
+        {/* HEADER */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
-        </View>
-
-        {/* Current Item - BÜYÜK VE ÜSTTE */}
-        <View style={styles.itemSection}>
-          <Animated.View
-            style={[
-              styles.itemCard,
-              {
-                transform: [
-                  { scale: itemScale },
-                  { translateX: itemShake },
-                ],
-                borderColor: feedback === 'incorrect' ? '#D84315' : '#00796B',
-              },
-            ]}
-          >
-            <Text style={styles.itemEmoji}>{currentItem.emoji}</Text>
-            <Text style={styles.itemName}>{currentItem.name}</Text>
-          </Animated.View>
-
-          {/* Success Message */}
-          <Animated.View
-            style={[
-              styles.successMessage,
-              { opacity: successOpacity },
-            ]}
-          >
-            <Text style={styles.successText}>✨ Perfect! ✨</Text>
-          </Animated.View>
-        </View>
-
-        {/* Baskets - ALTTA SEÇENEKLER */}
-        <View style={styles.basketsSection}>
-          <Text style={styles.basketsTitle}>Choose the basket:</Text>
-          
-          <View style={styles.basketsContainer}>
-            <TouchableOpacity
-              style={[
-                styles.basket,
-                { 
-                  backgroundColor: CATEGORIES.food.color + '15',
-                  borderColor: CATEGORIES.food.color 
-                },
-                feedback === 'correct' && currentItem.category === 'food' && styles.correctBasket,
-              ]}
-              onPress={() => handleBasketTap('food')}
-              activeOpacity={0.7}
-            >
-              <Animated.View 
-                style={[
-                  styles.basketContent,
-                  { transform: [{ scale: basketPulseFood }] }
-                ]}
-              >
-                <Text style={styles.basketIcon}>{CATEGORIES.food.icon}</Text>
-                <Text style={[styles.basketName, { color: CATEGORIES.food.color }]}>
-                  {CATEGORIES.food.name}
-                </Text>
-              </Animated.View>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.basket,
-                { 
-                  backgroundColor: CATEGORIES.animal.color + '15',
-                  borderColor: CATEGORIES.animal.color 
-                },
-                feedback === 'correct' && currentItem.category === 'animal' && styles.correctBasket,
-              ]}
-              onPress={() => handleBasketTap('animal')}
-              activeOpacity={0.7}
-            >
-              <Animated.View 
-                style={[
-                  styles.basketContent,
-                  { transform: [{ scale: basketPulseAnimal }] }
-                ]}
-              >
-                <Text style={styles.basketIcon}>{CATEGORIES.animal.icon}</Text>
-                <Text style={[styles.basketName, { color: CATEGORIES.animal.color }]}>
-                  {CATEGORIES.animal.name}
-                </Text>
-              </Animated.View>
-            </TouchableOpacity>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>🧺 Sorting Baskets</Text>
+            {sequenceInfo ? <Text style={styles.sequenceText}>{sequenceInfo}</Text> : null}
+          </View>
+          <View style={styles.scoreContainer}>
+            <Text style={styles.scoreText}>⭐ {score}/{totalQuestions}</Text>
           </View>
         </View>
-      </View>
 
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.encouragementText}>
-          {currentIndex < 3 && "You're doing great! 🌟"}
-          {currentIndex >= 3 && currentIndex < 7 && "Keep going! ⭐"}
-          {currentIndex >= 7 && "Almost done! 🎯"}
-        </Text>
-      </View>
+        {/* PROGRESS */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progressFill,
+                { width: `${((currentIndex + 1) / totalQuestions) * 100}%` },
+              ]}
+            />
+          </View>
+          <Text style={styles.progressText}>Item {Math.min(currentIndex + 1, totalQuestions)} of {totalQuestions}</Text>
+        </View>
+
+        {/* SCORE CARDS */}
+        <View style={styles.scoreCards}>
+          <View style={[styles.scoreCard, styles.correctCard]}>
+            <Text style={styles.scoreEmoji}>✓</Text>
+            <Text style={styles.scoreNumber}>{score}</Text>
+            <Text style={styles.scoreLabel}>Correct</Text>
+          </View>
+          <View style={[styles.scoreCard, styles.wrongCard]}>
+            <Text style={styles.scoreEmoji}>✗</Text>
+            <Text style={styles.scoreNumber}>{wrongCount}</Text>
+            <Text style={styles.scoreLabel}>Wrong</Text>
+          </View>
+          <View style={[styles.scoreCard, styles.rateCard]}>
+            <Text style={styles.scoreEmoji}>⭐</Text>
+            <Text style={styles.scoreNumber}>{displaySuccessRate}%</Text>
+            <Text style={styles.scoreLabel}>Success</Text>
+          </View>
+        </View>
+
+        {/* GAME AREA */}
+        <View style={styles.gameArea}>
+          
+          {/* Instruction */}
+          <View style={styles.instructionBox}>
+            <Text style={styles.instructionText}>Where does it belong? 🤔</Text>
+            <TouchableOpacity style={styles.hearAgainButton} onPress={handleHearAgain}>
+              <Text style={styles.hearAgainText}>🔊 Hear again</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Current Item */}
+          <View style={styles.itemSection}>
+            <Animated.View
+              style={[
+                styles.itemCard,
+                {
+                  transform: [
+                    { scale: itemScale },
+                    { translateX: itemShake },
+                  ],
+                  borderColor: feedback === 'wrong' ? '#D84315' : '#00796B',
+                },
+              ]}
+            >
+              <Text style={styles.itemEmoji}>{currentItem.emoji}</Text>
+              <Text style={styles.itemName}>{currentItem.name}</Text>
+            </Animated.View>
+
+            {/* Success Message */}
+            <Animated.View style={[styles.successMessage, { opacity: successOpacity }]}>
+              <Text style={styles.successText}>✨ Perfect! ✨</Text>
+            </Animated.View>
+          </View>
+
+          {/* Baskets */}
+          <View style={styles.basketsSection}>
+            <Text style={styles.basketsTitle}>Choose the basket:</Text>
+            
+            <View style={styles.basketsContainer}>
+              {/* Food Basket */}
+              <TouchableOpacity
+                style={[
+                  styles.basket,
+                  { 
+                    backgroundColor: CATEGORIES.food.color + '15',
+                    borderColor: CATEGORIES.food.color 
+                  },
+                  feedback === 'correct' && currentItem.category === 'food' && styles.correctBasket,
+                ]}
+                onPress={() => handleBasketTap('food')}
+                activeOpacity={0.7}
+              >
+                <Animated.View 
+                  style={[
+                    styles.basketContent,
+                    { transform: [{ scale: basketPulseFood }] }
+                  ]}
+                >
+                  <Text style={styles.basketIcon}>{CATEGORIES.food.icon}</Text>
+                  <Text style={[styles.basketName, { color: CATEGORIES.food.color }]}>
+                    {CATEGORIES.food.name}
+                  </Text>
+                </Animated.View>
+              </TouchableOpacity>
+
+              {/* Animal Basket */}
+              <TouchableOpacity
+                style={[
+                  styles.basket,
+                  { 
+                    backgroundColor: CATEGORIES.animal.color + '15',
+                    borderColor: CATEGORIES.animal.color 
+                  },
+                  feedback === 'correct' && currentItem.category === 'animal' && styles.correctBasket,
+                ]}
+                onPress={() => handleBasketTap('animal')}
+                activeOpacity={0.7}
+              >
+                <Animated.View 
+                  style={[
+                    styles.basketContent,
+                    { transform: [{ scale: basketPulseAnimal }] }
+                  ]}
+                >
+                  <Text style={styles.basketIcon}>{CATEGORIES.animal.icon}</Text>
+                  <Text style={[styles.basketName, { color: CATEGORIES.animal.color }]}>
+                    {CATEGORIES.animal.name}
+                  </Text>
+                </Animated.View>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+        </View>
+      </SafeAreaView>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
@@ -432,14 +446,14 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingTop: 10,
     paddingBottom: 20,
     backgroundColor: '#fff',
+    elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
   },
   backButton: {
     padding: 10,
@@ -496,13 +510,41 @@ const styles = StyleSheet.create({
     color: '#666',
     fontWeight: '600',
   },
+  // Score Cards
+  scoreCards: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    marginBottom: 20,
+    gap: 8,
+  },
+  scoreCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 10,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+    borderTopWidth: 2,
+  },
+  correctCard: { borderTopColor: '#51CF66' },
+  wrongCard: { borderTopColor: '#FF8787' },
+  rateCard: { borderTopColor: '#FFD43B' },
+  scoreEmoji: { fontSize: 14, fontWeight: '700', color: '#4A4A4A' },
+  scoreNumber: { fontSize: 20, fontWeight: '700', color: '#4A4A4A' },
+  scoreLabel: { fontSize: 10, color: '#999', marginTop: 1, fontWeight: '500' },
+  
   gameArea: {
     flex: 1,
     paddingHorizontal: 20,
   },
   instructionBox: {
-    marginTop: 20,
-    marginBottom: 30,
+    marginTop: 10,
+    marginBottom: 20,
     padding: 15,
     backgroundColor: '#fff',
     borderRadius: 15,
@@ -533,7 +575,7 @@ const styles = StyleSheet.create({
   },
   itemSection: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: 30,
   },
   itemCard: {
     width: ITEM_SIZE,
@@ -629,5 +671,3 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 });
-
-export default SortingBasketsLevel2;

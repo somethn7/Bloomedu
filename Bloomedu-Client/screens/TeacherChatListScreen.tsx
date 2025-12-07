@@ -44,11 +44,20 @@ const TeacherChatListScreen = ({ navigation }: any) => {
       const json = await response.json();
 
       if (json.success) {
-        const sorted = json.conversations.sort(
-          (a: any, b: any) =>
+        const sorted = json.conversations.sort((a: any, b: any) => {
+          // Önce okunmamış mesajları (unread_count > 0) en üste al
+          const aHasUnread = (a.unread_count || 0) > 0;
+          const bHasUnread = (b.unread_count || 0) > 0;
+          
+          if (aHasUnread && !bHasUnread) return -1;
+          if (!aHasUnread && bHasUnread) return 1;
+          
+          // İkisi de okunmamış veya okunmuşsa, son mesaj zamanına göre sırala
+          return (
             new Date(b.last_message_time).getTime() -
             new Date(a.last_message_time).getTime()
-        );
+          );
+        });
         setConversations(sorted);
       }
     } catch (error) {

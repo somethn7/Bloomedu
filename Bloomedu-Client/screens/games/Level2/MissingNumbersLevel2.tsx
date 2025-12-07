@@ -1,12 +1,18 @@
-import React, { useState, useEffect } from 'react';
+// -umut: LEVEL 2 MissingNumbersLevel2 - YENİDEN DÜZENLEME (07.12.2025)
+// Bu oyun, otizmli çocukların sayı dizilerini tamamlama ve eksik sayıyı bulma becerilerini geliştirir
+// Oyun sonuçları database'e kaydedilir (wrong_count, success_rate)
+// Özellikler: 5 Tur, Rastgele dizi oluşturma, Sesli geri bildirim, Görsel ipuçları
+
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   Animated,
-  Alert,
   Dimensions,
+  SafeAreaView,
+  ScrollView,
 } from 'react-native';
 import Tts from 'react-native-tts';
 import { useRoute } from '@react-navigation/native';
@@ -46,198 +52,223 @@ const COLORS = [
   { color: '#85C1E9', emoji: '🔟' },
 ];
 
-const generateSequence = (): NumberSequence => {
-  // Generate a sequence of 5 consecutive numbers starting from 1-6
-  const startNum = Math.floor(Math.random() * 6) + 1; // 1-6 arası başlangıç
-  const sequence = Array.from({ length: 5 }, (_, i) => startNum + i);
-  
-  // Pick a random position to hide (not first or last)
-  const missingIndex = Math.floor(Math.random() * 3) + 1; // 1, 2, or 3
-  const missingValue = sequence[missingIndex];
-  
-  // Generate wrong options (2 wrong + 1 correct)
-  const wrongOptions: number[] = [];
-  const allNumbers = Array.from({ length: 10 }, (_, i) => i + 1);
-  
-  while (wrongOptions.length < 2) {
-    const randomNum = allNumbers[Math.floor(Math.random() * allNumbers.length)];
-    if (randomNum !== missingValue && !sequence.includes(randomNum) && !wrongOptions.includes(randomNum)) {
-      wrongOptions.push(randomNum);
-    }
-  }
-  
-  const options = [...wrongOptions, missingValue].sort(() => Math.random() - 0.5);
-  
-  return {
-    numbers: sequence,
-    missingIndex,
-    missingValue,
-    options,
-  };
-};
+const MAX_ROUNDS = 5;
 
-const MissingNumbersLevel2 = ({ navigation }: any) => {
+export default function MissingNumbersLevel2({ navigation }: any) {
   const route = useRoute();
-  const child = (route.params as RouteParams)?.child;
-  const gameSequence = (route.params as RouteParams)?.gameSequence;
-  const currentGameIndex = (route.params as RouteParams)?.currentGameIndex ?? -1;
-  const categoryTitle = (route.params as RouteParams)?.categoryTitle;
-  
-  const [sequence, setSequence] = useState<NumberSequence>(() => generateSequence());
+  const { child, gameSequence, currentGameIndex, categoryTitle } = (route.params as RouteParams) || {};
+
+  // Game State
+  const [sequence, setSequence] = useState<NumberSequence | null>(null);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-  const [pulseAnim] = useState(new Animated.Value(1));
-  const [shakeAnim] = useState(new Animated.Value(0));
-  const [score, setScore] = useState(0);
   const [currentRound, setCurrentRound] = useState(1);
-  const [gameStartTime, setGameStartTime] = useState(Date.now());
-  const maxRounds = 5;
+  const [gameFinished, setGameFinished] = useState(false);
 
+  // Metrics (Gold Standard)
+  const [score, setScore] = useState(0); // Correct answers
+  const [wrongCount, setWrongCount] = useState(0);
+  const [answeredCount, setAnsweredCount] = useState(0);
+
+  // Refs
+  const gameStartTimeRef = useRef<number>(Date.now());
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+
+  // --- INIT & TTS ---
   useEffect(() => {
-    const initTts = async () => {
-      try {
-        await Tts.setDefaultLanguage('en-US');
-        await Tts.setDefaultRate(0.3); // Otizmli çocuklar için oldukça yavaş
-        await Tts.setDefaultPitch(1.0);
-        
-        setTimeout(() => {
-          Tts.speak('Which number is missing?');
-        }, 800);
-      } catch {}
-    };
-    initTts();
-    
-    // Start pulse animation for missing spot
-    const pulse = Animated.loop(
+    Tts.setDefaultLanguage('en-US').catch(() => {});
+    Tts.setDefaultRate(0.3);
+    Tts.setDefaultPitch(1.0);
+    Tts.setIgnoreSilentSwitch('ignore');
+
+    startNewRound();
+
+    // Pulse Loop
+    const pulseLoop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, { toValue: 1.1, duration: 800, useNativeDriver: true }),
         Animated.timing(pulseAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
       ])
     );
-    pulse.start();
-    
-    return () => pulse.stop();
-  }, [sequence]);
+    pulseLoop.start();
 
-  useEffect(() => {
-    if (selectedOption !== null) {
-      const correct = selectedOption === sequence.missingValue;
-      setIsCorrect(correct);
-      
-      if (correct) {
-        setScore(score + 1);
-        try {
-          Tts.speak(`Yes, ${selectedOption} was missing!`);
-        } catch {}
-        
-        setTimeout(() => {
-          if (currentRound < maxRounds) {
-            nextRound();
-          } else {
-            showCompletion();
-          }
-        }, 2000);
-      } else {
-        // Wrong answer
-        setScore(prev => (prev > 0 ? prev - 1 : 0));
-        Animated.sequence([
-          Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-          Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
-          Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
-          Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
-        ]).start();
-        
-        try {
-          Tts.speak('Please try again');
-        } catch {}
-        
-        setTimeout(() => {
-          setSelectedOption(null);
-          setIsCorrect(null);
-        }, 1500);
+    return () => {
+      Tts.stop();
+      pulseLoop.stop();
+    };
+  }, []);
+
+  const generateSequence = (): NumberSequence => {
+    const startNum = Math.floor(Math.random() * 6) + 1; // 1-6 start
+    const seq = Array.from({ length: 5 }, (_, i) => startNum + i);
+    
+    // Hide random position (1, 2, or 3 - avoid first/last for clarity if desired, but 0-4 is fine too)
+    const missingIndex = Math.floor(Math.random() * 3) + 1; 
+    const missingValue = seq[missingIndex];
+    
+    // Options: Correct + 2 Wrong
+    const wrongOptions: number[] = [];
+    const allNumbers = Array.from({ length: 10 }, (_, i) => i + 1);
+    
+    while (wrongOptions.length < 2) {
+      const randomNum = allNumbers[Math.floor(Math.random() * allNumbers.length)];
+      if (randomNum !== missingValue && !seq.includes(randomNum) && !wrongOptions.includes(randomNum)) {
+        wrongOptions.push(randomNum);
       }
     }
-  }, [selectedOption]);
+    
+    const options = [...wrongOptions, missingValue].sort(() => Math.random() - 0.5);
+    
+    return { numbers: seq, missingIndex, missingValue, options };
+  };
 
-  const nextRound = () => {
-    setSequence(generateSequence());
+  const startNewRound = () => {
+    const newSeq = generateSequence();
+    setSequence(newSeq);
     setSelectedOption(null);
     setIsCorrect(null);
-    setCurrentRound(currentRound + 1);
+    
+    setTimeout(() => {
+      Tts.speak('Which number is missing?');
+    }, 600);
   };
 
-  const sendToDatabase = async (data: any) => {
-    if (!child?.id) {
-      console.warn('⚠️ Child ID not found, skipping score save.');
-      return;
+  // --- INTERACTION ---
+  const handleOptionPress = (option: number) => {
+    if (selectedOption !== null || !sequence) return;
+
+    setSelectedOption(option);
+    const correct = option === sequence.missingValue;
+    setIsCorrect(correct);
+
+    if (correct) {
+      // ✅ Correct
+      setScore(prev => prev + 1);
+      setAnsweredCount(prev => prev + 1);
+      Tts.speak(`Yes, ${option} was missing!`);
+
+      setTimeout(() => {
+        if (currentRound < MAX_ROUNDS) {
+          setCurrentRound(prev => prev + 1);
+          startNewRound();
+        } else {
+          setGameFinished(true);
+        }
+      }, 2000);
+    } else {
+      // ❌ Incorrect
+      setWrongCount(prev => prev + 1);
+      setScore(prev => Math.max(0, prev - 1));
+      
+      Animated.sequence([
+        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
+      ]).start();
+
+      Tts.speak('Please try again');
+
+      setTimeout(() => {
+        setSelectedOption(null);
+        setIsCorrect(null);
+      }, 1500);
     }
-    
-    await sendGameResult({
-      child_id: child.id,
-      game_type: 'numbers-missing',
-      level: 2,
-      score: data.correctAnswers,
-      max_score: data.totalQuestions,
-      duration_seconds: Math.floor(data.totalTime / 1000),
-      completed: true,
-    });
   };
 
-  const showCompletion = () => {
-    const totalTime = Date.now() - gameStartTime;
-    const gameResult = {
-      correctAnswers: score,
-      totalQuestions: maxRounds,
-      totalTime: totalTime,
-    };
+  const handleHearAgain = () => {
+    Tts.speak('Which number is missing?');
+  };
+
+  // --- DATABASE & COMPLETION ---
+  const sendToDatabase = async () => {
+    if (!child?.id) return;
+
+    const totalTimeMs = Date.now() - gameStartTimeRef.current;
     
-    sendToDatabase(gameResult);
-    
+    // Başarı Oranı: (Doğru Cevaplar / (Doğru + Yanlış)) * 100
+    // Burada doğru cevap sayısı max 5 olabilir (5 tur).
+    const safeCorrect = score; // score is incremented only on correct first try or eventual correct? 
+    // Logic adjustment: We increment score on correct. If they fail, we decrement. So score represents net score.
+    // Better logic for success rate: Total Rounds vs Wrong Attempts.
+    // Total required correct moves: 5. 
+    const totalAttempts = 5 + wrongCount;
+    const successRate = Math.round((5 / totalAttempts) * 100);
+
+    try {
+      await sendGameResult({
+        child_id: child.id,
+        game_type: 'numbers-missing',
+        level: 2,
+        score: score, // Max 5
+        max_score: MAX_ROUNDS,
+        duration_seconds: Math.floor(totalTimeMs / 1000),
+        wrong_count: wrongCount,
+        success_rate: successRate,
+        details: {
+          totalRounds: MAX_ROUNDS,
+          wrongCount,
+          successRate,
+        },
+        completed: true,
+      });
+    } catch (err) {
+      console.log('❌ Error sending game result:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (gameFinished) {
+      (async () => {
+        await sendToDatabase();
+        handleGameCompletion();
+      })();
+    }
+  }, [gameFinished]);
+
+  const handleGameCompletion = () => {
+    Tts.stop();
     const gameNav = createGameCompletionHandler({
       navigation,
       child,
       gameSequence,
       currentGameIndex,
       categoryTitle,
-      resetGame,
+      resetGame: () => {
+        setScore(0);
+        setWrongCount(0);
+        setAnsweredCount(0);
+        setCurrentRound(1);
+        setGameFinished(false);
+        gameStartTimeRef.current = Date.now();
+        startNewRound();
+      },
     });
-    
-    Alert.alert(
-      '🎉 Amazing! 🎉',
-      gameNav.getCompletionMessage(),
-      gameNav.createCompletionButtons()
+
+    gameNav.showCompletionMessage(
+      score,
+      MAX_ROUNDS,
+      '🎉 Amazing! You found all missing numbers!'
     );
   };
 
-  const resetGame = () => {
-    setSequence(generateSequence());
-    setSelectedOption(null);
-    setIsCorrect(null);
-    setScore(0);
-    setCurrentRound(1);
-    setGameStartTime(Date.now());
-  };
-
-  const handleOptionPress = (option: number) => {
-    if (selectedOption !== null) return;
-    setSelectedOption(option);
-  };
-
-  const handleHearAgain = () => {
-    try {
-      Tts.stop();
-      setTimeout(() => {
-        Tts.speak('Which number is missing?');
-      }, 200);
-    } catch {}
-  };
+  // --- RENDER HELPERS ---
+  const sequenceInfo = gameSequence && currentGameIndex !== undefined
+    ? `Game ${currentGameIndex + 1}/${gameSequence.length}`
+    : '';
 
   const renderNumber = (num: number, index: number) => {
+    if (!sequence) return null;
     const isMissing = index === sequence.missingIndex;
-    const isSelected = selectedOption === num && isMissing;
-    const showCorrect = isCorrect === true && isMissing;
-    const showWrong = isCorrect === false && isSelected;
+    const isSelected = selectedOption === num && isMissing; // Logic check: num is actual val, but we display '?'
+    // Logic fix: render loop uses sequence.numbers which contains the ACTUAL numbers.
     
+    // We need to check if this specific visual block corresponds to the missing index
+    const showCorrect = isCorrect === true && isMissing;
+    const showWrong = isCorrect === false && isMissing && selectedOption !== null; 
+    // Actually, wrong animation usually shakes the option, but here we can shake the missing box too if we want.
+
     return (
       <Animated.View
         key={index}
@@ -246,7 +277,7 @@ const MissingNumbersLevel2 = ({ navigation }: any) => {
           {
             transform: [
               { scale: isMissing ? pulseAnim : 1 },
-              { translateX: isMissing ? shakeAnim : 0 },
+              // Shake missing box if wrong answer given? Or just shake options. Let's keep simple.
             ],
           },
         ]}
@@ -255,16 +286,15 @@ const MissingNumbersLevel2 = ({ navigation }: any) => {
           style={[
             styles.numberBox,
             {
-              backgroundColor: isMissing ? '#E8F4F8' : COLORS[(num - 1) % COLORS.length].color,
+              backgroundColor: isMissing && !showCorrect ? '#E8F4F8' : COLORS[(num - 1) % COLORS.length].color,
               borderColor: isMissing ? '#85C1E9' : 'transparent',
               borderWidth: isMissing ? 3 : 0,
               borderStyle: isMissing ? 'dashed' : 'solid',
             },
             showCorrect && styles.correctBox,
-            showWrong && styles.wrongBox,
           ]}
         >
-          {isMissing ? (
+          {isMissing && !showCorrect ? (
             <Text style={styles.missingText}>❓</Text>
           ) : (
             <>
@@ -277,131 +307,206 @@ const MissingNumbersLevel2 = ({ navigation }: any) => {
     );
   };
 
+  if (!sequence) return null;
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>🔢 Find Missing Number</Text>
-        <TouchableOpacity style={styles.reset} onPress={resetGame}>
-          <Text style={styles.resetText}>🔄 Reset</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.scoreContainer}>
-        <Text style={styles.scoreText}>Score: {score}/{maxRounds}</Text>
-        <Text style={styles.roundText}>Round: {currentRound}/{maxRounds}</Text>
-      </View>
-
-      <Text style={styles.subtitle}>Which number is missing? 👇</Text>
-
-      <TouchableOpacity style={styles.replayButton} onPress={handleHearAgain}>
-        <Text style={styles.replayButtonText}>🔊 Hear again</Text>
-      </TouchableOpacity>
-
-      {/* Number Sequence */}
-      <View style={styles.sequenceContainer}>
-        {sequence.numbers.map((num, index) => renderNumber(num, index))}
-      </View>
-
-      {/* Options */}
-      <View style={styles.optionsContainer}>
-        {sequence.options.map((option, index) => (
-          <TouchableOpacity
-            key={index}
-            style={[
-              styles.optionButton,
-              {
-                backgroundColor: COLORS[(option - 1) % COLORS.length].color,
-                opacity: selectedOption !== null ? 0.7 : 1,
-              },
-              selectedOption === option && isCorrect === true && styles.correctOption,
-              selectedOption === option && isCorrect === false && styles.wrongOption,
-            ]}
-            onPress={() => handleOptionPress(option)}
-            disabled={selectedOption !== null}
-          >
-            <Text style={styles.optionEmoji}>{COLORS[(option - 1) % COLORS.length].emoji}</Text>
-            <Text style={styles.optionText}>{option}</Text>
+      <SafeAreaView style={{ flex: 1 }}>
+        
+        {/* HEADER */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backButtonText}>← Back</Text>
           </TouchableOpacity>
-        ))}
-      </View>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>🔢 Missing Number</Text>
+            {sequenceInfo ? <Text style={styles.sequenceText}>{sequenceInfo}</Text> : null}
+          </View>
+          <View style={styles.scoreContainer}>
+            <Text style={styles.scoreText}>⭐ {score}</Text>
+          </View>
+        </View>
 
-      <View style={styles.footer}>
-        <Text style={styles.hint}>
-          {selectedOption === null
-            ? 'Select the missing number!'
-            : isCorrect === true
-            ? 'Correct! 🎉'
-            : 'Wrong, try again! ❌'}
-        </Text>
-      </View>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          
+          {/* PROGRESS */}
+          <View style={styles.progressBox}>
+            <Text style={styles.progressText}>Round {currentRound} / {MAX_ROUNDS}</Text>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: `${(currentRound / MAX_ROUNDS) * 100}%` }]} />
+            </View>
+          </View>
+
+          {/* INSTRUCTION */}
+          <View style={styles.instructionContainer}>
+            <Text style={styles.instructionText}>Which number is missing?</Text>
+            <TouchableOpacity style={styles.replayButton} onPress={handleHearAgain}>
+              <Text style={styles.replayButtonText}>🔊</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* SEQUENCE */}
+          <View style={styles.sequenceContainer}>
+            {sequence.numbers.map((num, index) => renderNumber(num, index))}
+          </View>
+
+          {/* OPTIONS */}
+          <View style={styles.optionsContainer}>
+            {sequence.options.map((option, index) => {
+              const isSelected = selectedOption === option;
+              const optionCorrect = isCorrect === true && isSelected;
+              const optionWrong = isCorrect === false && isSelected;
+
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.optionButton,
+                    {
+                      backgroundColor: COLORS[(option - 1) % COLORS.length].color,
+                      opacity: selectedOption !== null && !isSelected ? 0.5 : 1,
+                    },
+                    optionCorrect && styles.correctOption,
+                    optionWrong && styles.wrongOption,
+                  ]}
+                  onPress={() => handleOptionPress(option)}
+                  disabled={selectedOption !== null}
+                >
+                  <Animated.View style={{ transform: [{ translateX: optionWrong ? shakeAnim : 0 }] }}>
+                    <Text style={styles.optionEmoji}>{COLORS[(option - 1) % COLORS.length].emoji}</Text>
+                    <Text style={styles.optionText}>{option}</Text>
+                  </Animated.View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          {/* FEEDBACK TEXT */}
+          <View style={styles.footer}>
+            <Text style={styles.hint}>
+              {selectedOption === null
+                ? 'Select the missing number!'
+                : isCorrect === true
+                ? 'Correct! 🎉'
+                : 'Wrong, try again! ❌'}
+            </Text>
+          </View>
+
+        </ScrollView>
+      </SafeAreaView>
     </View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FA',
   },
+  scrollContent: {
+    padding: 16,
+    alignItems: 'center',
+  },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 48,
-    paddingBottom: 12,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 15,
     backgroundColor: '#fff',
     elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  back: { padding: 8 },
-  backText: { color: '#FF6B9A', fontWeight: 'bold' },
-  title: { fontSize: 18, fontWeight: '700', color: '#333' },
-  reset: { padding: 8 },
-  resetText: { color: '#4ECDC4', fontWeight: 'bold' },
+  backButton: {
+    padding: 5,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#FF6B9A',
+    fontWeight: 'bold',
+  },
+  titleContainer: {
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  sequenceText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
   scoreContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
-    marginBottom: 10,
+    backgroundColor: '#FF6B9A',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
   },
-  scoreText: { fontSize: 16, fontWeight: 'bold', color: '#FF6B9A' },
-  roundText: { fontSize: 16, fontWeight: 'bold', color: '#4ECDC4' },
-  subtitle: {
-    textAlign: 'center',
-    marginVertical: 16,
-    color: '#555',
-    fontWeight: '600',
+  scoreText: {
+    color: '#fff',
+    fontWeight: 'bold',
     fontSize: 16,
   },
-  replayButton: {
-    alignSelf: 'center',
-    backgroundColor: '#EAF7F5',
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#B8EAE2',
+  progressBox: {
+    width: '100%',
+    padding: 15,
+    backgroundColor: '#fff',
+    borderRadius: 15,
+    marginBottom: 20,
+    elevation: 2,
   },
-  replayButtonText: { color: '#2E7D74', fontWeight: '700' },
+  progressText: {
+    textAlign: 'center',
+    fontWeight: 'bold',
+    color: '#666',
+    marginBottom: 5,
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: '#eee',
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    backgroundColor: '#FF6B9A',
+  },
+  instructionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 30,
+    gap: 10,
+  },
+  instructionText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#555',
+  },
+  replayButton: {
+    backgroundColor: '#EAF7F5',
+    padding: 8,
+    borderRadius: 20,
+  },
+  replayButtonText: { fontSize: 18 },
+  
+  // Sequence
   sequenceContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginVertical: 30,
     gap: 10,
+    marginBottom: 40,
   },
   numberContainer: {
     alignItems: 'center',
   },
   numberBox: {
-    width: 70,
+    width: 60,
     height: 70,
     borderRadius: 12,
     alignItems: 'center',
@@ -418,39 +523,34 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderStyle: 'solid',
   },
-  wrongBox: {
-    backgroundColor: '#FFB3BA',
-    borderColor: '#FF6B9A',
-    borderWidth: 3,
-    borderStyle: 'solid',
-  },
   missingText: {
     fontSize: 32,
     color: '#85C1E9',
   },
   numberEmoji: {
-    fontSize: 18,
+    fontSize: 14,
     marginBottom: 2,
   },
   numberText: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
-    textShadowColor: 'rgba(0,0,0,0.25)',
+    textShadowColor: 'rgba(0,0,0,0.2)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
+  
+  // Options
   optionsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    paddingHorizontal: 20,
     gap: 20,
-    marginVertical: 20,
+    marginBottom: 30,
   },
   optionButton: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
+    width: 90,
+    height: 90,
+    borderRadius: 15,
     alignItems: 'center',
     justifyContent: 'center',
     elevation: 4,
@@ -465,30 +565,25 @@ const styles = StyleSheet.create({
   },
   wrongOption: {
     backgroundColor: '#FFB3BA',
-    transform: [{ scale: 0.95 }],
   },
   optionEmoji: {
     fontSize: 20,
     marginBottom: 2,
   },
   optionText: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: 'bold',
     color: '#fff',
-    textShadowColor: 'rgba(0,0,0,0.25)',
+    textShadowColor: 'rgba(0,0,0,0.2)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
   footer: {
     alignItems: 'center',
-    paddingVertical: 24,
   },
   hint: {
     color: '#777',
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: 16,
   },
 });
-
-export default MissingNumbersLevel2;
-

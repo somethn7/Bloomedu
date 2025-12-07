@@ -102,13 +102,16 @@ router.post('/messages/mark-read', async (req, res) => {
   }
 
   try {
+    // Parent mesajları okuduğunda, teacher'dan gelen mesajları okundu olarak işaretle
+    // Teacher mesajları okuduğunda, parent'tan gelen mesajları okundu olarak işaretle
     await pool.query(
       `UPDATE messages
        SET is_read = TRUE
        WHERE sender_id = $1
          AND receiver_id = $2
          AND category = $3
-         AND child_id = $4`,
+         AND child_id = $4
+         AND is_read = FALSE`,
       [sender_id, receiver_id, category, child_id]
     );
 
@@ -218,7 +221,19 @@ router.get('/messages/teacher/conversations/:teacherId', async (req, res) => {
         m.receiver_id = $1
         OR m.sender_id = $1
       GROUP BY p.id, c.id, m.category
-      ORDER BY last_message_time DESC;
+      ORDER BY 
+        (
+          SELECT COUNT(*)
+          FROM messages m3
+          WHERE 
+            m3.sender_id = p.id
+            AND m3.receiver_id = $1
+            AND m3.child_id = c.id
+            AND m3.category = m.category
+            AND m3.sender_type = 'parent'
+            AND m3.is_read = FALSE
+        ) DESC,
+        last_message_time DESC;
       `,
       [teacherId]
     );

@@ -1,9 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert } from 'react-native';
+// -umut: LEVEL 2 MatchNumbersLevel2 - YENİDEN DÜZENLEME (07.12.2025)
+// Bu oyun, otizmli çocukların hafıza ve sayı eşleştirme becerilerini geliştirir (Memory Game)
+// Oyun sonuçları database'e kaydedilir (wrong_count, success_rate)
+// Özellikler: 4 Çift (8 Kart), Hafıza mekaniği, Skor takibi
+
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Animated,
+  Dimensions,
+  SafeAreaView,
+  ScrollView,
+} from 'react-native';
 import Tts from 'react-native-tts';
 import { useRoute } from '@react-navigation/native';
 import { createGameCompletionHandler } from '../../../utils/gameNavigation';
 import { sendGameResult } from '../../../config/api';
+
+const { width } = Dimensions.get('window');
+const CARD_SIZE = width * 0.2; // Kart boyutu
 
 interface RouteParams {
   child?: {
@@ -21,298 +38,423 @@ type Card = {
   value: number;
   isFlipped: boolean;
   isMatched: boolean;
+  color: string;
 };
 
-const generatePairs = (): Card[] => {
-  // pick 4 unique numbers from 1..6 for Level 2
-  const pool = [1, 2, 3, 4, 5, 6];
-  const selected: number[] = [];
-  while (selected.length < 4) {
-    const idx = Math.floor(Math.random() * pool.length);
-    const num = pool.splice(idx, 1)[0];
-    selected.push(num);
-  }
-  const cards: Card[] = [];
-  selected.forEach((n) => {
-    cards.push({ id: `${n}-a-${Math.random()}`, value: n, isFlipped: false, isMatched: false });
-    cards.push({ id: `${n}-b-${Math.random()}`, value: n, isFlipped: false, isMatched: false });
-  });
-  // shuffle
-  for (let i = cards.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [cards[i], cards[j]] = [cards[j], cards[i]];
-  }
-  return cards;
-};
+const COLORS = ['#FF6B9A', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', '#DDA0DD'];
 
 const MatchNumbersLevel2 = ({ navigation }: any) => {
   const route = useRoute();
-  const child = (route.params as RouteParams)?.child;
-  const gameSequence = (route.params as RouteParams)?.gameSequence;
-  const currentGameIndex = (route.params as RouteParams)?.currentGameIndex ?? -1;
-  const categoryTitle = (route.params as RouteParams)?.categoryTitle;
-  
-  const [cards, setCards] = useState<Card[]>(() => generatePairs());
+  const { child, gameSequence, currentGameIndex, categoryTitle } = (route.params as RouteParams) || {};
+
+  // Game State
+  const [cards, setCards] = useState<Card[]>([]);
   const [firstPick, setFirstPick] = useState<Card | null>(null);
   const [secondPick, setSecondPick] = useState<Card | null>(null);
   const [lockBoard, setLockBoard] = useState(false);
-  const [matches, setMatches] = useState(0);
-  const [pulse] = useState(new Animated.Value(1));
-  const [gameStartTime, setGameStartTime] = useState(Date.now());
+  const [gameFinished, setGameFinished] = useState(false);
+
+  // Metrics (Gold Standard)
+  const [score, setScore] = useState(0); // Matches found
+  const [wrongCount, setWrongCount] = useState(0); // Failed attempts
+  const [attempts, setAttempts] = useState(0); // Total pair flips
+
+  // Refs
+  const gameStartTimeRef = useRef<number>(Date.now());
   const totalPairs = 4;
 
+  // --- INIT & TTS ---
   useEffect(() => {
-    const initTts = async () => {
-      try {
-        await Tts.setDefaultLanguage('en-US');
-        await Tts.setDefaultRate(0.3); // Otizmli çocuklar için oldukça yavaş
-        await Tts.setDefaultPitch(1.0);
-        setTimeout(() => {
-          Tts.speak('Match the same numbers');
-        }, 600);
-      } catch {}
+    Tts.setDefaultLanguage('en-US').catch(() => {});
+    Tts.setDefaultRate(0.3);
+    Tts.setDefaultPitch(1.0);
+    Tts.setIgnoreSilentSwitch('ignore');
+
+    startNewGame();
+
+    return () => {
+      Tts.stop();
     };
-    initTts();
-    
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.05, duration: 700, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
   }, []);
 
-  const sendToDatabase = async (data: any) => {
-    if (!child?.id) {
-      console.warn('⚠️ Child ID not found, skipping score save.');
-      return;
-    }
-    
-    await sendGameResult({
-      child_id: child.id,
-      game_type: 'numbers-match',
-      level: 2,
-      score: data.correctAnswers,
-      max_score: data.totalQuestions,
-      duration_seconds: Math.floor(data.totalTime / 1000),
-      completed: true,
-    });
-  };
-
-  useEffect(() => {
-    if (matches === totalPairs) {
-      const totalTime = Date.now() - gameStartTime;
-      const gameResult = {
-        correctAnswers: matches,
-        totalQuestions: totalPairs,
-        totalTime: totalTime,
-      };
-      
-      sendToDatabase(gameResult);
-      
-      const gameNav = createGameCompletionHandler({
-        navigation,
-        child,
-        gameSequence,
-        currentGameIndex,
-        categoryTitle,
-        resetGame,
-      });
-      
-      Alert.alert('🎉 Amazing!', gameNav.getCompletionMessage(), gameNav.createCompletionButtons());
-    }
-  }, [matches]);
-
-  const resetGame = () => {
-    const fresh = generatePairs();
-    setCards(fresh);
+  const startNewGame = () => {
+    const generatedCards = generatePairs();
+    setCards(generatedCards);
+    setScore(0);
+    setWrongCount(0);
+    setAttempts(0);
     setFirstPick(null);
     setSecondPick(null);
     setLockBoard(false);
-    setMatches(0);
-    setGameStartTime(Date.now());
+    setGameFinished(false);
+    gameStartTimeRef.current = Date.now();
+
     setTimeout(() => {
-      try {
-        Tts.speak('Match the same numbers');
-      } catch {}
-    }, 500);
+      Tts.speak('Match the same numbers');
+    }, 600);
   };
 
+  const generatePairs = (): Card[] => {
+    // 1-10 arasından rastgele 4 sayı seç
+    const pool = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    const selected: number[] = [];
+    while (selected.length < totalPairs) {
+      const idx = Math.floor(Math.random() * pool.length);
+      const num = pool.splice(idx, 1)[0];
+      selected.push(num);
+    }
+
+    const newCards: Card[] = [];
+    selected.forEach((n, index) => {
+      const color = COLORS[index % COLORS.length];
+      newCards.push({ id: `${n}-a-${Math.random()}`, value: n, isFlipped: false, isMatched: false, color });
+      newCards.push({ id: `${n}-b-${Math.random()}`, value: n, isFlipped: false, isMatched: false, color });
+    });
+
+    // Shuffle
+    return newCards.sort(() => Math.random() - 0.5);
+  };
+
+  // --- INTERACTION ---
   const onCardPress = (card: Card) => {
     if (lockBoard || card.isMatched || card.isFlipped) return;
 
-    const next = cards.map((c) => (c.id === card.id ? { ...c, isFlipped: true } : c));
-    setCards(next);
+    // Flip animation logic (implied by state change)
+    const newCards = cards.map((c) => (c.id === card.id ? { ...c, isFlipped: true } : c));
+    setCards(newCards);
 
     if (!firstPick) {
+      // First card flipped
       setFirstPick({ ...card, isFlipped: true });
-      return;
-    }
-
-    if (!secondPick) {
-      const picked = next.find((c) => c.id === card.id)!;
-      setSecondPick(picked);
+    } else {
+      // Second card flipped
+      setSecondPick({ ...card, isFlipped: true });
       setLockBoard(true);
+      setAttempts(prev => prev + 1);
 
-      if (firstPick.value === picked.value) {
-        // match
-        const withMatch = next.map((c) =>
-          c.value === picked.value ? { ...c, isMatched: true } : c
-        );
-        setTimeout(() => {
-          setCards(withMatch);
-          setMatches((m) => m + 1);
-          setFirstPick(null);
-          setSecondPick(null);
-          setLockBoard(false);
-          try { Tts.speak(`Great! ${picked.value} and ${picked.value} are the same!`); } catch {}
-        }, 300);
-      } else {
-        // not a match
-        setTimeout(() => {
-          const reverted = next.map((c) =>
-            c.id === picked.id || c.id === firstPick.id ? { ...c, isFlipped: false } : c
-          );
-          setCards(reverted);
-          setFirstPick(null);
-          setSecondPick(null);
-          setLockBoard(false);
-          try { Tts.speak('Please try again'); } catch {}
-        }, 600);
-      }
+      checkForMatch(firstPick, card, newCards);
     }
+  };
+
+  const checkForMatch = (card1: Card, card2: Card, currentCards: Card[]) => {
+    if (card1.value === card2.value) {
+      // ✅ MATCH
+      Tts.speak(`Great! ${card1.value}!`);
+      setTimeout(() => {
+        const matchedCards = currentCards.map((c) =>
+          c.value === card1.value ? { ...c, isMatched: true } : c
+        );
+        setCards(matchedCards);
+        setScore(prev => prev + 1);
+        resetTurn();
+
+        // Check Game Over
+        if (matchedCards.every(c => c.isMatched)) {
+          setGameFinished(true);
+        }
+      }, 500);
+    } else {
+      // ❌ NO MATCH
+      setWrongCount(prev => prev + 1);
+      setTimeout(() => {
+        const resetCards = currentCards.map((c) =>
+          c.id === card1.id || c.id === card2.id ? { ...c, isFlipped: false } : c
+        );
+        setCards(resetCards);
+        resetTurn();
+        Tts.speak('Try again');
+      }, 1000);
+    }
+  };
+
+  const resetTurn = () => {
+    setFirstPick(null);
+    setSecondPick(null);
+    setLockBoard(false);
   };
 
   const handleHearAgain = () => {
-    try {
-      Tts.stop();
-      setTimeout(() => {
-        Tts.speak('Match the same numbers');
-      }, 200);
-    } catch {}
+    Tts.speak('Match the same numbers');
   };
+
+  // --- DATABASE & COMPLETION ---
+  const sendToDatabase = async () => {
+    if (!child?.id) return;
+
+    const totalTimeMs = Date.now() - gameStartTimeRef.current;
+    
+    // Başarı oranı: (Toplam Eşleşme / Toplam Deneme) * 100
+    // Eğer hiç deneme yapılmadıysa 0
+    const safeAttempts = attempts > 0 ? attempts : 1;
+    const successRate = Math.round((totalPairs / safeAttempts) * 100);
+
+    try {
+      await sendGameResult({
+        child_id: child.id,
+        game_type: 'numbers-match',
+        level: 2,
+        score: score,
+        max_score: totalPairs,
+        duration_seconds: Math.floor(totalTimeMs / 1000),
+        wrong_count: wrongCount,
+        success_rate: successRate,
+        details: {
+          totalPairs,
+          attempts,
+          wrongCount,
+          successRate,
+        },
+        completed: true,
+      });
+    } catch (err) {
+      console.log('❌ Error sending game result:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (gameFinished) {
+      (async () => {
+        await sendToDatabase();
+        handleGameCompletion();
+      })();
+    }
+  }, [gameFinished]);
+
+  const handleGameCompletion = () => {
+    Tts.stop();
+    const gameNav = createGameCompletionHandler({
+      navigation,
+      child,
+      gameSequence,
+      currentGameIndex,
+      categoryTitle,
+      resetGame: startNewGame,
+    });
+
+    gameNav.showCompletionMessage(
+      score,
+      totalPairs,
+      '🎉 Amazing! You found all pairs!'
+    );
+  };
+
+  // --- RENDER HELPERS ---
+  const sequenceInfo = gameSequence && currentGameIndex !== undefined
+    ? `Game ${currentGameIndex + 1}/${gameSequence.length}`
+    : '';
+
+  const currentSuccessRate = attempts > 0 ? Math.round((score / attempts) * 100) : 0;
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
-          <Text style={styles.backText}>← Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title}>🔢 Match Numbers</Text>
-        <TouchableOpacity style={styles.reset} onPress={resetGame}>
-          <Text style={styles.resetText}>🔄 Reset</Text>
-        </TouchableOpacity>
-      </View>
+      <SafeAreaView style={{ flex: 1 }}>
+        
+        {/* HEADER */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>🔢 Memory Match</Text>
+            {sequenceInfo ? <Text style={styles.sequenceText}>{sequenceInfo}</Text> : null}
+          </View>
+          <View style={styles.scoreContainer}>
+            <Text style={styles.scoreText}>⭐ {score}/{totalPairs}</Text>
+          </View>
+        </View>
 
-      <View style={styles.scoreContainer}>
-        <Text style={styles.scoreText}>Matches: {matches}/{totalPairs}</Text>
-      </View>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          
+          {/* SCORE CARDS */}
+          <View style={styles.scoreCards}>
+            <View style={[styles.scoreCard, styles.correctCard]}>
+              <Text style={styles.scoreEmoji}>🎯</Text>
+              <Text style={styles.scoreNumber}>{score}</Text>
+              <Text style={styles.scoreLabel}>Pairs</Text>
+            </View>
+            <View style={[styles.scoreCard, styles.wrongCard]}>
+              <Text style={styles.scoreEmoji}>✗</Text>
+              <Text style={styles.scoreNumber}>{wrongCount}</Text>
+              <Text style={styles.scoreLabel}>Misses</Text>
+            </View>
+            <View style={[styles.scoreCard, styles.rateCard]}>
+              <Text style={styles.scoreEmoji}>⭐</Text>
+              <Text style={styles.scoreNumber}>{currentSuccessRate}%</Text>
+              <Text style={styles.scoreLabel}>Success</Text>
+            </View>
+          </View>
 
-      <Text style={styles.subtitle}>Match the same numbers 👇</Text>
+          {/* INSTRUCTION */}
+          <View style={styles.instructionContainer}>
+            <Text style={styles.instructionText}>Find the matching numbers!</Text>
+            <TouchableOpacity style={styles.replayButton} onPress={handleHearAgain}>
+              <Text style={styles.replayButtonText}>🔊</Text>
+            </TouchableOpacity>
+          </View>
 
-      <TouchableOpacity style={styles.replayButton} onPress={handleHearAgain}>
-        <Text style={styles.replayButtonText}>🔊 Hear again</Text>
-      </TouchableOpacity>
-
-      <View style={styles.grid}>
-        {cards.map((card) => {
-          return (
-            <Animated.View key={card.id} style={{ transform: [{ scale: pulse }] }}>
+          {/* GRID */}
+          <View style={styles.grid}>
+            {cards.map((card) => (
               <TouchableOpacity
-                style={[styles.card, card.isMatched && styles.cardMatched]}
+                key={card.id}
+                style={[
+                  styles.card,
+                  card.isFlipped || card.isMatched ? { backgroundColor: card.color } : styles.cardHidden,
+                  card.isMatched && styles.cardMatched
+                ]}
                 onPress={() => onCardPress(card)}
-                activeOpacity={0.9}
-                disabled={lockBoard || card.isMatched}
+                activeOpacity={0.8}
+                disabled={card.isFlipped || card.isMatched || lockBoard}
               >
-                <View style={styles.face}>
-                  <Text style={styles.valueText}>
-                    {card.isFlipped || card.isMatched ? card.value : '❓'}
-                  </Text>
-                </View>
+                <Text style={styles.cardText}>
+                  {card.isFlipped || card.isMatched ? card.value : '❓'}
+                </Text>
               </TouchableOpacity>
-            </Animated.View>
-          );
-        })}
-      </View>
+            ))}
+          </View>
 
-      <View style={styles.footer}>
-        <Text style={styles.hint}>Find all {totalPairs} pairs to win!</Text>
-      </View>
+        </ScrollView>
+      </SafeAreaView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  container: {
+    flex: 1,
+    backgroundColor: '#F8F9FA',
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 30,
+    alignItems: 'center',
+  },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 48,
-    paddingBottom: 12,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 15,
     backgroundColor: '#fff',
     elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  back: { padding: 8 },
-  backText: { color: '#FF6B9A', fontWeight: 'bold' },
-  title: { fontSize: 18, fontWeight: '700', color: '#333' },
-  reset: { padding: 8 },
-  resetText: { color: '#4ECDC4', fontWeight: 'bold' },
-  scoreContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
+  backButton: {
+    padding: 5,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#4ECDC4',
+    fontWeight: 'bold',
+  },
+  titleContainer: {
     alignItems: 'center',
   },
-  scoreText: { fontSize: 16, fontWeight: 'bold', color: '#4ECDC4' },
-  subtitle: { textAlign: 'center', marginVertical: 16, color: '#555', fontWeight: '600' },
-  replayButton: {
-    alignSelf: 'center',
-    backgroundColor: '#EAF7F5',
-    borderRadius: 18,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#B8EAE2',
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
   },
-  replayButtonText: { color: '#2E7D74', fontWeight: '700' },
+  sequenceText: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 2,
+  },
+  scoreContainer: {
+    backgroundColor: '#4ECDC4',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  scoreText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  // Score Cards
+  scoreCards: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 20,
+    gap: 8,
+  },
+  scoreCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 10,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+    borderTopWidth: 2,
+  },
+  correctCard: { borderTopColor: '#51CF66' },
+  wrongCard: { borderTopColor: '#FF8787' },
+  rateCard: { borderTopColor: '#FFD43B' },
+  scoreEmoji: { fontSize: 18, marginBottom: 2 },
+  scoreNumber: { fontSize: 20, fontWeight: '700', color: '#4A4A4A' },
+  scoreLabel: { fontSize: 10, color: '#999', fontWeight: '500' },
+  
+  // Instruction
+  instructionContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+    gap: 10,
+  },
+  instructionText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#555',
+  },
+  replayButton: {
+    backgroundColor: '#E7F5FF',
+    padding: 8,
+    borderRadius: 20,
+  },
+  replayButtonText: { fontSize: 18 },
+
+  // Grid
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-evenly',
-    paddingHorizontal: 16,
+    justifyContent: 'center',
+    gap: 15,
   },
   card: {
-    width: 100,
-    height: 120,
-    marginVertical: 8,
-    borderRadius: 14,
-    backgroundColor: '#85C1E9',
-    alignItems: 'center',
+    width: CARD_SIZE,
+    height: CARD_SIZE * 1.2,
+    borderRadius: 12,
     justifyContent: 'center',
+    alignItems: 'center',
     elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
   },
-  cardMatched: { backgroundColor: '#96CEB4' },
-  face: { alignItems: 'center', justifyContent: 'center' },
-  valueText: {
-    fontSize: 40,
-    color: '#fff',
+  cardHidden: {
+    backgroundColor: '#85C1E9',
+  },
+  cardMatched: {
+    opacity: 0.6,
+  },
+  cardText: {
+    fontSize: 32,
     fontWeight: 'bold',
-    textShadowColor: 'rgba(0,0,0,0.25)',
+    color: '#fff',
+    textShadowColor: 'rgba(0,0,0,0.2)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
-  footer: { alignItems: 'center', paddingVertical: 24 },
-  hint: { color: '#777', fontWeight: '600' },
 });
 
 export default MatchNumbersLevel2;
-

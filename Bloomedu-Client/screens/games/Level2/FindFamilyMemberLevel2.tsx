@@ -1,18 +1,24 @@
+// -umut: LEVEL 2 FindFamilyMemberLevel2 - YENİDEN DÜZENLEME (07.12.2025)
+// Bu oyun, otizmli çocukların aile üyelerini tanıma ve bulma becerilerini geliştirir
+// Oyun sonuçları database'e kaydedilir (wrong_count, success_rate)
+// Özellikler: 2 Seçenekli sorular, Sesli yönergeler, 12 Soru
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
+  StyleSheet,
   Animated,
   Dimensions,
+  SafeAreaView,
 } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import Tts from 'react-native-tts';
 import { createGameCompletionHandler } from '../../../utils/gameNavigation';
 import { sendGameResult } from '../../../config/api';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 interface RouteParams {
   child?: {
@@ -34,7 +40,6 @@ interface FamilyMember {
   description: string;
 }
 
-// Level 1 ile aynı 7 aile üyesi
 const FAMILY_MEMBERS: FamilyMember[] = [
   { id: 'mom', name: 'Mom', emoji: '👩', color: '#FFE5F1', bgColor: '#FF6B9A', description: 'She loves you!' },
   { id: 'dad', name: 'Dad', emoji: '👨', color: '#E3F2FD', bgColor: '#64B5F6', description: 'He protects you!' },
@@ -50,11 +55,11 @@ interface Question {
   options: FamilyMember[];
 }
 
-// Akıllı soru sıralama algoritması
+const TOTAL_QUESTIONS = 12;
+
 const generateSmartQuestions = (): Question[] => {
   const allQuestions: Question[] = [];
   
-  // Tüm ikili kombinasyonları oluştur
   for (let i = 0; i < FAMILY_MEMBERS.length; i++) {
     for (let j = i + 1; j < FAMILY_MEMBERS.length; j++) {
       const member1 = FAMILY_MEMBERS[i];
@@ -64,20 +69,15 @@ const generateSmartQuestions = (): Question[] => {
     }
   }
 
-  // Tekrarı önleyen akıllı sıralama
   const shuffled: Question[] = [];
   let available = [...allQuestions];
 
-  // İlk soruyu rastgele seç
   const firstIndex = Math.floor(Math.random() * available.length);
   shuffled.push(available.splice(firstIndex, 1)[0]);
 
   while (available.length > 0) {
     const lastAnswerId = shuffled[shuffled.length - 1].correctAnswer.id;
-    
-    // Son cevaptan farklı sorular
     let candidates = available.filter(q => q.correctAnswer.id !== lastAnswerId);
-    
     let next: Question;
     if (candidates.length > 0) {
       const idx = Math.floor(Math.random() * candidates.length);
@@ -90,22 +90,29 @@ const generateSmartQuestions = (): Question[] => {
     shuffled.push(next);
   }
 
-  return shuffled.slice(0, 12); // İlk 12 soru (daha fazla varyasyon)
+  return shuffled.slice(0, TOTAL_QUESTIONS);
 };
 
 export default function FindFamilyMemberLevel2({ navigation }: any) {
   const route = useRoute();
   const { child, gameSequence, currentGameIndex, categoryTitle } = (route.params as RouteParams) || {};
 
+  // Game State
   const [questions] = useState<Question[]>(() => generateSmartQuestions());
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
-  const [score, setScore] = useState(0);
-  const [correctAnswersCount, setCorrectAnswersCount] = useState(0);
-  const [isFirstAttempt, setIsFirstAttempt] = useState(true);
-  const [gameStartTime] = useState(Date.now());
+  const [gameFinished, setGameFinished] = useState(false);
 
+  // Metrics (Gold Standard)
+  const [score, setScore] = useState(0);
+  const [wrongCount, setWrongCount] = useState(0);
+  const [answeredCount, setAnsweredCount] = useState(0);
+
+  // Refs
+  const gameStartTimeRef = useRef<number>(Date.now());
+
+  // Animations
   const questionAnim = useRef(new Animated.Value(0)).current;
   const optionScale1 = useRef(new Animated.Value(1)).current;
   const optionScale2 = useRef(new Animated.Value(1)).current;
@@ -113,11 +120,9 @@ export default function FindFamilyMemberLevel2({ navigation }: any) {
   const successAnim = useRef(new Animated.Value(0)).current;
 
   const currentQuestion = questions[currentQuestionIndex];
-  const totalQuestions = questions.length;
-  const isGameOver = currentQuestionIndex >= totalQuestions;
 
+  // --- INIT & TTS ---
   useEffect(() => {
-    // Initialize TTS
     Tts.setDefaultLanguage('en-US').catch(() => {});
     Tts.setDefaultRate(0.3);
     Tts.setDefaultPitch(1.0);
@@ -128,61 +133,33 @@ export default function FindFamilyMemberLevel2({ navigation }: any) {
     };
   }, []);
 
+  // --- QUESTION ANIMATION & TTS ---
   useEffect(() => {
-    if (isGameOver) {
-      completeGame();
-      return;
-    }
+    if (!gameFinished && currentQuestion) {
+      // Question Anim
+      questionAnim.setValue(0);
+      Animated.spring(questionAnim, { toValue: 1, friction: 6, tension: 40, useNativeDriver: true }).start();
 
-    // Question animation
-    questionAnim.setValue(0);
-    Animated.spring(questionAnim, {
-      toValue: 1,
-      friction: 6,
-      tension: 40,
-      useNativeDriver: true,
-    }).start();
+      // Options Pulse
+      const pulse = (anim: Animated.Value, delay: number) => {
+        Animated.loop(
+          Animated.sequence([
+            Animated.timing(anim, { toValue: 1.05, duration: 1000, delay, useNativeDriver: true }),
+            Animated.timing(anim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+          ])
+        ).start();
+      };
+      pulse(optionScale1, 0);
+      pulse(optionScale2, 500);
 
-    // Options pulse
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(optionScale1, {
-          toValue: 1.05,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(optionScale1, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(optionScale2, {
-          toValue: 1.05,
-          duration: 1000,
-          delay: 500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(optionScale2, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    // TTS question
-    setTimeout(() => {
-      if (currentQuestion) {
+      // TTS
+      setTimeout(() => {
         Tts.speak(`Where is ${currentQuestion.correctAnswer.name}?`);
-      }
-    }, 600);
-  }, [currentQuestionIndex, isGameOver]);
+      }, 600);
+    }
+  }, [currentQuestionIndex, gameFinished]);
 
+  // --- INTERACTION ---
   const handleOptionPress = (selectedMember: FamilyMember) => {
     if (selectedOption !== null) return;
 
@@ -191,36 +168,30 @@ export default function FindFamilyMemberLevel2({ navigation }: any) {
     setIsCorrect(correct);
 
     if (correct) {
-      // Doğru cevap
+      // ✅ Correct
       Tts.speak('Correct! Well done!');
-      
-      if (isFirstAttempt) {
-        setCorrectAnswersCount(correctAnswersCount + 1);
-      }
-      setScore(score + 1);
+      setScore(prev => prev + 1);
+      setAnsweredCount(prev => prev + 1);
 
-      // Success animation
-      Animated.spring(successAnim, {
-        toValue: 1,
-        friction: 4,
-        tension: 40,
-        useNativeDriver: true,
-      }).start();
+      Animated.spring(successAnim, { toValue: 1, friction: 4, tension: 40, useNativeDriver: true }).start();
 
       setTimeout(() => {
         successAnim.setValue(0);
         setSelectedOption(null);
         setIsCorrect(null);
-        setIsFirstAttempt(true);
-        setCurrentQuestionIndex(currentQuestionIndex + 1);
+        
+        if (currentQuestionIndex < TOTAL_QUESTIONS - 1) {
+          setCurrentQuestionIndex(prev => prev + 1);
+        } else {
+          setGameFinished(true);
+        }
       }, 2000);
     } else {
-      // Yanlış cevap
+      // ❌ Incorrect
       Tts.speak('Try again!');
-      setScore(Math.max(0, score - 1));
-      setIsFirstAttempt(false);
+      setScore(prev => Math.max(0, prev - 1));
+      setWrongCount(prev => prev + 1);
 
-      // Shake animation
       Animated.sequence([
         Animated.timing(shakeAnim, { toValue: 10, duration: 50, useNativeDriver: true }),
         Animated.timing(shakeAnim, { toValue: -10, duration: 50, useNativeDriver: true }),
@@ -235,22 +206,56 @@ export default function FindFamilyMemberLevel2({ navigation }: any) {
     }
   };
 
-  const completeGame = async () => {
-    const totalTime = Date.now() - gameStartTime;
+  const handleHearAgain = () => {
+    if (currentQuestion) {
+      Tts.speak(`Where is ${currentQuestion.correctAnswer.name}?`);
+    }
+  };
 
-    if (child?.id) {
+  // --- DATABASE & COMPLETION ---
+  const sendToDatabase = async () => {
+    if (!child?.id) return;
+
+    const totalTimeMs = Date.now() - gameStartTimeRef.current;
+    const safeAnswered = answeredCount > 0 ? answeredCount : 1;
+    const safeScore = score < 0 ? 0 : score;
+    const successRate = Math.round((safeScore / safeAnswered) * 100);
+
+    try {
       await sendGameResult({
         child_id: child.id,
         game_type: 'find_family_member',
         level: 2,
-        score: correctAnswersCount,
-        max_score: totalQuestions,
-        duration_seconds: Math.floor(totalTime / 1000),
+        score: safeScore,
+        max_score: TOTAL_QUESTIONS,
+        duration_seconds: Math.floor(totalTimeMs / 1000),
+        wrong_count: wrongCount,
+        success_rate: successRate,
+        details: {
+          totalQuestions: TOTAL_QUESTIONS,
+          answeredCount: safeAnswered,
+          wrongCount,
+          successRate,
+        },
         completed: true,
       });
+    } catch (err) {
+      console.log('❌ Error sending game result:', err);
     }
+  };
 
-    const gameNavigation = createGameCompletionHandler({
+  useEffect(() => {
+    if (gameFinished) {
+      (async () => {
+        await sendToDatabase();
+        handleGameCompletion();
+      })();
+    }
+  }, [gameFinished]);
+
+  const handleGameCompletion = () => {
+    Tts.stop();
+    const gameNav = createGameCompletionHandler({
       navigation,
       child,
       gameSequence,
@@ -261,41 +266,26 @@ export default function FindFamilyMemberLevel2({ navigation }: any) {
         setSelectedOption(null);
         setIsCorrect(null);
         setScore(0);
-        setCorrectAnswersCount(0);
-        setIsFirstAttempt(true);
-        questionAnim.setValue(0);
-        successAnim.setValue(0);
+        setWrongCount(0);
+        setAnsweredCount(0);
+        setGameFinished(false);
+        gameStartTimeRef.current = Date.now();
       },
     });
 
-    gameNavigation.showCompletionMessage(
-      correctAnswersCount,
-      totalQuestions,
+    gameNav.showCompletionMessage(
+      score,
+      TOTAL_QUESTIONS,
       'Wonderful! You know your family very well! 👨‍👩‍👧‍👦💕'
     );
   };
 
-  const handleHearAgain = () => {
-    if (currentQuestion) {
-      Tts.speak(`Where is ${currentQuestion.correctAnswer.name}?`);
-    }
-  };
-
+  // --- RENDER HELPERS ---
   const sequenceInfo = gameSequence && currentGameIndex !== undefined
     ? `Game ${currentGameIndex + 1}/${gameSequence.length}`
     : '';
 
-  if (isGameOver) {
-    return null; // completeGame handles it
-  }
-
-  if (!currentQuestion) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.loadingText}>Loading...</Text>
-      </View>
-    );
-  }
+  if (!currentQuestion) return null;
 
   const questionScale = questionAnim.interpolate({
     inputRange: [0, 1],
@@ -304,132 +294,135 @@ export default function FindFamilyMemberLevel2({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>👨‍👩‍👧‍👦 Find Family Member</Text>
-          {sequenceInfo ? <Text style={styles.sequenceText}>{sequenceInfo}</Text> : null}
+      <SafeAreaView style={{ flex: 1 }}>
+        
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>👨‍👩‍👧‍👦 Find Family</Text>
+            {sequenceInfo ? <Text style={styles.sequenceText}>{sequenceInfo}</Text> : null}
+          </View>
+          <View style={styles.scoreContainer}>
+            <Text style={styles.scoreText}>⭐ {score}</Text>
+          </View>
         </View>
-        <View style={styles.scoreContainer}>
-          <Text style={styles.scoreText}>⭐ {score}</Text>
-        </View>
-      </View>
 
-      {/* Progress */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${((currentQuestionIndex + 1) / totalQuestions) * 100}%`,
-                backgroundColor: currentQuestion.correctAnswer.bgColor,
-              },
-            ]}
-          />
-        </View>
-        <Text style={styles.progressText}>
-          Question {currentQuestionIndex + 1} of {totalQuestions}
-        </Text>
-      </View>
-
-      {/* Question Card */}
-      <Animated.View
-        style={[
-          styles.questionCard,
-          {
-            borderColor: currentQuestion.correctAnswer.bgColor,
-            opacity: questionAnim,
-            transform: [{ scale: questionScale }, { translateX: shakeAnim }],
-          },
-        ]}
-      >
-        <Text style={styles.questionEmoji}>🤔</Text>
-        <Text style={styles.questionText}>Where is {currentQuestion.correctAnswer.name}?</Text>
-        <Text style={styles.questionSubtext}>{currentQuestion.correctAnswer.description}</Text>
-        <TouchableOpacity style={styles.hearAgainButton} onPress={handleHearAgain}>
-          <Text style={styles.hearAgainText}>🔊 Hear Again</Text>
-        </TouchableOpacity>
-      </Animated.View>
-
-      {/* Options */}
-      <View style={styles.optionsContainer}>
-        {currentQuestion.options.map((member, index) => {
-          const isSelected = selectedOption === member.id;
-          const showCorrect = isCorrect === true && isSelected;
-          const showWrong = isCorrect === false && isSelected;
-          const scaleAnim = index === 0 ? optionScale1 : optionScale2;
-
-          return (
-            <Animated.View
-              key={member.id}
+        {/* Progress */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View
               style={[
+                styles.progressFill,
                 {
-                  transform: [{ scale: selectedOption === null ? scaleAnim : 1 }],
+                  width: `${((currentQuestionIndex + 1) / TOTAL_QUESTIONS) * 100}%`,
+                  backgroundColor: currentQuestion.correctAnswer.bgColor,
                 },
               ]}
-            >
-              <TouchableOpacity
-                style={[
-                  styles.optionCard,
-                  { backgroundColor: member.color, borderColor: member.bgColor },
-                  showCorrect && styles.correctCard,
-                  showWrong && styles.wrongCard,
-                ]}
-                onPress={() => handleOptionPress(member)}
-                disabled={selectedOption !== null}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.memberCircle, { backgroundColor: member.bgColor }]}>
-                  <Text style={styles.memberEmoji}>{member.emoji}</Text>
-                </View>
-                <Text style={[styles.memberName, { color: member.bgColor }]}>{member.name}</Text>
-                {isSelected && (
-                  <View style={styles.feedbackBadge}>
-                    <Text style={styles.feedbackEmoji}>
-                      {showCorrect ? '✅' : showWrong ? '❌' : ''}
-                    </Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            </Animated.View>
-          );
-        })}
-      </View>
+            />
+          </View>
+          <Text style={styles.progressText}>
+            Question {currentQuestionIndex + 1} of {TOTAL_QUESTIONS}
+          </Text>
+        </View>
 
-      {/* Success Message */}
-      {isCorrect === true && (
+        {/* Question Card */}
         <Animated.View
           style={[
-            styles.successMessage,
+            styles.questionCard,
             {
-              opacity: successAnim,
-              transform: [
-                {
-                  scale: successAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.5, 1],
-                  }),
-                },
-              ],
+              borderColor: currentQuestion.correctAnswer.bgColor,
+              opacity: questionAnim,
+              transform: [{ scale: questionScale }, { translateX: shakeAnim }],
             },
           ]}
         >
-          <Text style={styles.successText}>🎉 Perfect! 🎉</Text>
+          <Text style={styles.questionEmoji}>🤔</Text>
+          <Text style={styles.questionText}>Where is {currentQuestion.correctAnswer.name}?</Text>
+          <Text style={styles.questionSubtext}>{currentQuestion.correctAnswer.description}</Text>
+          <TouchableOpacity style={styles.hearAgainButton} onPress={handleHearAgain}>
+            <Text style={styles.hearAgainText}>🔊 Hear Again</Text>
+          </TouchableOpacity>
         </Animated.View>
-      )}
 
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          {currentQuestionIndex < 3 && 'You are doing great! 🌟'}
-          {currentQuestionIndex >= 3 && currentQuestionIndex < 7 && 'Keep going! 💪'}
-          {currentQuestionIndex >= 7 && 'Almost done! 🎯'}
-        </Text>
-      </View>
+        {/* Options */}
+        <View style={styles.optionsContainer}>
+          {currentQuestion.options.map((member, index) => {
+            const isSelected = selectedOption === member.id;
+            const showCorrect = isCorrect === true && isSelected;
+            const showWrong = isCorrect === false && isSelected;
+            const scaleAnim = index === 0 ? optionScale1 : optionScale2;
+
+            return (
+              <Animated.View
+                key={member.id}
+                style={[
+                  {
+                    transform: [{ scale: selectedOption === null ? scaleAnim : 1 }],
+                  },
+                ]}
+              >
+                <TouchableOpacity
+                  style={[
+                    styles.optionCard,
+                    { backgroundColor: member.color, borderColor: member.bgColor },
+                    showCorrect && styles.correctCard,
+                    showWrong && styles.wrongCard,
+                  ]}
+                  onPress={() => handleOptionPress(member)}
+                  disabled={selectedOption !== null}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.memberCircle, { backgroundColor: member.bgColor }]}>
+                    <Text style={styles.memberEmoji}>{member.emoji}</Text>
+                  </View>
+                  <Text style={[styles.memberName, { color: member.bgColor }]}>{member.name}</Text>
+                  {isSelected && (
+                    <View style={styles.feedbackBadge}>
+                      <Text style={styles.feedbackEmoji}>
+                        {showCorrect ? '✅' : showWrong ? '❌' : ''}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              </Animated.View>
+            );
+          })}
+        </View>
+
+        {/* Success Message */}
+        {isCorrect === true && (
+          <Animated.View
+            style={[
+              styles.successMessage,
+              {
+                opacity: successAnim,
+                transform: [
+                  {
+                    scale: successAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [0.5, 1],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <Text style={styles.successText}>🎉 Perfect! 🎉</Text>
+          </Animated.View>
+        )}
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            {currentQuestionIndex < 3 && 'You are doing great! 🌟'}
+            {currentQuestionIndex >= 3 && currentQuestionIndex < 7 && 'Keep going! 💪'}
+            {currentQuestionIndex >= 7 && 'Almost done! 🎯'}
+          </Text>
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
@@ -444,7 +437,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingTop: 10,
     paddingBottom: 20,
     backgroundColor: '#fff',
     shadowColor: '#000',
@@ -650,11 +643,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontStyle: 'italic',
   },
-  loadingText: {
-    fontSize: 18,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 100,
-  },
 });
-

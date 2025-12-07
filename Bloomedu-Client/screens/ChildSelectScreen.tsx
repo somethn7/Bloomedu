@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useLayoutEffect } from 'react';
+import React, { useEffect, useState, useLayoutEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BASE_URL = 'https://bloomedu-production.up.railway.app';
@@ -24,6 +25,13 @@ const ChildSelectScreen = ({ navigation, route }: any) => {
     loadChildren();
     loadUnread();
   }, []);
+
+  // ChatScreen'den geri dönüldüğünde unread sayılarını güncelle
+  useFocusEffect(
+    useCallback(() => {
+      loadUnread();
+    }, [])
+  );
 
   const loadChildren = async () => {
     try {

@@ -1,3 +1,7 @@
+// -umut: LEVEL 1 MeetMyFamilyLevel1 - YENİDEN DÜZENLEME (07.12.2025)
+// Bu oyun, otizmli çocukların aile üyelerini tanıma becerilerini geliştirmek için tasarlanmıştır
+// Oyun sonuçları database'e kaydedilir ve öğretmenler bu verileri takip edebilir(wrong_count, success_rate)
+// Özellikler: 10 soru, 6 aile üyesi, skorlama, süre takibi, sesli okuma
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -6,6 +10,7 @@ import {
   Animated,
   Dimensions,
   TouchableOpacity,
+  SafeAreaView,
 } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import Tts from 'react-native-tts';
@@ -105,12 +110,22 @@ export default function MeetMyFamilyLevel1({ navigation }: any) {
   const route = useRoute();
   const { child, gameSequence, currentGameIndex, categoryTitle } = (route.params as RouteParams) || {};
 
+  // Game State
   const [showIntro, setShowIntro] = useState(true);
   const [currentMember, setCurrentMember] = useState(0);
   const [hasStarted, setHasStarted] = useState(false);
-  const [score, setScore] = useState(0);
-  const [gameStartTime] = useState(Date.now());
+  const [gameFinished, setGameFinished] = useState(false);
 
+  // Metrics (Gold Standard)
+  const [score, setScore] = useState(0); // Completed members count
+  const [wrongCount, setWrongCount] = useState(0); // 0
+  const [answeredCount, setAnsweredCount] = useState(0); // Same as score
+
+  // Refs
+  const gameStartTimeRef = useRef<number>(Date.now());
+  const timerRef = useRef<any>(null);
+
+  // Animations
   const introAnim = useRef(new Animated.Value(0)).current;
   const memberAnim = useRef(new Animated.Value(0)).current;
   const heartAnim = useRef(new Animated.Value(0)).current;
@@ -119,8 +134,8 @@ export default function MeetMyFamilyLevel1({ navigation }: any) {
   const member = hasStarted ? FAMILY_MEMBERS[currentMember] : null;
   const totalMembers = FAMILY_MEMBERS.length;
 
+  // --- INIT & TTS ---
   useEffect(() => {
-    // Initialize TTS
     Tts.setDefaultLanguage('en-US').catch(() => {});
     Tts.setDefaultRate(0.3);
     Tts.setDefaultPitch(1.0);
@@ -137,26 +152,24 @@ export default function MeetMyFamilyLevel1({ navigation }: any) {
     // House pulse
     Animated.loop(
       Animated.sequence([
-        Animated.timing(houseScale, {
-          toValue: 1.05,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(houseScale, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
+        Animated.timing(houseScale, { toValue: 1.05, duration: 1500, useNativeDriver: true }),
+        Animated.timing(houseScale, { toValue: 1, duration: 1500, useNativeDriver: true }),
       ])
     ).start();
 
     return () => {
       Tts.stop();
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
 
+  // --- MEMBER SEQUENCE LOGIC ---
   useEffect(() => {
-    if (hasStarted && member) {
+    if (hasStarted && member && !gameFinished) {
+      // Metrics Update
+      setScore(prev => prev + 1);
+      setAnsweredCount(prev => prev + 1);
+
       // Reset animations
       memberAnim.setValue(0);
       heartAnim.setValue(0);
@@ -173,90 +186,109 @@ export default function MeetMyFamilyLevel1({ navigation }: any) {
       setTimeout(() => {
         Animated.loop(
           Animated.sequence([
-            Animated.timing(heartAnim, {
-              toValue: 1,
-              duration: 1000,
-              useNativeDriver: true,
-            }),
-            Animated.timing(heartAnim, {
-              toValue: 0,
-              duration: 100,
-              useNativeDriver: true,
-            }),
+            Animated.timing(heartAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
+            Animated.timing(heartAnim, { toValue: 0, duration: 100, useNativeDriver: true }),
           ])
         ).start();
       }, 1000);
 
-      // TTS introduction
+      // TTS
       setTimeout(() => {
         Tts.speak(member.message);
       }, 800);
 
-      // Auto next after 5.5 seconds (daha yavaş)
-      const timer = setTimeout(() => {
-        setScore(prevScore => prevScore + 1);
-        
+      // Auto Next
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
         if (currentMember < totalMembers - 1) {
-          setCurrentMember(currentMember + 1);
+          setCurrentMember(prev => prev + 1);
         } else {
-          // Son üye - oyunu bitir
-          setTimeout(() => {
-            completeGame();
-          }, 100);
+          setGameFinished(true);
         }
-      }, 5500); // 4500'den 5500'e çıkarıldı
-
-      return () => clearTimeout(timer);
+      }, 5500);
     }
-  }, [hasStarted, currentMember]);
+  }, [hasStarted, currentMember, gameFinished]);
 
   const startGame = () => {
     setShowIntro(false);
     setTimeout(() => {
       setHasStarted(true);
+      gameStartTimeRef.current = Date.now(); // Start timing when actual game starts
       Tts.speak('Let us meet your family!');
-    }, 500); // Küçük delay ekle
+    }, 500);
   };
 
-  const completeGame = async () => {
-    const totalTime = Date.now() - gameStartTime;
-    const finalScore = totalMembers; // Tüm üyeleri tamamladık
+  // --- DATABASE & COMPLETION ---
+  const sendToDatabase = async () => {
+    if (!child?.id) return;
 
-    if (child?.id) {
+    const totalTimeMs = Date.now() - gameStartTimeRef.current;
+    
+    // Observation game: 100% success rate
+    const safeAnswered = answeredCount > 0 ? answeredCount : 1;
+    const successRate = 100;
+
+    try {
       await sendGameResult({
         child_id: child.id,
         game_type: 'meet_family',
         level: 1,
-        score: finalScore,
+        score: score,
         max_score: totalMembers,
-        duration_seconds: Math.floor(totalTime / 1000),
+        duration_seconds: Math.floor(totalTimeMs / 1000),
+        wrong_count: 0,
+        success_rate: successRate,
+        details: {
+          totalQuestions: totalMembers,
+          answeredCount: safeAnswered,
+          wrongCount: 0,
+          successRate: 100,
+        },
         completed: true,
       });
+    } catch (err) {
+      console.log('❌ Error sending game result:', err);
     }
+  };
 
-    const gameNavigation = createGameCompletionHandler({
+  useEffect(() => {
+    if (gameFinished) {
+      (async () => {
+        await sendToDatabase();
+        handleGameCompletion();
+      })();
+    }
+  }, [gameFinished]);
+
+  const resetGame = () => {
+    setShowIntro(true);
+    setCurrentMember(0);
+    setHasStarted(false);
+    setScore(0);
+    setAnsweredCount(0);
+    setGameFinished(false);
+    memberAnim.setValue(0);
+    heartAnim.setValue(0);
+  };
+
+  const handleGameCompletion = () => {
+    const gameNav = createGameCompletionHandler({
       navigation,
       child,
       gameSequence,
       currentGameIndex,
       categoryTitle,
-      resetGame: () => {
-        setShowIntro(true);
-        setCurrentMember(0);
-        setHasStarted(false);
-        setScore(0);
-        memberAnim.setValue(0);
-        heartAnim.setValue(0);
-      },
+      resetGame: resetGame,
     });
 
-    gameNavigation.showCompletionMessage(
-      finalScore,
+    gameNav.showCompletionMessage(
+      score,
       totalMembers,
       'Wonderful! You met your whole family! 👨‍👩‍👧‍👦💕'
     );
   };
 
+  // --- RENDER HELPERS ---
   const sequenceInfo = gameSequence && currentGameIndex !== undefined
     ? `Game ${currentGameIndex + 1}/${gameSequence.length}`
     : '';
@@ -332,46 +364,13 @@ export default function MeetMyFamilyLevel1({ navigation }: any) {
         </Animated.View>
 
         {/* Decorative elements */}
-        <Animated.View
-          style={[
-            styles.decorHeart,
-            styles.decorHeart1,
-            {
-              opacity: introAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 0.6],
-              }),
-            },
-          ]}
-        >
+        <Animated.View style={[styles.decorHeart, styles.decorHeart1, { opacity: introAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.6] }) }]}>
           <Text style={styles.decorHeartText}>💕</Text>
         </Animated.View>
-        <Animated.View
-          style={[
-            styles.decorHeart,
-            styles.decorHeart2,
-            {
-              opacity: introAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 0.5],
-              }),
-            },
-          ]}
-        >
+        <Animated.View style={[styles.decorHeart, styles.decorHeart2, { opacity: introAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.5] }) }]}>
           <Text style={styles.decorHeartText}>❤️</Text>
         </Animated.View>
-        <Animated.View
-          style={[
-            styles.decorHeart,
-            styles.decorHeart3,
-            {
-              opacity: introAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 0.4],
-              }),
-            },
-          ]}
-        >
+        <Animated.View style={[styles.decorHeart, styles.decorHeart3, { opacity: introAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 0.4] }) }]}>
           <Text style={styles.decorHeartText}>💖</Text>
         </Animated.View>
       </View>
@@ -393,169 +392,171 @@ export default function MeetMyFamilyLevel1({ navigation }: any) {
 
   return (
     <View style={[styles.container, { backgroundColor: member.bgColor }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>👨‍👩‍👧‍👦 My Family</Text>
-          {sequenceInfo ? <Text style={styles.sequenceText}>{sequenceInfo}</Text> : null}
+      <SafeAreaView style={{flex: 1}}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>👨‍👩‍👧‍👦 My Family</Text>
+            {sequenceInfo ? <Text style={styles.sequenceText}>{sequenceInfo}</Text> : null}
+          </View>
+          <View style={styles.scoreContainer}>
+            <Text style={styles.scoreText}>
+              {currentMember + 1}/{totalMembers}
+            </Text>
+          </View>
         </View>
-        <View style={styles.scoreContainer}>
-          <Text style={styles.scoreText}>
-            {currentMember + 1}/{totalMembers}
-          </Text>
-        </View>
-      </View>
 
-      {/* Progress */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <View
+        {/* Progress */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${((currentMember + 1) / totalMembers) * 100}%`,
+                  backgroundColor: member.accentColor,
+                },
+              ]}
+            />
+          </View>
+        </View>
+
+        {/* Member Display */}
+        <View style={styles.memberArea}>
+          {/* Role Badge */}
+          <Animated.View
             style={[
-              styles.progressFill,
-              {
-                width: `${((currentMember + 1) / totalMembers) * 100}%`,
-                backgroundColor: member.accentColor,
+              styles.roleBadge,
+              { 
+                backgroundColor: member.color,
+                borderColor: member.accentColor,
+                opacity: memberAnim,
               },
             ]}
-          />
+          >
+            <Text style={styles.roleText}>{member.role}</Text>
+          </Animated.View>
+
+          {/* Member Character */}
+          <Animated.View
+            style={[
+              styles.memberContainer,
+              {
+                transform: [{ scale: memberScale }],
+                opacity: memberAnim,
+              },
+            ]}
+          >
+            <View style={[styles.memberCircle, { backgroundColor: member.color, borderColor: member.accentColor }]}>
+              <Text style={styles.memberEmoji}>{member.emoji}</Text>
+            </View>
+          </Animated.View>
+
+          {/* Name */}
+          <Animated.View
+            style={[
+              styles.nameContainer,
+              {
+                opacity: memberAnim.interpolate({
+                  inputRange: [0, 0.5, 1],
+                  outputRange: [0, 0, 1],
+                }),
+              },
+            ]}
+          >
+            <Text style={[styles.memberName, { color: member.accentColor }]}>{member.name}</Text>
+          </Animated.View>
+
+          {/* Message */}
+          <Animated.View
+            style={[
+              styles.messageCard,
+              {
+                backgroundColor: member.color,
+                borderColor: member.accentColor,
+                opacity: memberAnim.interpolate({
+                  inputRange: [0, 0.7, 1],
+                  outputRange: [0, 0, 1],
+                }),
+                transform: [
+                  {
+                    translateY: memberAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [30, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <Text style={styles.messageText}>{member.message}</Text>
+          </Animated.View>
+
+          {/* Floating Hearts */}
+          <Animated.View
+            style={[
+              styles.floatingHeart,
+              styles.heart1,
+              {
+                opacity: heartOpacity,
+                transform: [{ translateY: heartTranslateY }],
+              },
+            ]}
+          >
+            <Text style={styles.heartEmoji}>💕</Text>
+          </Animated.View>
+          <Animated.View
+            style={[
+              styles.floatingHeart,
+              styles.heart2,
+              {
+                opacity: heartOpacity,
+                transform: [
+                  {
+                    translateY: heartTranslateY.interpolate({
+                      inputRange: [-60, 0],
+                      outputRange: [-50, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <Text style={styles.heartEmoji}>❤️</Text>
+          </Animated.View>
+          <Animated.View
+            style={[
+              styles.floatingHeart,
+              styles.heart3,
+              {
+                opacity: heartOpacity,
+                transform: [
+                  {
+                    translateY: heartTranslateY.interpolate({
+                      inputRange: [-60, 0],
+                      outputRange: [-55, 0],
+                    }),
+                  },
+                ],
+              },
+            ]}
+          >
+            <Text style={styles.heartEmoji}>💖</Text>
+          </Animated.View>
         </View>
-      </View>
 
-      {/* Member Display */}
-      <View style={styles.memberArea}>
-        {/* Role Badge */}
-        <Animated.View
-          style={[
-            styles.roleBadge,
-            { 
-              backgroundColor: member.color,
-              borderColor: member.accentColor,
-              opacity: memberAnim,
-            },
-          ]}
-        >
-          <Text style={styles.roleText}>{member.role}</Text>
-        </Animated.View>
-
-        {/* Member Character */}
-        <Animated.View
-          style={[
-            styles.memberContainer,
-            {
-              transform: [{ scale: memberScale }],
-              opacity: memberAnim,
-            },
-          ]}
-        >
-          <View style={[styles.memberCircle, { backgroundColor: member.color, borderColor: member.accentColor }]}>
-            <Text style={styles.memberEmoji}>{member.emoji}</Text>
-          </View>
-        </Animated.View>
-
-        {/* Name */}
-        <Animated.View
-          style={[
-            styles.nameContainer,
-            {
-              opacity: memberAnim.interpolate({
-                inputRange: [0, 0.5, 1],
-                outputRange: [0, 0, 1],
-              }),
-            },
-          ]}
-        >
-          <Text style={[styles.memberName, { color: member.accentColor }]}>{member.name}</Text>
-        </Animated.View>
-
-        {/* Message */}
-        <Animated.View
-          style={[
-            styles.messageCard,
-            {
-              backgroundColor: member.color,
-              borderColor: member.accentColor,
-              opacity: memberAnim.interpolate({
-                inputRange: [0, 0.7, 1],
-                outputRange: [0, 0, 1],
-              }),
-              transform: [
-                {
-                  translateY: memberAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [30, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <Text style={styles.messageText}>{member.message}</Text>
-        </Animated.View>
-
-        {/* Floating Hearts */}
-        <Animated.View
-          style={[
-            styles.floatingHeart,
-            styles.heart1,
-            {
-              opacity: heartOpacity,
-              transform: [{ translateY: heartTranslateY }],
-            },
-          ]}
-        >
-          <Text style={styles.heartEmoji}>💕</Text>
-        </Animated.View>
-        <Animated.View
-          style={[
-            styles.floatingHeart,
-            styles.heart2,
-            {
-              opacity: heartOpacity,
-              transform: [
-                {
-                  translateY: heartTranslateY.interpolate({
-                    inputRange: [-60, 0],
-                    outputRange: [-50, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <Text style={styles.heartEmoji}>❤️</Text>
-        </Animated.View>
-        <Animated.View
-          style={[
-            styles.floatingHeart,
-            styles.heart3,
-            {
-              opacity: heartOpacity,
-              transform: [
-                {
-                  translateY: heartTranslateY.interpolate({
-                    inputRange: [-60, 0],
-                    outputRange: [-55, 0],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <Text style={styles.heartEmoji}>💖</Text>
-        </Animated.View>
-      </View>
-
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          {currentMember < 3 && 'Meet your family! 💝'}
-          {currentMember >= 3 && currentMember < 5 && 'You have a wonderful family! 🌟'}
-          {currentMember >= 5 && 'Almost done! 👨‍👩‍👧‍👦'}
-        </Text>
-      </View>
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>
+            {currentMember < 3 && 'Meet your family! 💝'}
+            {currentMember >= 3 && currentMember < 5 && 'You have a wonderful family! 🌟'}
+            {currentMember >= 5 && 'Almost done! 👨‍👩‍👧‍👦'}
+          </Text>
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
@@ -668,7 +669,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingTop: 20,
     paddingBottom: 20,
     backgroundColor: '#fff',
     shadowColor: '#000',
@@ -811,4 +812,3 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 });
-

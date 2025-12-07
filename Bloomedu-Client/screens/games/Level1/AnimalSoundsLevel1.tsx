@@ -1,3 +1,8 @@
+// -umut: LEVEL 1 AnimalSoundsLevel1 - YENİDEN DÜZENLEME (08.12.2025)
+// Bu oyun, otizmli çocukların hayvan seslerini öğrenmesi için tasarlanmıştır
+// Oyun sonuçları database'e kaydedilir (wrong_count=0, success_rate=100)
+// Özellikler: Tam Otomatik Geçiş, Sıralı Animasyonlar, Sesli Anlatım
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -6,13 +11,14 @@ import {
   StyleSheet,
   Animated,
   Dimensions,
+  SafeAreaView,
 } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import Tts from 'react-native-tts';
 import { createGameCompletionHandler } from '../../../utils/gameNavigation';
 import { sendGameResult } from '../../../config/api';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 interface RouteParams {
   child?: {
@@ -28,76 +34,39 @@ interface RouteParams {
 // 7 Animals for Level 1
 const ANIMALS = [
   { 
-    id: 1, 
-    name: 'DOG', 
-    emoji: '🐶', 
-    sound: 'Woof Woof', 
-    color: '#E8F5E9',
-    bgColor: '#F1F8F2',
-    accentColor: '#81C784',
+    id: 1, name: 'DOG', emoji: '🐶', sound: 'Woof Woof', 
+    color: '#E8F5E9', bgColor: '#F1F8F2', accentColor: '#81C784', 
     question: 'What does the dog say?'
   },
   { 
-    id: 2, 
-    name: 'CAT', 
-    emoji: '🐱', 
-    sound: 'Meow', 
-    color: '#FFF3E0',
-    bgColor: '#FFF8EC',
-    accentColor: '#FFB74D',
+    id: 2, name: 'CAT', emoji: '🐱', sound: 'Meow', 
+    color: '#FFF3E0', bgColor: '#FFF8EC', accentColor: '#FFB74D', 
     question: 'What does the cat say?'
   },
   { 
-    id: 3, 
-    name: 'BIRD', 
-    emoji: '🐦', 
-    sound: 'Tweet Tweet', 
-    color: '#E3F2FD',
-    bgColor: '#EDF6FC',
-    accentColor: '#64B5F6',
+    id: 3, name: 'BIRD', emoji: '🐦', sound: 'Tweet Tweet', 
+    color: '#E3F2FD', bgColor: '#EDF6FC', accentColor: '#64B5F6', 
     question: 'What does the bird say?'
   },
   { 
-    id: 4, 
-    name: 'DUCK', 
-    emoji: '🦆', 
-    sound: 'Quack Quack', 
-    color: '#FFF9C4',
-    bgColor: '#FFFDE7',
-    accentColor: '#FDD835',
+    id: 4, name: 'DUCK', emoji: '🦆', sound: 'Quack Quack', 
+    color: '#FFF9C4', bgColor: '#FFFDE7', accentColor: '#FDD835', 
     question: 'What does the duck say?'
   },
   { 
-    id: 5, 
-    name: 'COW', 
-    emoji: '🐮', 
-    sound: 'Moo', 
-    color: '#FCE4EC',
-    bgColor: '#FEF0F5',
-    accentColor: '#F06292',
+    id: 5, name: 'COW', emoji: '🐮', sound: 'Moo', 
+    color: '#FCE4EC', bgColor: '#FEF0F5', accentColor: '#F06292', 
     question: 'What does the cow say?'
   },
   { 
-    id: 6, 
-    name: 'TURTLE', 
-    emoji: '🐢', 
-    sound: '...', 
-    color: '#E0F2F1',
-    bgColor: '#EDF7F6',
-    accentColor: '#4DB6AC',
-    question: 'The turtle is quiet!',
-    silent: true
+    id: 6, name: 'TURTLE', emoji: '🐢', sound: '...', 
+    color: '#E0F2F1', bgColor: '#EDF7F6', accentColor: '#4DB6AC', 
+    question: 'The turtle is quiet!', silent: true
   },
   { 
-    id: 7, 
-    name: 'RABBIT', 
-    emoji: '🐰', 
-    sound: 'Hop Hop', 
-    color: '#F3E5F5',
-    bgColor: '#F9F0FA',
-    accentColor: '#BA68C8',
-    question: 'What does the rabbit do?',
-    action: true
+    id: 7, name: 'RABBIT', emoji: '🐰', sound: 'Hop Hop', 
+    color: '#F3E5F5', bgColor: '#F9F0FA', accentColor: '#BA68C8', 
+    question: 'What does the rabbit do?', action: true
   },
 ];
 
@@ -105,44 +74,43 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
   const route = useRoute();
   const { child, gameSequence, currentGameIndex, categoryTitle } = (route.params as RouteParams) || {};
 
-  const [currentAnimal, setCurrentAnimal] = useState(0);
+  // Game Logic States
+  const [currentAnimalIndex, setCurrentAnimalIndex] = useState(0);
   const [showSound, setShowSound] = useState(false);
-  const [bounceAnim] = useState(new Animated.Value(0));
-  const [soundAnim] = useState(new Animated.Value(0));
-  const [mouthAnim] = useState(new Animated.Value(0));
-  const [hopAnim] = useState(new Animated.Value(0));
-  const [autoPlay, setAutoPlay] = useState(true); // Başlangıçta otomatik
-  const [completedAnimals, setCompletedAnimals] = useState<number[]>([]);
-  const [gameStartTime] = useState(Date.now());
-  const [introAnim] = useState(new Animated.Value(0));
-  const [showIntro, setShowIntro] = useState(true);
-  const isFinishedRef = useRef(false);
-  const autoTimerRef = useRef<any>(null);
+  const [hasStarted, setHasStarted] = useState(false); // Intro kontrolü
+  const [gameFinished, setGameFinished] = useState(false);
+  
+  // Metrics for DB (Gold Standard)
+  const [score, setScore] = useState(0);
+  const [wrongCount, setWrongCount] = useState(0); 
+  const [answeredCount, setAnsweredCount] = useState(0);
+  
+  // Refs
+  const gameStartTimeRef = useRef<number>(Date.now());
+  const timerRef = useRef<any>(null);
 
-  // Intro bittiğinde ilk sesi otomatik başlat
-  useEffect(() => {
-    if (!showIntro && autoPlay && !showSound) {
-      // Küçük bir bekleme ile başlat
-      const t = setTimeout(() => {
-        if (!isFinishedRef.current) playSound();
-      }, 600);
-      return () => clearTimeout(t);
-    }
-  }, [showIntro]);
+  // Animations
+  const bounceAnim = useRef(new Animated.Value(0)).current;
+  const soundAnim = useRef(new Animated.Value(0)).current;
+  const mouthAnim = useRef(new Animated.Value(0)).current;
+  const hopAnim = useRef(new Animated.Value(0)).current;
+  const introAnim = useRef(new Animated.Value(0)).current;
 
-  const animal = ANIMALS[currentAnimal];
+  const currentAnimal = ANIMALS[currentAnimalIndex];
+  const totalAnimals = ANIMALS.length;
 
+  // --- INIT & INTRO ---
   useEffect(() => {
     const initTts = async () => {
       try {
         await Tts.setDefaultLanguage('en-US');
-        await Tts.setDefaultRate(0.3); // Otizmli çocuklar için oldukça yavaş
+        await Tts.setDefaultRate(0.35); // Biraz daha doğal hız
         await Tts.setDefaultPitch(1.0);
       } catch {}
     };
     initTts();
 
-    // Giriş animasyonu
+    // Intro Animation
     Animated.spring(introAnim, {
       toValue: 1,
       friction: 6,
@@ -150,221 +118,173 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
       useNativeDriver: true,
     }).start();
 
-    // Giriş mesajı
-    setTimeout(() => {
-      Tts.speak('Welcome! Let\'s learn animal sounds together!');
-    }, 800);
+    Tts.speak('Welcome! Let\'s learn animal sounds together!');
 
-    // Giriş ekranını kaldır ve oyunu başlat
+    // Start Game Loop after Intro
     const introTimer = setTimeout(() => {
-      setShowIntro(false);
+      setHasStarted(true);
     }, 3500);
 
-    return () => clearTimeout(introTimer);
+    return () => {
+      clearTimeout(introTimer);
+      Tts.stop();
+    };
   }, []);
 
+  // --- MAIN GAME LOOP (MeetMyFamily Logic) ---
   useEffect(() => {
-    bounceAnim.setValue(0);
-    Animated.spring(bounceAnim, {
-      toValue: 1,
-      friction: 4,
-      tension: 40,
-      useNativeDriver: true,
-    }).start();
-  }, [currentAnimal]);
+    if (hasStarted && !gameFinished && currentAnimal) {
+      
+      // 1. Reset States & Anims
+      setShowSound(false);
+      bounceAnim.setValue(0);
+      soundAnim.setValue(0);
+      mouthAnim.setValue(0);
+      hopAnim.setValue(0);
 
-  useEffect(() => {
-    if (autoPlay && !showSound) {
-      if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
-      autoTimerRef.current = setTimeout(() => {
-        if (!isFinishedRef.current) {
-          playSound();
+      // 2. Entrance Animation
+      Animated.spring(bounceAnim, {
+        toValue: 1,
+        friction: 5,
+        tension: 40,
+        useNativeDriver: true,
+      }).start();
+
+      // 3. Speak Question (Delay: 500ms)
+      const qTimer = setTimeout(() => {
+        Tts.speak(currentAnimal.question);
+      }, 500);
+
+      // 4. Reveal Sound/Answer & Animate (Delay: 2500ms)
+      const aTimer = setTimeout(() => {
+        setShowSound(true);
+        playAnswerAnimation();
+        
+        // Speak Answer
+        if (currentAnimal.silent) {
+          Tts.speak('The turtle is quiet. Shhh.');
+        } else if (currentAnimal.action) {
+          Tts.speak(`The rabbit hops. ${currentAnimal.sound}`);
+        } else {
+          Tts.speak(`${currentAnimal.name} says ${currentAnimal.sound}`);
         }
-      }, 1200);
+        
+        // Update Score (Passive learning, always correct)
+        setScore(prev => prev + 1);
+        setAnsweredCount(prev => prev + 1);
+
+      }, 2500);
+
+      // 5. Next Animal (Delay: 6000ms - Total Duration per animal)
+      timerRef.current = setTimeout(() => {
+        if (currentAnimalIndex < totalAnimals - 1) {
+          setCurrentAnimalIndex(prev => prev + 1);
+        } else {
+          setGameFinished(true);
+        }
+      }, 6000);
+
       return () => {
-        if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
+        clearTimeout(qTimer);
+        clearTimeout(aTimer);
+        if (timerRef.current) clearTimeout(timerRef.current);
       };
     }
-  }, [autoPlay, currentAnimal, showSound]);
+  }, [hasStarted, currentAnimalIndex, gameFinished]);
 
-  const playSound = () => {
-    setShowSound(true);
-    
-    // TTS
-    try {
-      if (animal.silent) {
-        Tts.speak('The turtle is quiet. Shhh.');
-      } else if (animal.action) {
-        Tts.speak(`The rabbit hops. ${animal.sound}`);
-      } else {
-        Tts.speak(`${animal.name} says ${animal.sound}`);
-      }
-    } catch {}
-    
-    // Mark as completed
-    if (!completedAnimals.includes(currentAnimal)) {
-      setCompletedAnimals([...completedAnimals, currentAnimal]);
-    }
-
-    if (animal.action) {
-      // Rabbit hopping
+  // Specific Animations based on animal type
+  const playAnswerAnimation = () => {
+    if (currentAnimal.action) {
+      // Rabbit Hop
       Animated.sequence([
-        Animated.timing(hopAnim, {
-          toValue: -40,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(hopAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(hopAnim, {
-          toValue: -40,
-          duration: 200,
-          useNativeDriver: true,
-        }),
-        Animated.timing(hopAnim, {
-          toValue: 0,
-          duration: 200,
-          useNativeDriver: true,
-        }),
+        Animated.timing(hopAnim, { toValue: -40, duration: 200, useNativeDriver: true }),
+        Animated.timing(hopAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
+        Animated.timing(hopAnim, { toValue: -40, duration: 200, useNativeDriver: true }),
+        Animated.timing(hopAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
       ]).start();
-    } else if (animal.silent) {
-      // Turtle slow
-      Animated.timing(soundAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }).start(() => {
-        soundAnim.setValue(0);
-      });
+    } else if (currentAnimal.silent) {
+      // Turtle Slow Fade
+      Animated.timing(soundAnim, { toValue: 1, duration: 1000, useNativeDriver: true }).start();
     } else {
-      // Normal sound (hızı biraz yavaşlatıldı)
+      // Standard Sound Pulse + Mouth
       Animated.parallel([
         Animated.sequence([
-          Animated.timing(soundAnim, {
-            toValue: 1,
-            duration: 450,
-            useNativeDriver: true,
-          }),
-          Animated.timing(soundAnim, {
-            toValue: 0,
-            duration: 450,
-            useNativeDriver: true,
-          }),
+          Animated.timing(soundAnim, { toValue: 1, duration: 450, useNativeDriver: true }),
+          Animated.timing(soundAnim, { toValue: 0, duration: 450, useNativeDriver: true }),
         ]),
         Animated.loop(
           Animated.sequence([
-            Animated.timing(mouthAnim, {
-              toValue: 1,
-              duration: 350,
-              useNativeDriver: true,
-            }),
-            Animated.timing(mouthAnim, {
-              toValue: 0,
-              duration: 350,
-              useNativeDriver: true,
-            }),
+            Animated.timing(mouthAnim, { toValue: 1, duration: 350, useNativeDriver: true }),
+            Animated.timing(mouthAnim, { toValue: 0, duration: 350, useNativeDriver: true }),
           ]),
           { iterations: 2 }
         ),
       ]).start();
     }
-
-    if (autoPlay) {
-      if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
-      autoTimerRef.current = setTimeout(() => {
-        if (!isFinishedRef.current) {
-          nextAnimal();
-        }
-      }, 3500);
-    }
   };
 
-  const sendToDatabase = async () => {
-    if (!child?.id) {
-      console.warn('⚠️ Child ID not found, skipping score save.');
-      return;
+  // --- DATABASE & COMPLETION ---
+  useEffect(() => {
+    if (gameFinished) {
+      completeGame();
+    }
+  }, [gameFinished]);
+
+  const completeGame = async () => {
+    const totalTimeMs = Date.now() - gameStartTimeRef.current;
+    
+    // Learning game: 100% success rate
+    const successRate = 100;
+    // Score should be total animals since user watched all
+    const finalScore = totalAnimals; 
+
+    if (child?.id) {
+        await sendGameResult({
+            child_id: child.id,
+            game_type: 'animals-sounds',
+            level: 1,
+            score: finalScore,
+            max_score: totalAnimals,
+            duration_seconds: Math.floor(totalTimeMs / 1000),
+            wrong_count: 0, // 0 errors
+            success_rate: successRate,
+            details: {
+              totalQuestions: totalAnimals,
+              answeredCount: totalAnimals,
+              successRate: 100,
+            },
+            completed: true,
+        });
     }
     
-    const totalTime = Date.now() - gameStartTime;
-    await sendGameResult({
-      child_id: child.id,
-      game_type: 'animals-sounds',
-      level: 1,
-      score: completedAnimals.length,
-      max_score: ANIMALS.length,
-      duration_seconds: Math.floor(totalTime / 1000),
-      completed: true,
-    });
-  };
-
-  const finishGame = () => {
-    isFinishedRef.current = true;
-    setAutoPlay(false);
-    try { Tts.stop(); } catch {}
-    if (autoTimerRef.current) clearTimeout(autoTimerRef.current);
-    sendToDatabase();
-    
-    const gameNavigation = createGameCompletionHandler({
+    const gameNav = createGameCompletionHandler({
       navigation,
       child,
       gameSequence,
       currentGameIndex,
       categoryTitle,
       resetGame: () => {
-        setCurrentAnimal(0);
-        setCompletedAnimals([]);
+        setCurrentAnimalIndex(0);
+        setScore(0);
+        setAnsweredCount(0);
         setShowSound(false);
-        setAutoPlay(true); // Auto play'i tekrar aç
-        soundAnim.setValue(0);
-        mouthAnim.setValue(0);
-        hopAnim.setValue(0);
-        bounceAnim.setValue(0);
-        isFinishedRef.current = false;
+        setHasStarted(false); // Restart intro
+        setGameFinished(false);
+        gameStartTimeRef.current = Date.now();
       },
     });
 
-    gameNavigation.showCompletionMessage(
-      ANIMALS.length,
-      ANIMALS.length,
-      'Amazing! You learned about all the animals! 🎵🦁'
+    gameNav.showCompletionMessage(
+      finalScore,
+      totalAnimals,
+      'Amazing! You learned all the animals! 🎵🦁'
     );
   };
 
-  const nextAnimal = () => {
-    setShowSound(false);
-    soundAnim.setValue(0);
-    mouthAnim.setValue(0);
-    hopAnim.setValue(0);
-    
-    if (currentAnimal === ANIMALS.length - 1) {
-      // Son hayvan - oyunu bitir
-      setTimeout(() => {
-        finishGame();
-      }, 500);
-    } else {
-      setCurrentAnimal(currentAnimal + 1);
-    }
-  };
-
-  const prevAnimal = () => {
-    setShowSound(false);
-    soundAnim.setValue(0);
-    mouthAnim.setValue(0);
-    hopAnim.setValue(0);
-    setCurrentAnimal(currentAnimal === 0 ? ANIMALS.length - 1 : currentAnimal - 1);
-  };
-
-  const toggleAutoPlay = () => {
-    setAutoPlay(!autoPlay);
-    setShowSound(false);
-  };
-
+  // --- INTERPOLATIONS ---
   const animalScale = bounceAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.2, 1],
+    outputRange: [0.3, 1],
   });
 
   const animalOpacity = bounceAnim.interpolate({
@@ -382,128 +302,34 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
     outputRange: [1, 1.08],
   });
 
-  return (
-    <View style={[styles.container, { backgroundColor: animal.bgColor }]}>
-      {/* Intro Screen */}
-      {showIntro && (
-        <Animated.View
-          style={[
-            styles.introOverlay,
-            {
-              opacity: introAnim,
-              transform: [
-                {
-                  scale: introAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.8, 1],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <View style={styles.introContent}>
-            <Text style={styles.introTitle}>🎵 Animal Sounds 🎵</Text>
-            <View style={styles.introAnimalsRow}>
-              {ANIMALS.slice(0, 4).map((a, i) => (
-                <Animated.Text
-                  key={i}
-                  style={[
-                    styles.introAnimalEmoji,
-                    {
-                      opacity: introAnim,
-                      transform: [
-                        {
-                          translateY: introAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [50, 0],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                >
-                  {a.emoji}
-                </Animated.Text>
-              ))}
-            </View>
-            <View style={styles.introAnimalsRow}>
-              {ANIMALS.slice(4, 7).map((a, i) => (
-                <Animated.Text
-                  key={i}
-                  style={[
-                    styles.introAnimalEmoji,
-                    {
-                      opacity: introAnim,
-                      transform: [
-                        {
-                          translateY: introAnim.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [50, 0],
-                          }),
-                        },
-                      ],
-                    },
-                  ]}
-                >
-                  {a.emoji}
-                </Animated.Text>
-              ))}
-            </View>
-            <Animated.Text
-              style={[
-                styles.introSubtitle,
-                {
-                  opacity: introAnim.interpolate({
-                    inputRange: [0, 0.5, 1],
-                    outputRange: [0, 0, 1],
-                  }),
-                },
-              ]}
-            >
-              Let's learn together! 🌟
-            </Animated.Text>
-          </View>
-        </Animated.View>
-      )}
+  // Intro UI
+  if (!hasStarted) {
+    return (
+      <View style={[styles.container, { backgroundColor: '#F1F8F2' }]}>
+         <Animated.View style={[styles.introOverlay, { opacity: introAnim }]}>
+           <View style={styles.introContent}>
+             <Text style={styles.introTitle}>🎵 Animal Sounds 🎵</Text>
+             <View style={styles.introAnimalsRow}>
+                <Text style={styles.introAnimalEmoji}>🐶</Text>
+                <Text style={styles.introAnimalEmoji}>🐱</Text>
+                <Text style={styles.introAnimalEmoji}>🐮</Text>
+             </View>
+             <Text style={styles.introSubtitle}>Let's learn together! 🌟</Text>
+           </View>
+         </Animated.View>
+      </View>
+    );
+  }
 
-      {/* Animated background circles */}
-      <Animated.View 
-        style={[
-          styles.bgCircle1, 
-          { 
-            backgroundColor: animal.color,
-            opacity: bounceAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 0.4],
-            })
-          }
-        ]} 
-      />
-      <Animated.View 
-        style={[
-          styles.bgCircle2, 
-          { 
-            backgroundColor: animal.color,
-            opacity: bounceAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 0.3],
-            })
-          }
-        ]} 
-      />
-      <Animated.View 
-        style={[
-          styles.bgCircle3, 
-          { 
-            backgroundColor: animal.color,
-            opacity: bounceAnim.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 0.25],
-            })
-          }
-        ]} 
-      />
+  if (!currentAnimal) return null;
+
+  return (
+    <View style={[styles.container, { backgroundColor: currentAnimal.bgColor }]}>
+      
+      {/* Background Circles */}
+      <View style={[styles.bgCircle1, { backgroundColor: currentAnimal.color }]} />
+      <View style={[styles.bgCircle2, { backgroundColor: currentAnimal.color }]} />
+      <View style={[styles.bgCircle3, { backgroundColor: currentAnimal.color }]} />
 
       {/* Header */}
       <View style={styles.header}>
@@ -525,9 +351,9 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
             key={index}
             style={[
               styles.progressDot,
-              index === currentAnimal && styles.progressDotActive,
-              index === currentAnimal && { backgroundColor: animal.accentColor },
-              completedAnimals.includes(index) && styles.progressDotCompleted,
+              index === currentAnimalIndex && styles.progressDotActive,
+              index === currentAnimalIndex && { backgroundColor: currentAnimal.accentColor },
+              index < currentAnimalIndex && styles.progressDotCompleted,
             ]}
           />
         ))}
@@ -535,21 +361,22 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
 
       {/* Main Content */}
       <View style={styles.mainContent}>
-        {/* Question */}
+        
+        {/* Question Box */}
         <Animated.View 
           style={[
             styles.questionBox,
             { 
               opacity: animalOpacity,
-              backgroundColor: animal.color,
-              borderColor: animal.accentColor,
+              backgroundColor: currentAnimal.color,
+              borderColor: currentAnimal.accentColor,
             }
           ]}
         >
-          <Text style={styles.questionText}>{animal.question}</Text>
+          <Text style={styles.questionText}>{currentAnimal.question}</Text>
         </Animated.View>
 
-        {/* Animal */}
+        {/* Animal Character */}
         <Animated.View
           style={[
             styles.animalContainer,
@@ -566,20 +393,20 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
             style={[
               styles.animalCircle,
               { 
-                backgroundColor: animal.color,
-                borderColor: animal.accentColor,
+                backgroundColor: currentAnimal.color,
+                borderColor: currentAnimal.accentColor,
               },
-              showSound && !animal.silent && !animal.action && { transform: [{ scale: mouthScale }] }
+              showSound && !currentAnimal.silent && !currentAnimal.action && { transform: [{ scale: mouthScale }] }
             ]}
           >
-            <Text style={styles.animalEmoji}>{animal.emoji}</Text>
+            <Text style={styles.animalEmoji}>{currentAnimal.emoji}</Text>
           </Animated.View>
-          <View style={[styles.nameBadge, { backgroundColor: animal.accentColor }]}>
-            <Text style={styles.animalName}>{animal.name}</Text>
+          <View style={[styles.nameBadge, { backgroundColor: currentAnimal.accentColor }]}>
+            <Text style={styles.animalName}>{currentAnimal.name}</Text>
           </View>
         </Animated.View>
 
-        {/* Sound Display */}
+        {/* Answer / Sound Bubble */}
         {showSound && (
           <Animated.View
             style={[
@@ -590,59 +417,26 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
               },
             ]}
           >
-            <View style={[styles.soundBubble, { borderColor: animal.accentColor }]}>
-              {animal.silent ? (
+            <View style={[styles.soundBubble, { borderColor: currentAnimal.accentColor }]}>
+              {currentAnimal.silent ? (
                 <Text style={styles.soundText}>🤫 Shhh...</Text>
               ) : (
-                <Text style={styles.soundText}>{animal.sound}!</Text>
+                <Text style={styles.soundText}>{currentAnimal.sound}!</Text>
               )}
             </View>
           </Animated.View>
         )}
 
-        {/* Play Sound Button */}
-        {!autoPlay && (
-          <TouchableOpacity
-            style={[styles.playSoundButton, { backgroundColor: animal.accentColor }]}
-            onPress={playSound}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.playSoundEmoji}>
-              {animal.silent ? '👀' : animal.action ? '🐾' : '🔊'}
-            </Text>
-            <Text style={styles.playSoundText}>
-              {showSound ? 'Play Again' : animal.silent ? 'Watch' : animal.action ? 'Hop!' : 'Play Sound'}
-            </Text>
-          </TouchableOpacity>
-        )}
       </View>
 
-      {/* Navigation */}
+      {/* Navigation Controls */}
       <View style={styles.navigation}>
-        <TouchableOpacity
-          style={styles.navButton}
-          onPress={prevAnimal}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.navButtonText}>←</Text>
-        </TouchableOpacity>
-
-        <View style={styles.counter}>
-          <Text style={styles.counterText}>
-            {currentAnimal + 1} / {ANIMALS.length}
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          style={styles.navButton}
-          onPress={nextAnimal}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.navButtonText}>→</Text>
-        </TouchableOpacity>
+         <View style={styles.counter}>
+            <Text style={styles.counterText}>
+              {currentAnimalIndex + 1} / {ANIMALS.length}
+            </Text>
+         </View>
       </View>
-
-      {/* Finish Button kaldırıldı - otomatik bitiş */}
     </View>
   );
 }
@@ -653,13 +447,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   introOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.98)',
-    zIndex: 100,
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -696,6 +484,7 @@ const styles = StyleSheet.create({
     borderRadius: 125,
     top: -80,
     right: -60,
+    opacity: 0.4,
   },
   bgCircle2: {
     position: 'absolute',
@@ -704,6 +493,7 @@ const styles = StyleSheet.create({
     borderRadius: 90,
     bottom: 120,
     left: -50,
+    opacity: 0.3,
   },
   bgCircle3: {
     position: 'absolute',
@@ -712,6 +502,7 @@ const styles = StyleSheet.create({
     borderRadius: 75,
     top: 150,
     left: -30,
+    opacity: 0.25,
   },
   header: {
     flexDirection: 'row',
@@ -734,28 +525,6 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: 'row',
     gap: 10,
-  },
-  autoPlayButton: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  autoPlayActive: {
-    backgroundColor: '#74C0FC',
-  },
-  autoPlayText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4A4A4A',
-  },
-  autoPlayTextActive: {
-    color: '#FFFFFF',
   },
   backBtn: {
     backgroundColor: '#FFFFFF',
@@ -881,51 +650,12 @@ const styles = StyleSheet.create({
     color: '#4A4A4A',
     textAlign: 'center',
   },
-  playSoundButton: {
-    paddingHorizontal: 36,
-    paddingVertical: 14,
-    borderRadius: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  playSoundEmoji: {
-    fontSize: 22,
-  },
-  playSoundText: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
   navigation: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
     zIndex: 1,
-  },
-  navButton: {
-    backgroundColor: '#FFFFFF',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  navButtonText: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#4A4A4A',
   },
   counter: {
     backgroundColor: '#FFFFFF',
@@ -942,22 +672,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#4A4A4A',
-  },
-  finishButton: {
-    backgroundColor: '#81C784',
-    paddingVertical: 14,
-    borderRadius: 24,
-    alignItems: 'center',
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  finishButtonText: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#FFFFFF',
   },
 });

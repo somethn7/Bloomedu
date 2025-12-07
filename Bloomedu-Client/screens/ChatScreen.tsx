@@ -3,7 +3,9 @@ import React, {
   useEffect,
   useRef,
   useLayoutEffect,
+  useCallback,
 } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -56,6 +58,9 @@ const ChatScreen = ({ route, navigation }: any) => {
   const [myUserId, setMyUserId] = useState<number | null>(null);
 
   const flatListRef = useRef<FlatList>(null);
+  
+  // Canlı sohbet hissi için interval referansı
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
 
   const myType: 'parent' | 'teacher' = isTeacher ? 'teacher' : 'parent';
 
@@ -65,15 +70,27 @@ const ChatScreen = ({ route, navigation }: any) => {
 
   useEffect(() => {
     loadUserAndMessages();
+
+    // Sayfadan çıkınca polling'i temizle
+    return () => stopPolling();
   }, []);
 
-  useEffect(() => {
-    if (myUserId && finalChildId) {
-      markMessagesAsRead();
-    }
-  }, [myUserId, finalChildId]);
+  // 3 Saniyede bir yeni mesaj var mı diye kontrol et (Basit Real-time)
+  const startPolling = useCallback((uid: number) => {
+    stopPolling();
+    pollingRef.current = setInterval(() => {
+      fetchMessages(uid, true); // true = silent loading (loading spinner gösterme)
+    }, 3000); 
+  }, []);
 
-  const markMessagesAsRead = async () => {
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
+    }
+  }, []);
+
+  const markMessagesAsRead = useCallback(async () => {
     if (!myUserId || !finalChildId) return;
 
     try {
@@ -90,7 +107,18 @@ const ChatScreen = ({ route, navigation }: any) => {
     } catch (e) {
       console.log('mark-read error:', e);
     }
-  };
+  }, [myUserId, finalChildId, otherUserId, category]);
+
+  // Ekran focus olduğunda okundu yap ve polling başlat
+  useFocusEffect(
+    useCallback(() => {
+      if (myUserId && finalChildId) {
+        markMessagesAsRead();
+        startPolling(myUserId);
+      }
+      return () => stopPolling(); // Ekran flulaşınca durdur (performans için)
+    }, [myUserId, finalChildId, markMessagesAsRead, startPolling, stopPolling])
+  );
 
   const loadUserAndMessages = async () => {
     try {
@@ -102,15 +130,15 @@ const ChatScreen = ({ route, navigation }: any) => {
       const uid = parseInt(idString, 10);
       setMyUserId(uid);
 
-      fetchMessages(uid);
+      await fetchMessages(uid);
     } catch (e) {
       console.log('load user error:', e);
     }
   };
 
-  const fetchMessages = async (myId: number) => {
+  const fetchMessages = async (myId: number, silent = false) => {
     if (!finalChildId) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
 
     try {
       const res = await fetch(
@@ -126,11 +154,13 @@ const ChatScreen = ({ route, navigation }: any) => {
         return;
       }
 
-      if (json.success) setMessages(json.messages);
+      if (json.success) {
+        setMessages(json.messages);
+      }
     } catch (err) {
       console.log('fetch error:', err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -173,7 +203,12 @@ const ChatScreen = ({ route, navigation }: any) => {
 
       if (json.success) {
         setInputText('');
-        fetchMessages(myUserId);
+        // Anında listeyi güncelle
+        fetchMessages(myUserId, true);
+        // Mesaj gittikten sonra en alta kaydır
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: true });
+        }, 100);
       }
     } catch (err) {
       console.log('send error:', err);
@@ -186,9 +221,12 @@ const ChatScreen = ({ route, navigation }: any) => {
     const result = await launchImageLibrary({
       mediaType: 'photo',
       includeBase64: true,
+      maxWidth: 800, // Performans için resmi küçültüyoruz
+      maxHeight: 800,
+      quality: 0.7,  // Kaliteyi optimize ediyoruz
     });
 
-    if (result.assets?.length > 0) {
+    if (result.assets && result.assets.length > 0) {
       const a = result.assets[0];
 
       if (a.base64 && a.type) {
@@ -199,7 +237,8 @@ const ChatScreen = ({ route, navigation }: any) => {
   };
 
   const renderItem = ({ item }: { item: Message }) => {
-    const isMe = item.sender_type === myType; // 🔥 sadece type'a bak
+    // DÜZELTME: Hem sender_id hem sender_type kontrol edilmeli
+    const isMe = item.sender_id === myUserId && item.sender_type === myType;
 
     return (
       <View
@@ -212,6 +251,7 @@ const ChatScreen = ({ route, navigation }: any) => {
           <Image
             source={{ uri: item.content_url }}
             style={styles.chatImage}
+            resizeMode="cover"
           />
         ) : (
           <Text
@@ -248,11 +288,6 @@ const ChatScreen = ({ route, navigation }: any) => {
 
   return (
     <View style={styles.container}>
-      {/* DEBUG PANEL istersen kaldır */}
-      {/* <View style={{ padding: 10, backgroundColor: 'yellow' }}>
-        <Text>FINAL CHILD ID: {finalChildId}</Text>
-      </View> */}
-
       <View style={[styles.header, { backgroundColor: categoryColor }]}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -270,7 +305,7 @@ const ChatScreen = ({ route, navigation }: any) => {
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" style={{ marginTop: 20 }} />
+        <ActivityIndicator size="large" style={{ marginTop: 20 }} color={categoryColor} />
       ) : (
         <FlatList
           ref={flatListRef}
@@ -278,14 +313,17 @@ const ChatScreen = ({ route, navigation }: any) => {
           renderItem={renderItem}
           keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={styles.listContent}
-          onContentSizeChange={() =>
-            flatListRef.current?.scrollToEnd({ animated: true })
-          }
+          // Klavye açılınca listeyi koru
+          keyboardShouldPersistTaps="handled"
+          // Liste yüklendiğinde en alta git
+          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+          onLayout={() => flatListRef.current?.scrollToEnd({ animated: false })}
         />
       )}
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
       >
         <View style={styles.inputContainer}>
           <TouchableOpacity
@@ -297,21 +335,22 @@ const ChatScreen = ({ route, navigation }: any) => {
 
           <TextInput
             style={styles.input}
-            placeholder="Type a message..."
+            placeholder="Mesaj yazın..."
             value={inputText}
             onChangeText={setInputText}
+            multiline
           />
 
           <TouchableOpacity
             style={[
               styles.sendButton,
-              { backgroundColor: categoryColor },
+              { backgroundColor: categoryColor, opacity: (!inputText.trim() && !sending) ? 0.6 : 1 },
             ]}
             disabled={sending || !inputText.trim()}
             onPress={() => handleSend('text', inputText.trim())}
           >
             {sending ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color="#fff" size="small" />
             ) : (
               <Text style={styles.sendButtonText}>→</Text>
             )}
@@ -328,7 +367,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F7FA' },
 
   header: {
-    paddingTop: 50,
+    paddingTop: Platform.OS === 'ios' ? 50 : 20,
     paddingBottom: 15,
     paddingHorizontal: 20,
     flexDirection: 'row',
@@ -336,6 +375,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     borderBottomLeftRadius: 25,
     borderBottomRightRadius: 25,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
   },
 
   backButton: {
@@ -351,36 +395,43 @@ const styles = StyleSheet.create({
 
   headerInfo: { alignItems: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#FFF' },
-  headerSubtitle: { fontSize: 12, color: 'rgba(255,255,255,0.9)' },
+  headerSubtitle: { fontSize: 13, color: 'rgba(255,255,255,0.95)', fontWeight: '500' },
 
-  listContent: { padding: 20 },
+  listContent: { padding: 20, paddingBottom: 40 },
 
   bubble: {
     maxWidth: '75%',
     padding: 12,
     borderRadius: 16,
     marginBottom: 12,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
   },
 
   myBubble: {
     alignSelf: 'flex-end',
     backgroundColor: '#4ECDC4',
+    borderBottomRightRadius: 2,
   },
   otherBubble: {
     alignSelf: 'flex-start',
     backgroundColor: '#FFF',
+    borderBottomLeftRadius: 2,
     borderWidth: 1,
     borderColor: '#E2E8F0',
   },
 
-  messageText: { fontSize: 16 },
+  messageText: { fontSize: 16, lineHeight: 22 },
   myText: { color: '#FFF' },
   otherText: { color: '#333' },
 
   bubbleFooter: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    marginTop: 5,
+    marginTop: 4,
     alignItems: 'center',
   },
 
@@ -388,7 +439,7 @@ const styles = StyleSheet.create({
   myTime: { color: 'rgba(255,255,255,0.8)' },
   otherTime: { color: '#999' },
 
-  readReceipt: { marginLeft: 6, color: '#FFF', fontSize: 10 },
+  readReceipt: { marginLeft: 6, color: '#FFF', fontSize: 10, fontWeight: 'bold' },
 
   inputContainer: {
     flexDirection: 'row',
@@ -397,6 +448,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
     alignItems: 'center',
+    paddingBottom: Platform.OS === 'ios' ? 30 : 10,
   },
 
   input: {
@@ -404,13 +456,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
     borderRadius: 20,
     paddingHorizontal: 16,
+    paddingVertical: 10,
     fontSize: 16,
     marginRight: 8,
     borderWidth: 1,
     borderColor: '#E2E8F0',
+    maxHeight: 100, // Çok uzun mesajlarda input çok büyümesin
   },
 
-  attachButton: { padding: 8 },
+  attachButton: { padding: 10 },
   attachIcon: { fontSize: 24, color: '#555' },
 
   sendButton: {
@@ -419,9 +473,10 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 2,
   },
 
-  sendButtonText: { fontSize: 22, color: '#FFF', fontWeight: 'bold' },
+  sendButtonText: { fontSize: 20, color: '#FFF', fontWeight: 'bold', marginBottom: 2 },
 
-  chatImage: { width: 200, height: 150, borderRadius: 12, marginBottom: 8 },
+  chatImage: { width: 200, height: 150, borderRadius: 12, marginBottom: 4, backgroundColor: '#eee' },
 });
