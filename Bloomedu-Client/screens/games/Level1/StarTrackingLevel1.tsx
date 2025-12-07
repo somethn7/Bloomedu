@@ -1,3 +1,8 @@
+// -umut: LEVEL 1 StarTrackingLevel1 - YENİDEN DÜZENLEME (07.12.2025)
+// Bu oyun, otizmli çocukların hareketli nesneleri gözle takip etme becerilerini geliştirmek için tasarlanmıştır
+// Oyun sonuçları database'e kaydedilir (wrong_count=0, success_rate=100)
+// Özellikler: 6 Senaryo, Otomatik hareket, Sesli anlatım, Görsel efektler, Tam Kod
+
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -6,10 +11,11 @@ import {
   Animated,
   Dimensions,
   TouchableOpacity,
-  Alert,
+  SafeAreaView,
+  ScrollView,
 } from 'react-native';
-import { useRoute } from '@react-navigation/native';
 import Tts from 'react-native-tts';
+import { useRoute } from '@react-navigation/native';
 import { createGameCompletionHandler } from '../../../utils/gameNavigation';
 import { sendGameResult } from '../../../config/api';
 
@@ -31,112 +37,66 @@ interface RouteParams {
   categoryTitle?: string;
 }
 
-// Seviye 1: Basit takip senaryoları
 const TRACKING_SCENARIOS = [
   {
-    emoji: '🐝',
-    name: 'bee',
-    target: '🌸',
-    targetName: 'flower',
-    message: 'Watch the bee fly to the flower!',
-    color: '#FFF9C4',
-    accentColor: '#FFD54F',
+    emoji: '🐝', name: 'bee', target: '🌸', targetName: 'flower',
+    message: 'Watch the bee fly to the flower!', color: '#FFF9C4', accentColor: '#FFD54F',
   },
   {
-    emoji: '🐶',
-    name: 'puppy',
-    target: '🦴',
-    targetName: 'bone',
-    message: 'Watch the puppy go to the bone!',
-    color: '#FFE5B4',
-    accentColor: '#FFB74D',
+    emoji: '🐶', name: 'puppy', target: '🦴', targetName: 'bone',
+    message: 'Watch the puppy go to the bone!', color: '#FFE5B4', accentColor: '#FFB74D',
   },
   {
-    emoji: '🚗',
-    name: 'car',
-    target: '🏠',
-    targetName: 'home',
-    message: 'Watch the car drive home!',
-    color: '#E3F2FD',
-    accentColor: '#64B5F6',
+    emoji: '🚗', name: 'car', target: '🏠', targetName: 'home',
+    message: 'Watch the car drive home!', color: '#E3F2FD', accentColor: '#64B5F6',
   },
   {
-    emoji: '🐱',
-    name: 'cat',
-    target: '🥛',
-    targetName: 'milk',
-    message: 'Watch the cat go to the milk!',
-    color: '#F3E5F5',
-    accentColor: '#BA68C8',
+    emoji: '🐱', name: 'cat', target: '🥛', targetName: 'milk',
+    message: 'Watch the cat go to the milk!', color: '#F3E5F5', accentColor: '#BA68C8',
   },
   {
-    emoji: '⚽',
-    name: 'ball',
-    target: '⛳',
-    targetName: 'goal',
-    message: 'Watch the ball roll to the goal!',
-    color: '#E8F5E9',
-    accentColor: '#81C784',
+    emoji: '⚽', name: 'ball', target: '⛳', targetName: 'goal',
+    message: 'Watch the ball roll to the goal!', color: '#E8F5E9', accentColor: '#81C784',
   },
   {
-    emoji: '🐠',
-    name: 'fish',
-    target: '🪸',
-    targetName: 'coral',
-    message: 'Watch the fish swim to the coral!',
-    color: '#E0F2F1',
-    accentColor: '#4DB6AC',
+    emoji: '🐠', name: 'fish', target: '🪸', targetName: 'coral',
+    message: 'Watch the fish swim to the coral!', color: '#E0F2F1', accentColor: '#4DB6AC',
   },
 ];
 
-// Hareket yönleri - Daha iyi konumlandırma
 const DIRECTIONS = [
-  { 
-    name: 'left-to-right', 
-    startX: MARGIN, 
-    startY: height * 0.4, 
-    endX: width - MARGIN - ITEM_SIZE, 
-    endY: height * 0.4 
-  },
-  { 
-    name: 'top-to-bottom', 
-    startX: width * 0.4, 
-    startY: height * 0.25, 
-    endX: width * 0.4, 
-    endY: height * 0.6 
-  },
-  { 
-    name: 'diagonal-down', 
-    startX: MARGIN, 
-    startY: height * 0.25, 
-    endX: width - MARGIN - ITEM_SIZE, 
-    endY: height * 0.55 
-  },
-  { 
-    name: 'right-to-left', 
-    startX: width - MARGIN - ITEM_SIZE, 
-    startY: height * 0.4, 
-    endX: MARGIN, 
-    endY: height * 0.4 
-  },
+  { name: 'left-to-right', startX: MARGIN, startY: height * 0.4, endX: width - MARGIN - ITEM_SIZE, endY: height * 0.4 },
+  { name: 'top-to-bottom', startX: width * 0.4, startY: height * 0.25, endX: width * 0.4, endY: height * 0.6 },
+  { name: 'diagonal-down', startX: MARGIN, startY: height * 0.25, endX: width - MARGIN - ITEM_SIZE, endY: height * 0.55 },
+  { name: 'right-to-left', startX: width - MARGIN - ITEM_SIZE, startY: height * 0.4, endX: MARGIN, endY: height * 0.4 },
 ];
 
 export default function StarTrackingLevel1({ navigation }: any) {
   const route = useRoute();
   const { child, gameSequence, currentGameIndex, categoryTitle } = (route.params as RouteParams) || {};
 
+  // Game State
   const [currentScenario, setCurrentScenario] = useState(0);
-  const [score, setScore] = useState(0);
-  const [gameStartTime] = useState(Date.now());
   const [showSuccess, setShowSuccess] = useState(false);
+  const [gameFinished, setGameFinished] = useState(false);
 
+  // Metrics (Gold Standard)
+  const [score, setScore] = useState(0);
+  const [wrongCount, setWrongCount] = useState(0); // Always 0 for tracking
+  const [answeredCount, setAnsweredCount] = useState(0);
+
+  // Refs
+  const gameStartTimeRef = useRef<number>(Date.now());
+  const timerRef = useRef<any>(null);
+
+  // Animations
   const itemPosition = useRef(new Animated.ValueXY()).current;
   const itemScale = useRef(new Animated.Value(1)).current;
   const targetScale = useRef(new Animated.Value(1)).current;
   const pathOpacity = useRef(new Animated.Value(0)).current;
   const successAnim = useRef(new Animated.Value(0)).current;
   
-  // Arkaplan dekorasyon animasyonları
+  // Decor Animations
   const cloud1Anim = useRef(new Animated.Value(0)).current;
   const cloud2Anim = useRef(new Animated.Value(0)).current;
   const sparkleAnim = useRef(new Animated.Value(0)).current;
@@ -145,483 +105,380 @@ export default function StarTrackingLevel1({ navigation }: any) {
   const direction = DIRECTIONS[currentScenario % DIRECTIONS.length];
   const totalScenarios = TRACKING_SCENARIOS.length;
 
+  // --- INIT & TTS ---
   useEffect(() => {
-    // Initialize TTS
-    Tts.setDefaultLanguage('en-US').catch(() => {});
-    Tts.setDefaultRate(0.3);
-    Tts.setDefaultPitch(1.0);
-    Tts.setIgnoreSilentSwitch('ignore');
+    const initTts = async () => {
+      try {
+        await Tts.setDefaultLanguage('en-US');
+        await Tts.setDefaultRate(0.3);
+        await Tts.setDefaultPitch(1.0);
+        await Tts.setIgnoreSilentSwitch('ignore');
+      } catch {}
+    };
+    initTts();
 
-    // Başlangıç mesajı
     setTimeout(() => {
       Tts.speak('Watch and follow with your eyes!');
     }, 500);
 
-    // Arkaplan animasyonları
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(cloud1Anim, {
-          toValue: 1,
-          duration: 3000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(cloud1Anim, {
-          toValue: 0,
-          duration: 3000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(cloud2Anim, {
-          toValue: 1,
-          duration: 4000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(cloud2Anim, {
-          toValue: 0,
-          duration: 4000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(sparkleAnim, {
-          toValue: 1,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-        Animated.timing(sparkleAnim, {
-          toValue: 0,
-          duration: 1500,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
+    // Background Animations Loop
+    const runDecorAnims = () => {
+      Animated.loop(Animated.sequence([
+        Animated.timing(cloud1Anim, { toValue: 1, duration: 3000, useNativeDriver: true }),
+        Animated.timing(cloud1Anim, { toValue: 0, duration: 3000, useNativeDriver: true }),
+      ])).start();
+      
+      Animated.loop(Animated.sequence([
+        Animated.timing(cloud2Anim, { toValue: 1, duration: 4000, useNativeDriver: true }),
+        Animated.timing(cloud2Anim, { toValue: 0, duration: 4000, useNativeDriver: true }),
+      ])).start();
+      
+      Animated.loop(Animated.sequence([
+        Animated.timing(sparkleAnim, { toValue: 1, duration: 1500, useNativeDriver: true }),
+        Animated.timing(sparkleAnim, { toValue: 0, duration: 1500, useNativeDriver: true }),
+      ])).start();
+    };
+    runDecorAnims();
 
     return () => {
       Tts.stop();
+      if (timerRef.current) clearTimeout(timerRef.current);
     };
   }, []);
 
+  // --- SCENARIO LOGIC ---
   useEffect(() => {
-    // Her senaryo için animasyon başlat
-    itemPosition.setValue({ x: direction.startX, y: direction.startY });
-    itemScale.setValue(1);
-    pathOpacity.setValue(0);
-    setShowSuccess(false);
+    if (!gameFinished) {
+      // Reset for new scenario
+      itemPosition.setValue({ x: direction.startX, y: direction.startY });
+      itemScale.setValue(1);
+      pathOpacity.setValue(0);
+      setShowSuccess(false);
 
-    // Target pulse animasyonu
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(targetScale, {
-          toValue: 1.15,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(targetScale, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
+      // Target Pulse
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(targetScale, { toValue: 1.15, duration: 1000, useNativeDriver: true }),
+          Animated.timing(targetScale, { toValue: 1, duration: 1000, useNativeDriver: true }),
+        ])
+      ).start();
 
-    const timer = setTimeout(() => {
-      startTracking();
-    }, 1200);
+      timerRef.current = setTimeout(() => {
+        startTracking();
+      }, 1200);
 
-    return () => clearTimeout(timer);
-  }, [currentScenario]);
+      return () => {
+        if (timerRef.current) clearTimeout(timerRef.current);
+      };
+    }
+  }, [currentScenario, gameFinished]);
 
   const startTracking = () => {
-    // TTS talimat
     Tts.speak(scenario.message);
 
-    // Yolu göster
-    Animated.timing(pathOpacity, {
-      toValue: 1,
-      duration: 600,
-      useNativeDriver: true,
-    }).start();
+    // Show path
+    Animated.timing(pathOpacity, { toValue: 1, duration: 600, useNativeDriver: true }).start();
 
-    // Item hareketi - Çok yavaş ve takip edilebilir
+    // Move Item
     setTimeout(() => {
       Animated.parallel([
         Animated.timing(itemPosition, {
           toValue: { x: direction.endX, y: direction.endY },
-          duration: 4000, // Çok yavaş
+          duration: 4000, // Slow movement for easy tracking
           useNativeDriver: true,
         }),
         Animated.sequence([
-          Animated.timing(itemScale, {
-            toValue: 1.2,
-            duration: 2000,
-            useNativeDriver: true,
-          }),
-          Animated.timing(itemScale, {
-            toValue: 0.9,
-            duration: 2000,
-            useNativeDriver: true,
-          }),
+          Animated.timing(itemScale, { toValue: 1.2, duration: 2000, useNativeDriver: true }),
+          Animated.timing(itemScale, { toValue: 0.9, duration: 2000, useNativeDriver: true }),
         ]),
       ]).start(() => {
-        // Başarı
-        setShowSuccess(true);
-        setScore(prevScore => prevScore + 1);
-
-        Animated.spring(successAnim, {
-          toValue: 1,
-          friction: 4,
-          tension: 40,
-          useNativeDriver: true,
-        }).start();
-
-        Tts.speak(`Perfect! The ${scenario.name} reached the ${scenario.targetName}!`);
-
-        // Yolu gizle
-        Animated.timing(pathOpacity, {
-          toValue: 0,
-          duration: 400,
-          useNativeDriver: true,
-        }).start();
-
-        setTimeout(() => {
-          successAnim.setValue(0);
-          setShowSuccess(false);
-          
-          if (currentScenario < totalScenarios - 1) {
-            nextScenario();
-          } else {
-            // Son senaryo - oyunu bitir
-            setTimeout(() => {
-              completeGame();
-            }, 100);
-          }
-        }, 2500);
+        handleScenarioComplete();
       });
     }, 600);
   };
 
-  const nextScenario = () => {
-    setCurrentScenario(currentScenario + 1);
+  const handleScenarioComplete = () => {
+    // 1. Calculate updated score immediately
+    const newScore = score + 1;
+    setScore(newScore);
+    setAnsweredCount(prev => prev + 1);
+
+    setShowSuccess(true);
+
+    Animated.spring(successAnim, {
+      toValue: 1,
+      friction: 4,
+      tension: 40,
+      useNativeDriver: true,
+    }).start();
+
+    Tts.speak(`Perfect! The ${scenario.name} reached the ${scenario.targetName}!`);
+
+    // Hide path
+    Animated.timing(pathOpacity, { toValue: 0, duration: 400, useNativeDriver: true }).start();
+
+    setTimeout(() => {
+      successAnim.setValue(0);
+      setShowSuccess(false);
+      
+      if (currentScenario < totalScenarios - 1) {
+        setCurrentScenario(prev => prev + 1);
+      } else {
+        // 2. Pass updated score to completion handler
+        setGameFinished(true);
+        completeGame(newScore);
+      }
+    }, 2500);
   };
 
-  const completeGame = async () => {
-    const totalTime = Date.now() - gameStartTime;
-    const finalScore = totalScenarios; // Tüm senaryolar tamamlandı
+  // --- DATABASE & COMPLETION ---
+  const completeGame = async (finalScore?: number) => {
+    if (!child?.id) return;
 
-    if (child?.id) {
+    const totalTimeMs = Date.now() - gameStartTimeRef.current;
+    
+    // Use passed score or fallback to state
+    const scoreToUse = finalScore !== undefined ? finalScore : score;
+    const safeAnswered = answeredCount > 0 ? answeredCount : 1;
+    
+    // For observation games, success rate is 100% if finished
+    const successRate = 100;
+
+    try {
       await sendGameResult({
         child_id: child.id,
-        game_type: 'bedtime_journey',
+        game_type: 'bedtime_journey', // Using same ID as before
         level: 1,
-        score: finalScore,
+        score: scoreToUse,
         max_score: totalScenarios,
-        duration_seconds: Math.floor(totalTime / 1000),
+        duration_seconds: Math.floor(totalTimeMs / 1000),
+        wrong_count: 0,
+        success_rate: successRate,
+        details: {
+          totalScenarios,
+          answeredCount: safeAnswered,
+          successRate: 100,
+        },
         completed: true,
       });
+    } catch (err) {
+      console.log('❌ Error sending game result:', err);
     }
 
-    const gameNavigation = createGameCompletionHandler({
-      navigation,
-      child,
-      gameSequence,
-      currentGameIndex,
-      categoryTitle,
-      resetGame: () => {
-        setCurrentScenario(0);
-        setScore(0);
-        setShowSuccess(false);
-        const firstDirection = DIRECTIONS[0];
-        itemPosition.setValue({ x: firstDirection.startX, y: firstDirection.startY });
-        itemScale.setValue(1);
-        pathOpacity.setValue(0);
-        successAnim.setValue(0);
-      },
-    });
+    // Dynamic Message Logic
+    let completionMessage = 'Amazing tracking skills! You followed every journey! 🌟';
+    if (scoreToUse < totalScenarios) {
+        completionMessage = 'Good job following along!';
+    }
 
-    gameNavigation.showCompletionMessage(
-      finalScore,
-      totalScenarios,
-      'Amazing tracking skills! You followed every journey! 🌟'
-    );
+    const gameNav = createGameCompletionHandler({
+        navigation,
+        child,
+        gameSequence,
+        currentGameIndex,
+        categoryTitle,
+        resetGame: () => {
+          setCurrentScenario(0);
+          setScore(0);
+          setAnsweredCount(0);
+          setGameFinished(false);
+          gameStartTimeRef.current = Date.now();
+        },
+      });
+  
+      gameNav.showCompletionMessage(
+        scoreToUse,
+        totalScenarios,
+        completionMessage
+      );
   };
 
+  // --- RENDER HELPERS ---
   const sequenceInfo = gameSequence && currentGameIndex !== undefined
     ? `Game ${currentGameIndex + 1}/${gameSequence.length}`
     : '';
 
   return (
     <View style={[styles.container, { backgroundColor: scenario.color }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>👀 Bedtime Journey</Text>
-          {sequenceInfo ? <Text style={styles.sequenceText}>{sequenceInfo}</Text> : null}
-        </View>
-        <View style={styles.scoreContainer}>
-          <Text style={styles.scoreText}>⭐ {score}/{totalScenarios}</Text>
-        </View>
-      </View>
-
-      {/* Progress Bar */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${((currentScenario + 1) / totalScenarios) * 100}%`,
-                backgroundColor: scenario.accentColor,
-              },
-            ]}
-          />
-        </View>
-        <Text style={styles.progressText}>
-          Journey {currentScenario + 1} of {totalScenarios}
-        </Text>
-      </View>
-
-      {/* Game Area */}
-      <View style={styles.gameArea}>
-        {/* Arkaplan Dekorasyonları */}
-        <Animated.View
-          style={[
-            styles.decorCloud,
-            styles.decorCloud1,
-            {
-              opacity: cloud1Anim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.3, 0.6],
-              }),
-              transform: [
-                {
-                  translateX: cloud1Anim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, 20],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <Text style={styles.decorCloudText}>☁️</Text>
-        </Animated.View>
-
-        <Animated.View
-          style={[
-            styles.decorCloud,
-            styles.decorCloud2,
-            {
-              opacity: cloud2Anim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0.3, 0.6],
-              }),
-              transform: [
-                {
-                  translateX: cloud2Anim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0, -20],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <Text style={styles.decorCloudText}>☁️</Text>
-        </Animated.View>
-
-        {/* Parlayan yıldızlar */}
-        <Animated.View
-          style={[
-            styles.sparkle,
-            styles.sparkle1,
-            {
-              opacity: sparkleAnim,
-              transform: [
-                {
-                  scale: sparkleAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [0.8, 1.2],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <Text style={styles.sparkleText}>✨</Text>
-        </Animated.View>
-
-        <Animated.View
-          style={[
-            styles.sparkle,
-            styles.sparkle2,
-            {
-              opacity: sparkleAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [0, 1],
-              }),
-              transform: [
-                {
-                  scale: sparkleAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [1.2, 0.8],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <Text style={styles.sparkleText}>⭐</Text>
-        </Animated.View>
-
-        <Animated.View
-          style={[
-            styles.sparkle,
-            styles.sparkle3,
-            {
-              opacity: sparkleAnim,
-            },
-          ]}
-        >
-          <Text style={styles.sparkleText}>💫</Text>
-        </Animated.View>
-
-        {/* Instruction */}
-        <View style={[styles.instructionCard, { borderColor: scenario.accentColor }]}>
-          <Text style={styles.instructionEmoji}>👁️</Text>
-          <Text style={styles.instructionText}>{scenario.message}</Text>
-        </View>
-
-        {/* Path Line - Düzeltilmiş */}
-        {direction.name === 'left-to-right' || direction.name === 'right-to-left' ? (
-          <Animated.View
-            style={[
-              styles.pathLineHorizontal,
-              {
-                opacity: pathOpacity,
-                left: Math.min(direction.startX, direction.endX) + ITEM_SIZE / 2,
-                top: direction.startY + ITEM_SIZE / 2 - 2,
-                width: Math.abs(direction.endX - direction.startX),
-              },
-            ]}
-          >
-            <View style={[styles.dottedLineHorizontal, { borderColor: scenario.accentColor }]} />
-          </Animated.View>
-        ) : direction.name === 'top-to-bottom' ? (
-          <Animated.View
-            style={[
-              styles.pathLineVertical,
-              {
-                opacity: pathOpacity,
-                left: direction.startX + ITEM_SIZE / 2 - 2,
-                top: direction.startY + ITEM_SIZE,
-                height: direction.endY - direction.startY - ITEM_SIZE,
-              },
-            ]}
-          >
-            <View style={[styles.dottedLineVertical, { borderColor: scenario.accentColor }]} />
-          </Animated.View>
-        ) : (
-          <Animated.View
-            style={[
-              styles.pathLineDiagonal,
-              {
-                opacity: pathOpacity,
-                left: direction.startX + ITEM_SIZE / 2,
-                top: direction.startY + ITEM_SIZE / 2,
-                width: Math.sqrt(
-                  Math.pow(direction.endX - direction.startX, 2) + 
-                  Math.pow(direction.endY - direction.startY, 2)
-                ),
-                transform: [
-                  {
-                    rotate: Math.atan2(
-                      direction.endY - direction.startY,
-                      direction.endX - direction.startX
-                    ) + 'rad',
-                  },
-                ],
-              },
-            ]}
-          >
-            <View style={[styles.dottedLineHorizontal, { borderColor: scenario.accentColor }]} />
-          </Animated.View>
-        )}
-
-        {/* Moving Item */}
-        <Animated.View
-          style={[
-            styles.itemContainer,
-            {
-              transform: [
-                { translateX: itemPosition.x },
-                { translateY: itemPosition.y },
-                { scale: itemScale },
-              ],
-            },
-          ]}
-        >
-          <View style={[styles.itemCircle, { backgroundColor: scenario.accentColor + '30' }]}>
-            <Text style={styles.itemEmoji}>{scenario.emoji}</Text>
+      <SafeAreaView style={{ flex: 1 }}>
+        
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>👀 Bedtime Journey</Text>
+            {sequenceInfo ? <Text style={styles.sequenceText}>{sequenceInfo}</Text> : null}
           </View>
-        </Animated.View>
-
-        {/* Target */}
-        <Animated.View
-          style={[
-            styles.targetContainer,
-            {
-              left: direction.endX,
-              top: direction.endY,
-              transform: [{ scale: targetScale }],
-            },
-          ]}
-        >
-          <View style={[styles.targetCircle, { borderColor: scenario.accentColor }]}>
-            <Text style={styles.targetEmoji}>{scenario.target}</Text>
+          <View style={styles.scoreContainer}>
+            <Text style={styles.scoreText}>⭐ {score}/{totalScenarios}</Text>
           </View>
-        </Animated.View>
+        </View>
 
-        {/* Success Message */}
-        {showSuccess && (
-          <Animated.View
+        {/* Progress Bar */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: `${((currentScenario + 1) / totalScenarios) * 100}%`,
+                  backgroundColor: scenario.accentColor,
+                },
+              ]}
+            />
+          </View>
+          <Text style={styles.progressText}>
+            Journey {currentScenario + 1} of {totalScenarios}
+          </Text>
+        </View>
+
+        {/* Game Area */}
+        <View style={styles.gameArea}>
+          
+          {/* Decor Clouds - Fixed Animations */}
+          <Animated.View style={[
+            styles.decorCloud, 
+            styles.decorCloud1, 
+            { 
+              opacity: cloud1Anim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.6] }), 
+              transform: [{ translateX: cloud1Anim.interpolate({ inputRange: [0, 1], outputRange: [0, 20] }) }] 
+            }
+          ]}>
+            <Text style={styles.decorCloudText}>☁️</Text>
+          </Animated.View>
+          
+          <Animated.View style={[
+            styles.decorCloud, 
+            styles.decorCloud2, 
+            { 
+              opacity: cloud2Anim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.6] }), 
+              transform: [{ translateX: cloud2Anim.interpolate({ inputRange: [0, 1], outputRange: [0, -20] }) }] 
+            }
+          ]}>
+            <Text style={styles.decorCloudText}>☁️</Text>
+          </Animated.View>
+
+          {/* Sparkles */}
+          <Animated.View style={[styles.sparkle, styles.sparkle1, { opacity: sparkleAnim }]}>
+            <Text style={styles.sparkleText}>✨</Text>
+          </Animated.View>
+          <Animated.View style={[styles.sparkle, styles.sparkle2, { opacity: sparkleAnim }]}>
+            <Text style={styles.sparkleText}>⭐</Text>
+          </Animated.View>
+
+          {/* Instruction */}
+          <View style={[styles.instructionCard, { borderColor: scenario.accentColor }]}>
+            <Text style={styles.instructionEmoji}>👁️</Text>
+            <Text style={styles.instructionText}>{scenario.message}</Text>
+          </View>
+
+          {/* Path Line - Logic for different directions */}
+          {direction.name === 'left-to-right' || direction.name === 'right-to-left' ? (
+            <Animated.View 
+              style={[
+                styles.pathLineHorizontal, 
+                { 
+                  opacity: pathOpacity, 
+                  left: Math.min(direction.startX, direction.endX) + ITEM_SIZE / 2, 
+                  top: direction.startY + ITEM_SIZE / 2 - 2, 
+                  width: Math.abs(direction.endX - direction.startX) 
+                }
+              ]}
+            >
+              <View style={[styles.dottedLineHorizontal, { borderColor: scenario.accentColor }]} />
+            </Animated.View>
+          ) : direction.name === 'top-to-bottom' ? (
+            <Animated.View 
+              style={[
+                styles.pathLineVertical, 
+                { 
+                  opacity: pathOpacity, 
+                  left: direction.startX + ITEM_SIZE / 2 - 2, 
+                  top: direction.startY + ITEM_SIZE, 
+                  height: direction.endY - direction.startY - ITEM_SIZE 
+                }
+              ]}
+            >
+              <View style={[styles.dottedLineVertical, { borderColor: scenario.accentColor }]} />
+            </Animated.View>
+          ) : (
+            <Animated.View 
+              style={[
+                styles.pathLineDiagonal, 
+                { 
+                  opacity: pathOpacity, 
+                  left: direction.startX + ITEM_SIZE / 2, 
+                  top: direction.startY + ITEM_SIZE / 2, 
+                  width: Math.sqrt(Math.pow(direction.endX - direction.startX, 2) + Math.pow(direction.endY - direction.startY, 2)), 
+                  transform: [{ rotate: Math.atan2(direction.endY - direction.startY, direction.endX - direction.startX) + 'rad' }] 
+                }
+              ]}
+            >
+              <View style={[styles.dottedLineHorizontal, { borderColor: scenario.accentColor }]} />
+            </Animated.View>
+          )}
+
+          {/* Moving Item */}
+          <Animated.View 
             style={[
-              styles.successMessage,
-              {
+              styles.itemContainer, 
+              { 
                 transform: [
-                  {
-                    scale: successAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.5, 1],
-                    }),
-                  },
-                ],
-                opacity: successAnim,
-              },
+                  { translateX: itemPosition.x }, 
+                  { translateY: itemPosition.y }, 
+                  { scale: itemScale }
+                ] 
+              }
             ]}
           >
-            <Text style={styles.successText}>🌟 Perfect! 🌟</Text>
+            <View style={[styles.itemCircle, { backgroundColor: scenario.accentColor + '30' }]}>
+              <Text style={styles.itemEmoji}>{scenario.emoji}</Text>
+            </View>
           </Animated.View>
-        )}
-      </View>
 
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.encouragementText}>
-          {currentScenario < 2 && 'Great focus! Keep watching! 👀'}
-          {currentScenario >= 2 && currentScenario < 4 && 'Amazing tracking! 🎯'}
-          {currentScenario >= 4 && 'Almost there! You are doing great! ⭐'}
-        </Text>
-      </View>
+          {/* Target */}
+          <Animated.View 
+            style={[
+              styles.targetContainer, 
+              { 
+                left: direction.endX, 
+                top: direction.endY, 
+                transform: [{ scale: targetScale }] 
+              }
+            ]}
+          >
+            <View style={[styles.targetCircle, { borderColor: scenario.accentColor }]}>
+              <Text style={styles.targetEmoji}>{scenario.target}</Text>
+            </View>
+          </Animated.View>
+
+          {/* Success Message */}
+          {showSuccess && (
+            <Animated.View 
+              style={[
+                styles.successMessage, 
+                { 
+                  transform: [{ scale: successAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }], 
+                  opacity: successAnim 
+                }
+              ]}
+            >
+              <Text style={styles.successText}>🌟 Perfect! 🌟</Text>
+            </Animated.View>
+          )}
+        </View>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.encouragementText}>
+            {currentScenario < 2 && 'Great focus! Keep watching! 👀'}
+            {currentScenario >= 2 && currentScenario < 4 && 'Amazing tracking! 🎯'}
+            {currentScenario >= 4 && 'Almost there! You are doing great! ⭐'}
+          </Text>
+        </View>
+      </SafeAreaView>
     </View>
   );
 }
@@ -635,7 +492,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingTop: 10,
     paddingBottom: 20,
     backgroundColor: '#fff',
     shadowColor: '#000',
@@ -855,10 +712,6 @@ const styles = StyleSheet.create({
   sparkle2: {
     top: height * 0.35,
     right: width * 0.25,
-  },
-  sparkle3: {
-    top: height * 0.5,
-    left: width * 0.15,
   },
   sparkleText: {
     fontSize: 24,

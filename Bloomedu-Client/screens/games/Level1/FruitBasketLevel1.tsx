@@ -1,3 +1,7 @@
+// -umut: LEVEL 1 FruitBasketLevel1 - YENİDEN DÜZENLEME (07.12.2025)
+// Bu oyun, otizmli çocukların meyve tanıma becerilerini geliştirmek için tasarlanmıştır
+// Oyun sonuçları database'e kaydedilir ve öğretmenler bu verileri takip edebilir(wrong_count, success_rate)
+// Özellikler: 10 soru, 6 meyve, skorlama, süre takibi, sesli okuma
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -6,6 +10,7 @@ import {
   Animated,
   Dimensions,
   TouchableOpacity,
+  SafeAreaView,
 } from 'react-native';
 import Tts from 'react-native-tts';
 import { useRoute } from '@react-navigation/native';
@@ -48,12 +53,21 @@ const FruitBasketLevel1 = ({ navigation }: any) => {
   const route = useRoute();
   const { child, gameSequence, currentGameIndex, categoryTitle } = (route.params as RouteParams) || {};
 
+  // Game Logic State
   const [currentFruitIndex, setCurrentFruitIndex] = useState(0);
-  const [score, setScore] = useState(0);
-  const [gameStartTime] = useState(Date.now());
   const [showSuccess, setShowSuccess] = useState(false);
+  const [gameFinished, setGameFinished] = useState(false);
 
-  // Pozisyonlar - Daha yumuşak yerleşim
+  // Metrics (Gold Standard)
+  const [score, setScore] = useState(0);
+  const [wrongCount, setWrongCount] = useState(0); // Always 0 for observation games
+  const [answeredCount, setAnsweredCount] = useState(0);
+
+  // Refs
+  const gameStartTimeRef = useRef<number>(Date.now());
+  const isFinishedRef = useRef(false);
+
+  // Animations
   const startX = width * 0.1;
   const startY = height * 0.35;
   const endX = width * 0.7;
@@ -68,8 +82,8 @@ const FruitBasketLevel1 = ({ navigation }: any) => {
   const currentFruit = FRUITS[currentFruitIndex];
   const totalFruits = FRUITS.length;
 
+  // --- INIT & TTS ---
   useEffect(() => {
-    // Initialize TTS
     Tts.setDefaultLanguage('en-US').catch(() => {});
     Tts.setDefaultRate(0.3);
     Tts.setDefaultPitch(1.0);
@@ -78,16 +92,8 @@ const FruitBasketLevel1 = ({ navigation }: any) => {
     // Basket pulse animation
     Animated.loop(
       Animated.sequence([
-        Animated.timing(basketScale, {
-          toValue: 1.1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(basketScale, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
+        Animated.timing(basketScale, { toValue: 1.1, duration: 1000, useNativeDriver: true }),
+        Animated.timing(basketScale, { toValue: 1, duration: 1000, useNativeDriver: true }),
       ])
     ).start();
 
@@ -96,253 +102,286 @@ const FruitBasketLevel1 = ({ navigation }: any) => {
     };
   }, []);
 
+  // --- GAME LOOP ---
   useEffect(() => {
-    // Her meyve için otomatik animasyon başlat - Daha uzun bekleme
-    const timer = setTimeout(() => {
-      startAnimation();
-    }, 1500);
-
-    return () => clearTimeout(timer);
-  }, [currentFruitIndex]);
+    if (!gameFinished) {
+      const timer = setTimeout(() => {
+        startAnimation();
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [currentFruitIndex, gameFinished]);
 
   const startAnimation = () => {
-    // TTS konuş - daha yavaş
+    if (isFinishedRef.current) return;
+
     Tts.speak(`Watch the ${currentFruit.name} go to the basket!`);
 
-    // Yolu yumuşak göster
-    Animated.timing(pathOpacity, {
-      toValue: 1,
-      duration: 800,
-      useNativeDriver: true,
-    }).start();
+    // Show path
+    Animated.timing(pathOpacity, { toValue: 1, duration: 800, useNativeDriver: true }).start();
 
-    // Meyveyi hareket ettir - Daha yavaş ve yumuşak
+    // Move Fruit
     setTimeout(() => {
       Animated.parallel([
         Animated.timing(fruitPosition, {
           toValue: { x: endX, y: endY },
-          duration: 3500, // Daha yavaş
+          duration: 3500,
           useNativeDriver: true,
         }),
         Animated.sequence([
-          Animated.timing(fruitScale, {
-            toValue: 1.15,
-            duration: 1750,
-            useNativeDriver: true,
-          }),
-          Animated.timing(fruitScale, {
-            toValue: 0.85,
-            duration: 1750,
-            useNativeDriver: true,
-          }),
+          Animated.timing(fruitScale, { toValue: 1.15, duration: 1750, useNativeDriver: true }),
+          Animated.timing(fruitScale, { toValue: 0.85, duration: 1750, useNativeDriver: true }),
         ]),
       ]).start(() => {
-        // Başarı kutlaması
-        setShowSuccess(true);
-        setScore(score + 1);
-        
-        // Kutlama animasyonu
-        Animated.spring(celebrationAnim, {
-          toValue: 1,
-          friction: 3,
-          tension: 40,
-          useNativeDriver: true,
-        }).start();
-        
-        Tts.speak(`Wonderful! The ${currentFruit.name} is in the basket!`);
-
-        // Yolu gizle
-        Animated.timing(pathOpacity, {
-          toValue: 0,
-          duration: 500,
-          useNativeDriver: true,
-        }).start();
-
-        setTimeout(() => {
-          celebrationAnim.setValue(0);
-          if (currentFruitIndex < totalFruits - 1) {
-            nextFruit();
-          } else {
-            completeGame();
-          }
-        }, 2000); // Daha uzun kutlama
+        // --- ON SUCCESS ---
+        handleFruitSuccess();
       });
     }, 800);
   };
 
+  const handleFruitSuccess = () => {
+    setShowSuccess(true);
+    
+    // Metrics Update
+    setScore(prev => prev + 1);
+    setAnsweredCount(prev => prev + 1);
+
+    // Celebration
+    Animated.spring(celebrationAnim, {
+      toValue: 1,
+      friction: 3,
+      tension: 40,
+      useNativeDriver: true,
+    }).start();
+
+    Tts.speak(`Wonderful! The ${currentFruit.name} is in the basket!`);
+
+    // Hide path
+    Animated.timing(pathOpacity, { toValue: 0, duration: 500, useNativeDriver: true }).start();
+
+    setTimeout(() => {
+      celebrationAnim.setValue(0);
+      if (currentFruitIndex < totalFruits - 1) {
+        nextFruit();
+      } else {
+        setGameFinished(true);
+      }
+    }, 2000);
+  };
+
   const nextFruit = () => {
     setShowSuccess(false);
-    setCurrentFruitIndex(currentFruitIndex + 1);
+    setCurrentFruitIndex(prev => prev + 1);
     fruitPosition.setValue({ x: startX, y: startY });
     fruitScale.setValue(1);
     pathOpacity.setValue(0);
   };
 
-  const completeGame = async () => {
-    const totalTime = Date.now() - gameStartTime;
+  // --- DATABASE & COMPLETION ---
+  const sendToDatabase = async () => {
+    if (!child?.id) return;
 
-    if (child?.id) {
+    const totalTimeMs = Date.now() - gameStartTimeRef.current;
+    
+    // Observation game: 100% success rate if completed
+    const safeAnswered = answeredCount > 0 ? answeredCount : 1;
+    const successRate = 100; 
+
+    try {
       await sendGameResult({
         child_id: child.id,
         game_type: 'fruit_basket',
         level: 1,
-        score: score + 1,
+        score: score, // score incremented in handleFruitSuccess
         max_score: totalFruits,
-        duration_seconds: Math.floor(totalTime / 1000),
+        duration_seconds: Math.floor(totalTimeMs / 1000),
+        wrong_count: 0,
+        success_rate: successRate,
+        details: {
+          totalQuestions: totalFruits,
+          answeredCount: safeAnswered,
+          wrongCount: 0,
+          successRate: 100,
+        },
         completed: true,
       });
+    } catch (err) {
+      console.log('❌ Error sending game result:', err);
     }
+  };
 
-    const gameNavigation = createGameCompletionHandler({
+  useEffect(() => {
+    if (gameFinished) {
+      (async () => {
+        await sendToDatabase();
+        handleGameCompletion();
+      })();
+    }
+  }, [gameFinished]);
+
+  const restartGame = () => {
+    isFinishedRef.current = false;
+    setCurrentFruitIndex(0);
+    setScore(0);
+    setAnsweredCount(0);
+    setShowSuccess(false);
+    setGameFinished(false);
+    fruitPosition.setValue({ x: startX, y: startY });
+    fruitScale.setValue(1);
+    pathOpacity.setValue(0);
+    gameStartTimeRef.current = Date.now();
+  };
+
+  const handleGameCompletion = () => {
+    isFinishedRef.current = true;
+    Tts.stop();
+
+    const gameNav = createGameCompletionHandler({
       navigation,
       child,
       gameSequence,
       currentGameIndex,
       categoryTitle,
-      resetGame: () => {
-        setCurrentFruitIndex(0);
-        setScore(0);
-        setShowSuccess(false);
-        fruitPosition.setValue({ x: startX, y: startY });
-        fruitScale.setValue(1);
-        pathOpacity.setValue(0);
-      },
+      resetGame: restartGame,
     });
 
-    gameNavigation.showCompletionMessage(
-      score + 1,
+    gameNav.showCompletionMessage(
+      score,
       totalFruits,
       'Amazing! All fruits are in the basket!'
     );
   };
 
+  // --- RENDER HELPERS ---
   const sequenceInfo = gameSequence && currentGameIndex !== undefined
     ? `Game ${currentGameIndex + 1}/${gameSequence.length}`
     : '';
 
   return (
     <View style={[styles.container, { backgroundColor: currentFruit.color + '15' }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Text style={styles.backButtonText}>← Back</Text>
-        </TouchableOpacity>
-        <View style={styles.titleContainer}>
-          <Text style={styles.title}>🍎 Fruit Basket</Text>
-          {sequenceInfo ? <Text style={styles.sequenceText}>{sequenceInfo}</Text> : null}
-        </View>
-        <View style={styles.scoreContainer}>
-          <Text style={styles.scoreText}>🍎 {score}/{totalFruits}</Text>
-        </View>
-      </View>
-
-      {/* Progress Bar */}
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <View
-            style={[
-              styles.progressFill,
-              { 
-                width: `${((currentFruitIndex + 1) / totalFruits) * 100}%`,
-                backgroundColor: currentFruit.color 
-              },
-            ]}
-          />
-        </View>
-        <Text style={styles.progressText}>Fruit {currentFruitIndex + 1} of {totalFruits}</Text>
-      </View>
-
-      {/* Game Area */}
-      <View style={styles.gameArea}>
-        {/* Instruction */}
-        <View style={[styles.instructionCard, { borderColor: currentFruit.color }]}>
-          <Text style={styles.instructionEmoji}>👀</Text>
-          <Text style={styles.instructionText}>
-            Watch the {currentFruit.name} go to the basket!
-          </Text>
-        </View>
-
-        {/* Yol Göstergesi (Noktalı Çizgi) */}
-        <Animated.View
-          style={[
-            styles.pathLine,
-            {
-              opacity: pathOpacity,
-              left: startX + FRUIT_SIZE / 2,
-              top: startY + FRUIT_SIZE / 2,
-              width: endX - startX,
-            },
-          ]}
-        >
-          <View style={[styles.dottedLine, { borderColor: currentFruit.color }]} />
-        </Animated.View>
-
-        {/* Fruit */}
-        <Animated.View
-          style={[
-            styles.fruitContainer,
-            {
-              transform: [
-                { translateX: fruitPosition.x },
-                { translateY: fruitPosition.y },
-                { scale: fruitScale },
-              ],
-            },
-          ]}
-        >
-          <View style={[styles.fruitCircle, { backgroundColor: currentFruit.color + '30' }]}>
-            <Text style={styles.fruitEmoji}>{currentFruit.emoji}</Text>
+      <SafeAreaView style={{flex: 1}}>
+        {/* Header */}
+        <View style={styles.header}>
+          <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+            <Text style={styles.backButtonText}>← Back</Text>
+          </TouchableOpacity>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>🍎 Fruit Basket</Text>
+            {sequenceInfo ? <Text style={styles.sequenceText}>{sequenceInfo}</Text> : null}
           </View>
-        </Animated.View>
-
-        {/* Basket */}
-        <Animated.View
-          style={[
-            styles.basketContainer,
-            {
-              left: endX,
-              top: endY,
-              transform: [{ scale: basketScale }],
-            },
-          ]}
-        >
-          <View style={styles.basketCircle}>
-            <Text style={styles.basketEmoji}>🧺</Text>
+          <View style={styles.scoreContainer}>
+            <Text style={styles.scoreText}>🍎 {score}/{totalFruits}</Text>
           </View>
-          <Text style={styles.basketLabel}>BASKET</Text>
-        </Animated.View>
+        </View>
 
-        {/* Success Message */}
-        {showSuccess && (
-          <Animated.View 
+        {/* Progress Bar */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressBar}>
+            <View
+              style={[
+                styles.progressFill,
+                { 
+                  width: `${((currentFruitIndex + 1) / totalFruits) * 100}%`,
+                  backgroundColor: currentFruit.color 
+                },
+              ]}
+            />
+          </View>
+          <Text style={styles.progressText}>Fruit {currentFruitIndex + 1} of {totalFruits}</Text>
+        </View>
+
+        {/* Game Area */}
+        <View style={styles.gameArea}>
+          {/* Instruction */}
+          <View style={[styles.instructionCard, { borderColor: currentFruit.color }]}>
+            <Text style={styles.instructionEmoji}>👀</Text>
+            <Text style={styles.instructionText}>
+              Watch the {currentFruit.name} go to the basket!
+            </Text>
+          </View>
+
+          {/* Path Line */}
+          <Animated.View
             style={[
-              styles.successMessage,
+              styles.pathLine,
               {
-                transform: [
-                  {
-                    scale: celebrationAnim.interpolate({
-                      inputRange: [0, 1],
-                      outputRange: [0.5, 1],
-                    }),
-                  },
-                ],
-                opacity: celebrationAnim,
+                opacity: pathOpacity,
+                left: startX + FRUIT_SIZE / 2,
+                top: startY + FRUIT_SIZE / 2,
+                width: endX - startX,
               },
             ]}
           >
-            <Text style={styles.successText}>🎉 Perfect! 🎉</Text>
+            <View style={[styles.dottedLine, { borderColor: currentFruit.color }]} />
           </Animated.View>
-        )}
-      </View>
 
-      {/* Footer */}
-      <View style={styles.footer}>
-        <Text style={styles.encouragementText}>
-          {currentFruitIndex < 2 && "Great focus! 🌟"}
-          {currentFruitIndex >= 2 && currentFruitIndex < 4 && "You're doing amazing! ⭐"}
-          {currentFruitIndex >= 4 && "Almost done! 🎯"}
-        </Text>
-      </View>
+          {/* Fruit */}
+          <Animated.View
+            style={[
+              styles.fruitContainer,
+              {
+                transform: [
+                  { translateX: fruitPosition.x },
+                  { translateY: fruitPosition.y },
+                  { scale: fruitScale },
+                ],
+              },
+            ]}
+          >
+            <View style={[styles.fruitCircle, { backgroundColor: currentFruit.color + '30' }]}>
+              <Text style={styles.fruitEmoji}>{currentFruit.emoji}</Text>
+            </View>
+          </Animated.View>
+
+          {/* Basket */}
+          <Animated.View
+            style={[
+              styles.basketContainer,
+              {
+                left: endX,
+                top: endY,
+                transform: [{ scale: basketScale }],
+              },
+            ]}
+          >
+            <View style={styles.basketCircle}>
+              <Text style={styles.basketEmoji}>🧺</Text>
+            </View>
+            <Text style={styles.basketLabel}>BASKET</Text>
+          </Animated.View>
+
+          {/* Success Message */}
+          {showSuccess && (
+            <Animated.View 
+              style={[
+                styles.successMessage,
+                {
+                  transform: [
+                    {
+                      scale: celebrationAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: [0.5, 1],
+                      }),
+                    },
+                  ],
+                  opacity: celebrationAnim,
+                },
+              ]}
+            >
+              <Text style={styles.successText}>🎉 Perfect! 🎉</Text>
+            </Animated.View>
+          )}
+        </View>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text style={styles.encouragementText}>
+            {currentFruitIndex < 2 && "Great focus! 🌟"}
+            {currentFruitIndex >= 2 && currentFruitIndex < 4 && "You're doing amazing! ⭐"}
+            {currentFruitIndex >= 4 && "Almost done! 🎯"}
+          </Text>
+        </View>
+      </SafeAreaView>
     </View>
   );
 };
@@ -356,7 +395,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingTop: 20,
     paddingBottom: 20,
     backgroundColor: '#fff',
     shadowColor: '#000',

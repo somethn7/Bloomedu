@@ -10,33 +10,55 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// -umut: (22.11.2025) New screen for teachers to see parent messages
+const BASE_URL = 'https://bloomedu-production.up.railway.app';
+
 const TeacherChatListScreen = ({ navigation }: any) => {
-  const [conversations, setConversations] = useState([]);
+  const [conversations, setConversations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // 🔥 DEFAULT HEADER'I KAPAT
   useLayoutEffect(() => {
-    navigation.setOptions({
-      headerTitle: 'Parent Messages',
-      headerTintColor: '#4A148C',
-    });
-  }, [navigation]);
-
-  useEffect(() => {
-    fetchConversations();
+    navigation.setOptions({ headerShown: false });
   }, []);
 
-  const fetchConversations = async () => {
+  useEffect(() => {
+    loadConversations();
+
+    const unsubscribe = navigation.addListener('focus', () => {
+      loadConversations();
+    });
+
+    return unsubscribe;
+  }, [navigation]);
+
+  const loadConversations = async () => {
     try {
       const teacherId = await AsyncStorage.getItem('teacher_id');
       if (!teacherId) return;
 
+      setLoading(true);
+
       const response = await fetch(
-        `https://bloomedu-production.up.railway.app/teacher/conversations/${teacherId}`
+        `${BASE_URL}/messages/teacher/conversations/${teacherId}`
       );
       const json = await response.json();
+
       if (json.success) {
-        setConversations(json.conversations);
+        const sorted = json.conversations.sort((a: any, b: any) => {
+          // Önce okunmamış mesajları (unread_count > 0) en üste al
+          const aHasUnread = (a.unread_count || 0) > 0;
+          const bHasUnread = (b.unread_count || 0) > 0;
+          
+          if (aHasUnread && !bHasUnread) return -1;
+          if (!aHasUnread && bHasUnread) return 1;
+          
+          // İkisi de okunmamış veya okunmuşsa, son mesaj zamanına göre sırala
+          return (
+            new Date(b.last_message_time).getTime() -
+            new Date(a.last_message_time).getTime()
+          );
+        });
+        setConversations(sorted);
       }
     } catch (error) {
       console.error('Error fetching conversations:', error);
@@ -46,38 +68,57 @@ const TeacherChatListScreen = ({ navigation }: any) => {
     }
   };
 
-  const renderItem = ({ item }: any) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() =>
-        navigation.navigate('ChatScreen', {
-          category: item.category,
-          categoryTitle: `${item.parent_name} - ${item.category}`,
-          categoryColor: '#6C5CE7',
-          otherUserId: item.parent_id, // Pass parent ID to chat screen
-          isTeacher: true, // Flag to indicate teacher mode
-        })
-      }
-    >
+  const handleOpenChat = (item: any) => {
+    navigation.navigate('ChatScreen', {
+      category: item.category,
+      categoryTitle: `${item.parent_name} - ${item.category}`,
+      categoryColor: '#6C5CE7',
+      otherUserId: item.parent_id,
+      isTeacher: true,
+      childId: item.child_id,
+      childName: item.child_name,
+    });
+  };
+
+  const renderItem = ({ item }: { item: any }) => (
+    <TouchableOpacity style={styles.card} onPress={() => handleOpenChat(item)}>
       <View style={styles.avatarContainer}>
         <Text style={styles.avatarText}>
-          {item.parent_name.charAt(0).toUpperCase()}
+          {item.parent_name?.charAt(0).toUpperCase() || '?'}
         </Text>
       </View>
+
       <View style={styles.content}>
-        <Text style={styles.name}>{item.parent_name}</Text>
+        <Text style={styles.name}>{item.child_name || 'Unknown Child'}</Text>
+        <Text style={styles.subLine}>
+          Parent: {item.parent_name || 'Unknown'}
+        </Text>
+
         <Text style={styles.categoryBadge}>{item.category}</Text>
+
         <Text style={styles.message} numberOfLines={1}>
           {item.last_message}
         </Text>
       </View>
+
       <View style={styles.meta}>
         <Text style={styles.time}>
-          {new Date(item.last_message_time).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
+          {item.last_message_time
+            ? new Date(item.last_message_time).toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+              })
+            : ''}
         </Text>
+
+        {item.unread_count > 0 && (
+          <View style={styles.unreadDot}>
+            <Text style={styles.unreadText}>
+              {item.unread_count > 99 ? '99+' : item.unread_count}
+            </Text>
+          </View>
+        )}
+
         <Text style={styles.arrow}>→</Text>
       </View>
     </TouchableOpacity>
@@ -85,13 +126,31 @@ const TeacherChatListScreen = ({ navigation }: any) => {
 
   return (
     <View style={styles.container}>
+
+      {/* 🔥🔥 OVAL ÜST PANEL (Teacher Dashboard ile aynı stil) */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
+          <Text style={styles.backArrow}>←</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.headerTitle}>Parent Messages</Text>
+
+        <View style={{ width: 40 }} />
+      </View>
+
       {loading ? (
-        <ActivityIndicator size="large" color="#6C5CE7" style={{ marginTop: 50 }} />
+        <ActivityIndicator
+          size="large"
+          color="#6C5CE7"
+          style={{ marginTop: 50 }}
+        />
       ) : (
         <FlatList
           data={conversations}
           renderItem={renderItem}
-          keyExtractor={(item: any) => item.parent_id.toString() + item.category}
+          keyExtractor={(item) =>
+            `${item.parent_id}-${item.child_id}-${item.category}`
+          }
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
             <View style={styles.emptyState}>
@@ -111,6 +170,34 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F7FA',
   },
+
+  /* 🔥 NEW HEADER STYLE */
+  header: {
+    backgroundColor: '#6C5CE7',
+    paddingTop: 50,
+    paddingBottom: 22,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+
+  backArrow: {
+    fontSize: 26,
+    color: '#FFF',
+    fontWeight: '700',
+  },
+
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFF',
+  },
+
+  /* existing styles unchanged below */
+
   listContent: {
     padding: 20,
   },
@@ -148,6 +235,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#1F2937',
+    marginBottom: 2,
+  },
+  subLine: {
+    fontSize: 12,
+    color: '#6B7280',
     marginBottom: 4,
   },
   categoryBadge: {
@@ -172,6 +264,20 @@ const styles = StyleSheet.create({
   arrow: {
     fontSize: 18,
     color: '#D1D5DB',
+    marginTop: 4,
+  },
+  unreadDot: {
+    backgroundColor: '#FF4B5C',
+    borderRadius: 999,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  unreadText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
   },
   emptyState: {
     alignItems: 'center',
@@ -182,4 +288,3 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
 });
-
