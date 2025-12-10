@@ -1,3 +1,5 @@
+// 🌸 ParentFeedbacksScreen – Final Fixed Version (0 TS Errors)
+
 import React, { useEffect, useState, useLayoutEffect } from 'react';
 import {
   View,
@@ -10,16 +12,28 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const ParentFeedbacksScreen = ({ navigation }) => {
-  const [feedbacks, setFeedbacks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [expandedId, setExpandedId] = useState(null);
+// 🎯 FEEDBACK MODEL — Tüm TS hataları buradan çözülüyor
+interface Feedback {
+  feedback_id: number;
+  child_name: string;
+  child_surname: string;
+  teacher_name: string;
+  message: string;
+  created_at: string;
+  is_read: boolean;
+}
 
-  // 🔥 ÜSTTEKİ BEYAZ PANELİ TAMAMEN KALDIRIYORUZ
+const ParentFeedbacksScreen = ({ navigation }: any) => {
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+
+  // 🔥 HEADER’I KALDIR
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
   }, [navigation]);
 
+  // 📌 FEEDBACK ÇEKME
   const fetchFeedbacks = async () => {
     try {
       const parentId = await AsyncStorage.getItem('parent_id');
@@ -43,8 +57,8 @@ const ParentFeedbacksScreen = ({ navigation }) => {
     fetchFeedbacks();
   }, []);
 
-  // 🔹 Artık sadece feedback_id gönderiyoruz
-  const markOneAsRead = async (feedbackId) => {
+  // 🔹 SEÇİLİ TEK BİR FEEDBACK'I "OKUNDU" YAP
+  const markOneAsRead = async (feedbackId: number) => {
     try {
       await fetch(
         `https://bloomedu-production.up.railway.app/feedbacks/mark-read-single`,
@@ -55,6 +69,7 @@ const ParentFeedbacksScreen = ({ navigation }) => {
         }
       );
 
+      // TS ERROR ÇÖZÜLMÜŞ HALİ
       setFeedbacks(prev =>
         prev.map(f =>
           f.feedback_id === feedbackId ? { ...f, is_read: true } : f
@@ -65,14 +80,14 @@ const ParentFeedbacksScreen = ({ navigation }) => {
     }
   };
 
-  const toggleExpand = async (item) => {
+  // 🔽 KARTI AÇ / KAPAT
+  const toggleExpand = (item: Feedback) => {
     setExpandedId(expandedId === item.feedback_id ? null : item.feedback_id);
 
-    if (!item.is_read) {
-      markOneAsRead(item.feedback_id);
-    }
+    if (!item.is_read) markOneAsRead(item.feedback_id);
   };
 
+  // LOADING
   if (loading) {
     return (
       <ActivityIndicator
@@ -91,9 +106,22 @@ const ParentFeedbacksScreen = ({ navigation }) => {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backArrow}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Teacher Feedback</Text>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={styles.headerTitle}>Teacher Feedback</Text>
+
+          {/* 🔴 BALONCUK BADGE */}
+          {feedbacks.some(f => !f.is_read) && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {feedbacks.filter(f => !f.is_read).length}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
+      {/* LIST */}
       <FlatList
         data={feedbacks}
         keyExtractor={(item) => String(item.feedback_id)}
@@ -119,9 +147,11 @@ const ParentFeedbacksScreen = ({ navigation }) => {
               )}
 
               {/* CHILD */}
-              <Text style={styles.childName}>👶 {item.child_name} {item.child_surname}</Text>
+              <Text style={styles.childName}>
+                👶 {item.child_name} {item.child_surname}
+              </Text>
 
-              {/* CLOSED */}
+              {/* CLOSED VIEW */}
               {!expanded && (
                 <>
                   <Text style={styles.line}>
@@ -133,7 +163,7 @@ const ParentFeedbacksScreen = ({ navigation }) => {
                 </>
               )}
 
-              {/* OPENED */}
+              {/* OPENED VIEW */}
               {expanded && (
                 <View style={styles.expandedBox}>
                   <Text style={styles.expandedLine}>
@@ -189,12 +219,27 @@ const styles = StyleSheet.create({
   backArrow: { fontSize: 26, color: 'white', fontWeight: '700' },
 
   headerTitle: {
-    flex: 1,
-    textAlign: 'center',
     fontSize: 22,
     fontWeight: '700',
     color: 'white',
-    marginRight: 45,
+    marginLeft: 10,
+  },
+
+  // 🔴 BADGE
+  badge: {
+    marginLeft: 8,
+    backgroundColor: '#FF1744',
+    minWidth: 22,
+    height: 22,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 6,
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 13,
+    fontWeight: '700',
   },
 
   card: {
@@ -210,8 +255,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
 
-  // 🎨 GREEN THEMING
-  cardClosed: { backgroundColor: '#f7f1feff' }, // Açık yeşil
+  cardClosed: { backgroundColor: '#f7f1feff' },
   cardOpened: { backgroundColor: 'white' },
 
   newBanner: {
@@ -221,17 +265,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignSelf: 'flex-start',
     marginBottom: 12,
-    shadowColor: '#FF4F88',
-    shadowOpacity: 0.3,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
   },
-
   newBannerText: {
     color: 'white',
     fontSize: 14,
     fontWeight: '800',
-    letterSpacing: 0.3,
   },
 
   childName: {
@@ -240,6 +278,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: '#333',
   },
+
   bold: { fontWeight: '700' },
   line: { fontSize: 14, color: '#444', marginBottom: 3 },
 
@@ -270,4 +309,3 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
 });
-

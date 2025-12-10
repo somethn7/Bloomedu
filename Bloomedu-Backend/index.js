@@ -271,7 +271,7 @@ app.post('/teacher/add-child', async (req, res) => {
         general_notes,
         teacher_id,
         student_code,
-        student_password,
+        student_password,45
       ]
     );
 
@@ -524,6 +524,36 @@ app.post('/feedbacks/mark-read-single', async (req, res) => {
     });
   }
 });
+// === GET UNREAD FEEDBACK COUNT BY PARENT ===
+app.get('/feedbacks/unread-count/:parentId', async (req, res) => {
+  const { parentId } = req.params;
+
+  if (!parentId)
+    return res.status(400).json({ success: false, message: 'Parent ID missing.' });
+
+  try {
+    const result = await pool.query(
+      `SELECT COUNT(*) AS unread_count
+       FROM feedbacks
+       WHERE parent_id = $1 AND is_read = FALSE`,
+      [parentId]
+    );
+
+    const count = Number(result.rows[0].unread_count);
+
+    return res.json({
+      success: true,
+      count,
+    });
+  } catch (err) {
+    console.error('DB Error (GET /feedbacks/unread-count):', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error while counting unread feedbacks.',
+    });
+  }
+});
+
 
 // === CHILDREN BY PARENT ===
 app.get('/children/by-parent/:parentId', async (req, res) => {

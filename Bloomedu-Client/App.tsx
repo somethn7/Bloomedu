@@ -29,7 +29,7 @@ import WelcomeSuccessScreen from './screens/WelcomeSuccessScreen';
 import EducationScreen from './screens/EducationScreen';
 import CategoryGamesScreen from './screens/CategoryGamesScreen';
 import ColorsGameScreen from './screens/ColorsGameScreen';
-import ColorsMatchingGameScreen from './screens/ColorsMatchingGameScreen';
+import ColorsMatchingGameScreen from './screens/games/Colors/Level2/ColorsMatchingGameScreen';
 
 import ColorsRecognitionLevel1 from './screens/games/Colors/Level1/ColorsRecognitionLevel1';
 import StarTrackingLevel1 from './screens/games/Objects/Level1/StarTrackingLevel1';
