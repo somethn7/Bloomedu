@@ -15,8 +15,11 @@ import {
 } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import Tts from 'react-native-tts';
-import { createGameCompletionHandler } from '../../../utils/gameNavigation';
-import { sendGameResult } from '../../../config/api';
+
+// ⛔ HATALIYDI → ../../../
+// ✅ DOĞRUSU → ../../../../
+import { createGameCompletionHandler } from '../../../../utils/gameNavigation';
+import { sendGameResult } from '../../../../config/api';
 
 const { width } = Dimensions.get('window');
 
@@ -77,15 +80,14 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
   // Game Logic States
   const [currentAnimalIndex, setCurrentAnimalIndex] = useState(0);
   const [showSound, setShowSound] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false); // Intro kontrolü
+  const [hasStarted, setHasStarted] = useState(false); 
   const [gameFinished, setGameFinished] = useState(false);
   
-  // Metrics for DB (Gold Standard)
+  // Metrics for DB
   const [score, setScore] = useState(0);
   const [wrongCount, setWrongCount] = useState(0); 
   const [answeredCount, setAnsweredCount] = useState(0);
   
-  // Refs
   const gameStartTimeRef = useRef<number>(Date.now());
   const timerRef = useRef<any>(null);
 
@@ -104,13 +106,12 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
     const initTts = async () => {
       try {
         await Tts.setDefaultLanguage('en-US');
-        await Tts.setDefaultRate(0.35); // Biraz daha doğal hız
+        await Tts.setDefaultRate(0.35);
         await Tts.setDefaultPitch(1.0);
       } catch {}
     };
     initTts();
 
-    // Intro Animation
     Animated.spring(introAnim, {
       toValue: 1,
       friction: 6,
@@ -120,7 +121,6 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
 
     Tts.speak('Welcome! Let\'s learn animal sounds together!');
 
-    // Start Game Loop after Intro
     const introTimer = setTimeout(() => {
       setHasStarted(true);
     }, 3500);
@@ -131,18 +131,15 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
     };
   }, []);
 
-  // --- MAIN GAME LOOP (MeetMyFamily Logic) ---
+  // --- MAIN GAME LOOP ---
   useEffect(() => {
     if (hasStarted && !gameFinished && currentAnimal) {
-      
-      // 1. Reset States & Anims
       setShowSound(false);
       bounceAnim.setValue(0);
       soundAnim.setValue(0);
       mouthAnim.setValue(0);
       hopAnim.setValue(0);
 
-      // 2. Entrance Animation
       Animated.spring(bounceAnim, {
         toValue: 1,
         friction: 5,
@@ -150,17 +147,14 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
         useNativeDriver: true,
       }).start();
 
-      // 3. Speak Question (Delay: 500ms)
       const qTimer = setTimeout(() => {
         Tts.speak(currentAnimal.question);
       }, 500);
 
-      // 4. Reveal Sound/Answer & Animate (Delay: 2500ms)
       const aTimer = setTimeout(() => {
         setShowSound(true);
         playAnswerAnimation();
-        
-        // Speak Answer
+
         if (currentAnimal.silent) {
           Tts.speak('The turtle is quiet. Shhh.');
         } else if (currentAnimal.action) {
@@ -168,14 +162,12 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
         } else {
           Tts.speak(`${currentAnimal.name} says ${currentAnimal.sound}`);
         }
-        
-        // Update Score (Passive learning, always correct)
+
         setScore(prev => prev + 1);
         setAnsweredCount(prev => prev + 1);
 
       }, 2500);
 
-      // 5. Next Animal (Delay: 6000ms - Total Duration per animal)
       timerRef.current = setTimeout(() => {
         if (currentAnimalIndex < totalAnimals - 1) {
           setCurrentAnimalIndex(prev => prev + 1);
@@ -192,10 +184,8 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
     }
   }, [hasStarted, currentAnimalIndex, gameFinished]);
 
-  // Specific Animations based on animal type
   const playAnswerAnimation = () => {
     if (currentAnimal.action) {
-      // Rabbit Hop
       Animated.sequence([
         Animated.timing(hopAnim, { toValue: -40, duration: 200, useNativeDriver: true }),
         Animated.timing(hopAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
@@ -203,10 +193,8 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
         Animated.timing(hopAnim, { toValue: 0, duration: 200, useNativeDriver: true }),
       ]).start();
     } else if (currentAnimal.silent) {
-      // Turtle Slow Fade
       Animated.timing(soundAnim, { toValue: 1, duration: 1000, useNativeDriver: true }).start();
     } else {
-      // Standard Sound Pulse + Mouth
       Animated.parallel([
         Animated.sequence([
           Animated.timing(soundAnim, { toValue: 1, duration: 450, useNativeDriver: true }),
@@ -223,7 +211,7 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
     }
   };
 
-  // --- DATABASE & COMPLETION ---
+  // GAME COMPLETION
   useEffect(() => {
     if (gameFinished) {
       completeGame();
@@ -232,31 +220,28 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
 
   const completeGame = async () => {
     const totalTimeMs = Date.now() - gameStartTimeRef.current;
-    
-    // Learning game: 100% success rate
     const successRate = 100;
-    // Score should be total animals since user watched all
     const finalScore = totalAnimals; 
 
     if (child?.id) {
-        await sendGameResult({
-            child_id: child.id,
-            game_type: 'animals-sounds',
-            level: 1,
-            score: finalScore,
-            max_score: totalAnimals,
-            duration_seconds: Math.floor(totalTimeMs / 1000),
-            wrong_count: 0, // 0 errors
-            success_rate: successRate,
-            details: {
-              totalQuestions: totalAnimals,
-              answeredCount: totalAnimals,
-              successRate: 100,
-            },
-            completed: true,
-        });
+      await sendGameResult({
+        child_id: child.id,
+        game_type: 'animals-sounds',
+        level: 1,
+        score: finalScore,
+        max_score: totalAnimals,
+        duration_seconds: Math.floor(totalTimeMs / 1000),
+        wrong_count: 0,
+        success_rate: successRate,
+        details: {
+          totalQuestions: totalAnimals,
+          answeredCount: totalAnimals,
+          successRate: 100,
+        },
+        completed: true,
+      });
     }
-    
+
     const gameNav = createGameCompletionHandler({
       navigation,
       child,
@@ -268,7 +253,7 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
         setScore(0);
         setAnsweredCount(0);
         setShowSound(false);
-        setHasStarted(false); // Restart intro
+        setHasStarted(false);
         setGameFinished(false);
         gameStartTimeRef.current = Date.now();
       },
@@ -281,42 +266,33 @@ export default function AnimalSoundsLevel1({ navigation }: any) {
     );
   };
 
-  // --- INTERPOLATIONS ---
   const animalScale = bounceAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.3, 1],
+    inputRange: [0, 1], outputRange: [0.3, 1],
   });
-
   const animalOpacity = bounceAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, 1],
+    inputRange: [0, 1], outputRange: [0, 1],
   });
-
   const soundScale = soundAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.8, 1.2],
+    inputRange: [0, 1], outputRange: [0.8, 1.2],
   });
-
   const mouthScale = mouthAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [1, 1.08],
+    inputRange: [0, 1], outputRange: [1, 1.08],
   });
 
-  // Intro UI
   if (!hasStarted) {
     return (
       <View style={[styles.container, { backgroundColor: '#F1F8F2' }]}>
-         <Animated.View style={[styles.introOverlay, { opacity: introAnim }]}>
-           <View style={styles.introContent}>
-             <Text style={styles.introTitle}>🎵 Animal Sounds 🎵</Text>
-             <View style={styles.introAnimalsRow}>
-                <Text style={styles.introAnimalEmoji}>🐶</Text>
-                <Text style={styles.introAnimalEmoji}>🐱</Text>
-                <Text style={styles.introAnimalEmoji}>🐮</Text>
-             </View>
-             <Text style={styles.introSubtitle}>Let's learn together! 🌟</Text>
-           </View>
-         </Animated.View>
+        <Animated.View style={[styles.introOverlay, { opacity: introAnim }]}>
+          <View style={styles.introContent}>
+            <Text style={styles.introTitle}>🎵 Animal Sounds 🎵</Text>
+            <View style={styles.introAnimalsRow}>
+              <Text style={styles.introAnimalEmoji}>🐶</Text>
+              <Text style={styles.introAnimalEmoji}>🐱</Text>
+              <Text style={styles.introAnimalEmoji}>🐮</Text>
+            </View>
+            <Text style={styles.introSubtitle}>Let's learn together! 🌟</Text>
+          </View>
+        </Animated.View>
       </View>
     );
   }

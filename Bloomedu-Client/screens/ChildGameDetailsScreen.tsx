@@ -1,9 +1,5 @@
 // 🚀 FINAL ✨ MODERN GAME DETAILS SCREEN ✨
-// - Back button fixed
-// - Today / Yesterday / Earlier working
-// - Bars correct
-// - Cleaned JSON values
-// - Istanbul timezone
+// SCORE COMPLETELY REMOVED
 
 import React, { useEffect, useState } from "react";
 import {
@@ -36,8 +32,7 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
           ...s,
           wrong_count: Number(s.wrong_count) || 0,
           success_rate: Number(s.success_rate) || 0,
-          score: Number(s.score) || 0,
-          max_score: Number(s.max_score) || 1,
+          duration_seconds: Number(s.duration_seconds) || 0,
         }));
 
         setSessions(cleaned);
@@ -49,7 +44,6 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
     }
   };
 
-  // 🔥 DATE FORMAT
   const formatDate = (d: string) => {
     try {
       return new Date(d).toLocaleString("tr-TR", {
@@ -65,7 +59,6 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
     }
   };
 
-  // 🔥 GROUPING
   const groupByDate = () => {
     const todayList: any[] = [];
     const yesterdayList: any[] = [];
@@ -92,7 +85,6 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
 
   const { todayList, yesterdayList, earlierList } = groupByDate();
 
-  // 🔥 BAR COMPONENT
   const StatBar = ({ label, value, max, color }: any) => {
     const percent = Math.min((value / max) * 100, 100);
 
@@ -114,7 +106,6 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
     );
   };
 
-  // 🔥 SESSION CARD
   const renderSession = (s: any) => (
     <View key={s.id} style={styles.card}>
       <View style={styles.row}>
@@ -122,18 +113,20 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
         <Text style={styles.badge}>Level {s.level}</Text>
       </View>
 
-      <StatBar label="Score" value={s.score} max={s.max_score} color="#4CAF50" />
+      {/* SCORE COMPLETELY REMOVED */}
+
       <StatBar
         label="Wrong"
         value={s.wrong_count}
-        max={s.max_score}
+        max={s.wrong_count + 1}
         color="#FF5252"
       />
+
       <StatBar
         label="Success %"
         value={s.success_rate}
         max={100}
-        color="#FFC107"
+        color="#68dd83ff"
       />
 
       <Text style={styles.duration}>
@@ -146,7 +139,6 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
 
   return (
     <View style={styles.container}>
-      {/* 🔥 PINK HEADER + BACK BUTTON */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <Text style={styles.backIcon}>←</Text>
@@ -157,29 +149,25 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
         <View style={{ width: 40 }} />
       </View>
 
-      {/* MAIN CONTENT */}
       <ScrollView contentContainerStyle={{ padding: 16 }}>
         {loading ? (
           <ActivityIndicator size="large" color="#FF6B9A" />
         ) : (
           <>
-            {/* TODAY */}
             <Text style={styles.section}>📅 Today</Text>
-            {todayList.length ? todayList.map(renderSession) : (
-              <Text style={styles.empty}>No activity today.</Text>
-            )}
+            {todayList.length
+              ? todayList.map(renderSession)
+              : <Text style={styles.empty}>No activity today.</Text>}
 
-            {/* YESTERDAY */}
             <Text style={styles.section}>📅 Yesterday</Text>
-            {yesterdayList.length ? yesterdayList.map(renderSession) : (
-              <Text style={styles.empty}>No activity yesterday.</Text>
-            )}
+            {yesterdayList.length
+              ? yesterdayList.map(renderSession)
+              : <Text style={styles.empty}>No activity yesterday.</Text>}
 
-            {/* EARLIER */}
             <Text style={styles.section}>📅 Earlier</Text>
-            {earlierList.length ? earlierList.map(renderSession) : (
-              <Text style={styles.empty}>No earlier activity.</Text>
-            )}
+            {earlierList.length
+              ? earlierList.map(renderSession)
+              : <Text style={styles.empty}>No earlier activity.</Text>}
           </>
         )}
       </ScrollView>
@@ -189,7 +177,6 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
 
 export default ChildGameDetailsScreen;
 
-// 🎨 STYLES
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FFF" },
 
@@ -213,6 +200,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
+
   backIcon: { fontSize: 22, color: "#fff", fontWeight: "700" },
 
   headerTitle: { fontSize: 18, color: "#fff", fontWeight: "700" },

@@ -31,8 +31,7 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
           ...s,
           wrong_count: Number(s.wrong_count) || 0,
           success_rate: Number(s.success_rate) || 0,
-          score: Number(s.score) || 0,
-          max_score: Number(s.max_score) || 1,
+          duration_seconds: Number(s.duration_seconds) || 0,
         }));
 
         setSessions(cleaned);
@@ -113,13 +112,15 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
         <Text style={styles.badge}>Level {s.level}</Text>
       </View>
 
-      <StatBar label="Score" value={s.score} max={s.max_score} color="#3AB4A2" />
+      {/* ❌ SCORE KALDIRILDI */}
+
       <StatBar
         label="Wrong"
         value={s.wrong_count}
-        max={s.max_score}
+        max={s.wrong_count + 1}
         color="#FF6B6B"
       />
+
       <StatBar
         label="Success %"
         value={s.success_rate}
@@ -137,7 +138,7 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
 
   return (
     <View style={styles.container}>
-      {/* TEACHER TURQUOISE HEADER */}
+      {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -157,17 +158,23 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
         ) : (
           <>
             <Text style={styles.section}>📅 Today</Text>
-            {todayList.length ? todayList.map(renderSession) : (
+            {todayList.length ? (
+              todayList.map(renderSession)
+            ) : (
               <Text style={styles.empty}>No activity today.</Text>
             )}
 
             <Text style={styles.section}>📅 Yesterday</Text>
-            {yesterdayList.length ? yesterdayList.map(renderSession) : (
+            {yesterdayList.length ? (
+              yesterdayList.map(renderSession)
+            ) : (
               <Text style={styles.empty}>No activity yesterday.</Text>
             )}
 
             <Text style={styles.section}>📅 Earlier</Text>
-            {earlierList.length ? earlierList.map(renderSession) : (
+            {earlierList.length ? (
+              earlierList.map(renderSession)
+            ) : (
               <Text style={styles.empty}>No earlier activity.</Text>
             )}
           </>

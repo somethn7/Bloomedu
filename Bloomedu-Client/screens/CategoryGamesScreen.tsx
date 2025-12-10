@@ -14,20 +14,33 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
 
   // Kategori bazlı oyun listesi
   const gamesByCategory: Record<string, any> = {
-    Colors: {
-      icon: '🎨',
-      color: '#FF6B9A',
-      gradient: ['#FF6B9A', '#FF8FAB'],
-      games: {
-        1: [
-          { title: 'Color Match', subtitle: 'Find matching colors', screen: 'ColorsRecognitionLevel1', icon: '🎯' },
-        ],
-        2: [
-          { title: 'Color Objects', subtitle: 'Match colors with objects', screen: 'ColorObjectsLevel2', icon: '🎨' },
-          { title: 'Color Match Path', subtitle: 'Watch colors match', screen: 'ColorMatchPathLevel2', icon: '🎨' },
-        ],
+   Colors: {
+  icon: '🎨',
+  color: '#FF6B9A',
+  gradient: ['#FF6B9A', '#FF8FAB'],
+  games: {
+    1: [
+      { title: 'Color Match', subtitle: 'Find matching colors', screen: 'ColorsRecognitionLevel1', icon: '🎯' },
+    ],
+    2: [
+      { title: 'Color Objects', subtitle: 'Match colors with objects', screen: 'ColorObjectsLevel2', icon: '🎨' },
+      { title: 'Color Match Path', subtitle: 'Watch colors match', screen: 'ColorMatchPathLevel2', icon: '🎨' },
+    ],
+    3: [
+      { title: 'Object Color Match', subtitle: 'Choose object with the asked color', screen: 'ObjectColorMatchLevel3', icon: '🌈' },
+    ],
+    4: [
+      { 
+        title: 'Object Color Match – Multi', 
+        subtitle: 'Find ALL objects of the shown color', 
+        screen: 'ObjectColorMatchLevel4', 
+        icon: '🌈' 
       },
-    },
+    ],
+  },
+},
+
+
     Numbers: {
       icon: '🔢',
       color: '#4DABF7',
@@ -43,6 +56,7 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
         ],
       },
     },
+
     Objects: {
       icon: '🎯',
       color: '#51CF66',
@@ -60,6 +74,7 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
         ],
       },
     },
+
     Animals: {
       icon: '🦁',
       color: '#FFD43B',
@@ -71,6 +86,7 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
         2: [],
       },
     },
+
     Family: {
       icon: '👨‍👩‍👧‍👦',
       color: '#FF6B9A',
@@ -90,18 +106,16 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
   const games = categoryData?.games[childLevel] || [];
 
   const handleGamePress = (screen: string, index?: number) => {
-    // Oyun listesi ve mevcut oyun indeksi ile navigate et
     navigation.navigate(screen, { 
       child,
       gameSequence: games,
-      currentGameIndex: index !== undefined ? index : 0,
+      currentGameIndex: index ?? 0,
       categoryTitle,
     });
   };
 
   const handlePlayAll = () => {
     if (games.length > 0) {
-      // İlk oyundan başlat
       handleGamePress(games[0].screen, 0);
     }
   };
@@ -116,11 +130,11 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={[styles.header, { backgroundColor: categoryData?.color || '#4DABF7' }]}>
         <TouchableOpacity onPress={() => navigation.navigate('Education', { child })} style={styles.backButton}>
           <Text style={styles.backText}>← Back</Text>
         </TouchableOpacity>
+
         <View style={styles.headerContent}>
           <Text style={styles.categoryIcon}>{categoryData?.icon}</Text>
           <Text style={styles.categoryTitle}>{categoryTitle}</Text>
@@ -134,8 +148,7 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
         {games.length > 0 ? (
           <>
             <Text style={styles.sectionTitle}>Choose a Game 🎮</Text>
-            
-            {/* Play All Button */}
+
             {games.length > 1 && (
               <TouchableOpacity
                 style={styles.playAllButton}
@@ -145,9 +158,7 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
                 <Text style={styles.playAllIcon}>🎯</Text>
                 <View style={styles.playAllContent}>
                   <Text style={styles.playAllTitle}>Play All Games</Text>
-                  <Text style={styles.playAllSubtitle}>
-                    Complete {games.length} games in sequence
-                  </Text>
+                  <Text style={styles.playAllSubtitle}>Complete {games.length} games in sequence</Text>
                 </View>
                 <Text style={styles.playAllArrow}>▶</Text>
               </TouchableOpacity>
@@ -157,16 +168,18 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
               <TouchableOpacity
                 key={index}
                 style={[styles.gameCard, { borderLeftColor: categoryData?.color }]}
-                onPress={() => handleGamePress(game.screen)}
+                onPress={() => handleGamePress(game.screen, index)}
                 activeOpacity={0.7}
               >
                 <View style={[styles.gameIconContainer, { backgroundColor: categoryData?.color }]}>
                   <Text style={styles.gameIcon}>{game.icon}</Text>
                 </View>
+
                 <View style={styles.gameInfo}>
                   <Text style={styles.gameTitle}>{game.title}</Text>
                   <Text style={styles.gameSubtitle}>{game.subtitle}</Text>
                 </View>
+
                 <View style={styles.arrow}>
                   <Text style={styles.arrowText}>→</Text>
                 </View>
@@ -187,7 +200,6 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
     </View>
   );
 };
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,

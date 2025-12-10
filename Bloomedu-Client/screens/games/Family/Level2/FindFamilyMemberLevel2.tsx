@@ -15,8 +15,8 @@ import {
 } from 'react-native';
 import { useRoute } from '@react-navigation/native';
 import Tts from 'react-native-tts';
-import { createGameCompletionHandler } from '../../../utils/gameNavigation';
-import { sendGameResult } from '../../../config/api';
+import { createGameCompletionHandler } from '../../../../utils/gameNavigation';
+import { sendGameResult } from '../../../../config/api';
 
 const { width } = Dimensions.get('window');
 

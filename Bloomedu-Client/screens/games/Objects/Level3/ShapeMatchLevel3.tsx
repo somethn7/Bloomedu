@@ -1,4 +1,4 @@
-// 🚀 FINAL ShapeMatchLevel3 – WRONG COUNT + SUCCESS RATE + DB SAVE CLEAN
+// 🚀 FINAL ShapeMatchLevel3 – FIXED SUCCESS RATE + NO BUGS
 
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -12,8 +12,8 @@ import {
 } from "react-native";
 import { useRoute } from "@react-navigation/native";
 import Tts from "react-native-tts";
-import { createGameCompletionHandler } from "../../../utils/gameNavigation";
-import { sendGameResult } from "../../../config/api";
+import { createGameCompletionHandler } from "../../../../utils/gameNavigation";
+import { sendGameResult } from "../../../../config/api";
 
 const { width } = Dimensions.get("window");
 
@@ -36,8 +36,7 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
   const [feedback, setFeedback] = useState<"" | "correct" | "wrong">("");
   const [score, setScore] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
-  const [currentQuestion, setCurrentQuestion] = useState(1); // 1..TOTAL_QUESTIONS
-  const [answeredCount, setAnsweredCount] = useState(0); // gerçek cevaplanan soru sayısı
+  const [currentQuestion, setCurrentQuestion] = useState(1);
   const [gameFinished, setGameFinished] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
 
@@ -46,7 +45,6 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
   const colorAnim = useRef(new Animated.Value(0)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
 
-  // TTS setup
   useEffect(() => {
     Tts.setDefaultLanguage("en-US").catch(() => {});
     Tts.setDefaultRate(0.3);
@@ -80,48 +78,31 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
     }, 400);
   };
 
-  const animateFeedback = (isCorrect: boolean) => {
+  const animateFeedback = () => {
     colorAnim.setValue(0);
     Animated.timing(colorAnim, {
       toValue: 1,
       duration: 300,
       useNativeDriver: false,
-    }).start(() => {
+    }).start(() =>
       Animated.timing(colorAnim, {
         toValue: 0,
         duration: 350,
         useNativeDriver: false,
-      }).start();
-    });
+      }).start()
+    );
   };
 
   const runShake = () => {
     Animated.sequence([
-      Animated.timing(shakeAnim, {
-        toValue: 6,
-        duration: 80,
-        useNativeDriver: false,
-      }),
-      Animated.timing(shakeAnim, {
-        toValue: -6,
-        duration: 80,
-        useNativeDriver: false,
-      }),
-      Animated.timing(shakeAnim, {
-        toValue: 6,
-        duration: 80,
-        useNativeDriver: false,
-      }),
-      Animated.timing(shakeAnim, {
-        toValue: 0,
-        duration: 80,
-        useNativeDriver: false,
-      }),
+      Animated.timing(shakeAnim, { toValue: 6, duration: 80, useNativeDriver: false }),
+      Animated.timing(shakeAnim, { toValue: -6, duration: 80, useNativeDriver: false }),
+      Animated.timing(shakeAnim, { toValue: 6, duration: 80, useNativeDriver: false }),
+      Animated.timing(shakeAnim, { toValue: 0, duration: 80, useNativeDriver: false }),
     ]).start();
   };
 
   const selectShape = (shape: any) => {
-    // aynı soruda feedback varken tekrar tıklanmasın
     if (feedback || gameFinished) return;
 
     setSelectedId(shape.id);
@@ -130,11 +111,8 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
     if (isCorrect) {
       setScore((prev) => prev + 1);
       setFeedback("correct");
-      animateFeedback(true);
+      animateFeedback();
       speak("Correct!");
-
-      // cevaplanan soru sayısını güncelle
-      setAnsweredCount((prevAnswered) => prevAnswered + 1);
 
       setTimeout(() => {
         if (currentQuestion >= TOTAL_QUESTIONS) {
@@ -145,15 +123,12 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
         }
       }, 800);
     } else {
-      // yanlışta score sıfırın altına inmesin
-      setScore((prev) => Math.max(0, prev - 1));
       setWrongCount((prev) => prev + 1);
       setFeedback("wrong");
-      animateFeedback(false);
+      animateFeedback();
       runShake();
       speak("Try again!");
 
-      // Bu soruda tekrar denemesin diye kısa süre sonra feedbacki temizliyoruz
       setTimeout(() => setFeedback(""), 700);
     }
   };
@@ -162,7 +137,6 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
     setScore(0);
     setWrongCount(0);
     setCurrentQuestion(1);
-    setAnsweredCount(0);
     setGameFinished(false);
     gameStartTimeRef.current = Date.now();
     Tts.stop();
@@ -174,24 +148,25 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
 
     const totalTimeMs = Date.now() - gameStartTimeRef.current;
 
-    const safeAnswered = answeredCount > 0 ? answeredCount : 1;
-    const safeScore = score < 0 ? 0 : score;
-    const successRate = Math.round((safeScore / safeAnswered) * 100);
+    const successRate =
+      score + wrongCount > 0
+        ? Math.round((score / (score + wrongCount)) * 100)
+        : 0;
 
     try {
       await sendGameResult({
         child_id: child.id,
         game_type: "shape-match",
         level: 3,
-        score: safeScore,
+        score,
         max_score: TOTAL_QUESTIONS,
         duration_seconds: Math.floor(totalTimeMs / 1000),
         wrong_count: wrongCount,
         success_rate: successRate,
         details: {
           totalQuestions: TOTAL_QUESTIONS,
-          answeredCount: safeAnswered,
           wrongCount,
+          correctCount: score,
           successRate,
         },
         completed: true,
@@ -222,16 +197,12 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
       resetGame: restartGame,
     });
 
-    gameNav.showCompletionMessage(
-      score,
-      TOTAL_QUESTIONS,
-      "🎉 Amazing job!"
-    );
+    gameNav.showCompletionMessage(score, TOTAL_QUESTIONS, "🎉 Amazing job!");
   };
 
   const successRate =
-    answeredCount > 0
-      ? Math.round((Math.max(score, 0) / answeredCount) * 100)
+    score + wrongCount > 0
+      ? Math.round((score / (score + wrongCount)) * 100)
       : 0;
 
   const borderColor = colorAnim.interpolate({
@@ -243,27 +214,9 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
   const renderShape = (type: string, color: string, size = 90) => {
     switch (type) {
       case "circle":
-        return (
-          <View
-            style={{
-              width: size,
-              height: size,
-              borderRadius: size / 2,
-              backgroundColor: color,
-            }}
-          />
-        );
+        return <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: color }} />;
       case "square":
-        return (
-          <View
-            style={{
-              width: size,
-              height: size,
-              borderRadius: 18,
-              backgroundColor: color,
-            }}
-          />
-        );
+        return <View style={{ width: size, height: size, borderRadius: 18, backgroundColor: color }} />;
       case "triangle":
         return (
           <View
@@ -280,9 +233,7 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
           />
         );
       case "star":
-        return (
-          <Text style={{ fontSize: size * 0.9, color: "#FFD700" }}>★</Text>
-        );
+        return <Text style={{ fontSize: size * 0.9, color: "#FFD700" }}>★</Text>;
       default:
         return null;
     }
@@ -291,9 +242,7 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
   if (!child?.id) {
     return (
       <View style={styles.container}>
-        <Text style={{ marginTop: 40, textAlign: "center" }}>
-          Child info not found.
-        </Text>
+        <Text style={{ marginTop: 40, textAlign: "center" }}>Child info not found.</Text>
       </View>
     );
   }
@@ -301,7 +250,7 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-
+        
         {/* HEADER */}
         <View style={styles.header}>
           <View>
@@ -313,6 +262,8 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
             <Text style={styles.questionCounter}>
               {currentQuestion}/{TOTAL_QUESTIONS}
             </Text>
+
+            {/* ❗ TOTAL_ITEMS HATASI BURADA DÜZELTİLDİ */}
             <View style={styles.progressBar}>
               <View
                 style={[
@@ -328,7 +279,7 @@ const ShapeMatchLevel3 = ({ navigation }: any) => {
         <View style={styles.scoreCards}>
           <View style={[styles.scoreCard, { borderTopColor: "#51CF66" }]}>
             <Text style={styles.scoreEmoji}>🏆</Text>
-            <Text style={styles.scoreNumber}>{Math.max(score, 0)}</Text>
+            <Text style={styles.scoreNumber}>{score}</Text>
             <Text style={styles.scoreLabel}>Score</Text>
           </View>
 
@@ -410,6 +361,7 @@ const styles = StyleSheet.create({
 
   progressBox: { alignItems: "flex-end" },
   questionCounter: { fontSize: 14, fontWeight: "600", color: "#6B6B6B" },
+
   progressBar: {
     width: 80,
     height: 6,

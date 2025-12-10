@@ -16,8 +16,8 @@ import {
 } from 'react-native';
 import Tts from 'react-native-tts';
 import { useRoute } from '@react-navigation/native';
-import { createGameCompletionHandler } from '../../../utils/gameNavigation';
-import { sendGameResult } from '../../../config/api';
+import { createGameCompletionHandler } from '../../../../utils/gameNavigation';
+import { sendGameResult } from '../../../../config/api';
 
 const { width } = Dimensions.get('window');
 const DROP_SIZE = Math.min(width * 0.16, 80);
