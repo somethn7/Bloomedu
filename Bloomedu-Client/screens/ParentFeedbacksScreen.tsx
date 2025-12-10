@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   // 🔴 BADGE
   badge: {
     marginLeft: 8,
-    backgroundColor: '#FF1744',
+    backgroundColor: '#FFB74D',
     minWidth: 22,
     height: 22,
     borderRadius: 12,
