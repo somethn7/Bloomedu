@@ -256,24 +256,25 @@ app.post('/teacher/add-child', async (req, res) => {
 
   try {
     await pool.query(
-      `INSERT INTO children 
-       (name, surname, birthdate, birthplace, gender, diagnosis_date,
-        communication_notes, general_notes, teacher_id, student_code, student_password, survey_completed) 
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,FALSE)`,
-      [
-        name,
-        surname,
-        birthdate,
-        birthplace,
-        gender,
-        diagnosis_date,
-        communication_notes,
-        general_notes,
-        teacher_id,
-        student_code,
-        student_password,45
-      ]
-    );
+  `INSERT INTO children 
+   (name, surname, birthdate, birthplace, gender, diagnosis_date,
+    communication_notes, general_notes, teacher_id, student_code, student_password, survey_completed) 
+   VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,FALSE)`,
+  [
+    name,
+    surname,
+    birthdate,
+    birthplace,
+    gender,
+    diagnosis_date,
+    communication_notes,
+    general_notes,
+    teacher_id,
+    student_code,
+    student_password
+  ]
+);
+
 
     await sendStudentCredentials(parent_email, student_code, student_password);
     console.log(`📨 Mail gönderildi: ${parent_email}`);
