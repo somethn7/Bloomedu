@@ -8,18 +8,39 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
+  Pressable,
+  Alert,
+  TextInput,
+  Platform,
+  ToastAndroid,
 } from "react-native";
 import { useRoute } from "@react-navigation/native";
 import { API_ENDPOINTS } from "../config/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const ChildGameDetailsScreen = ({ navigation }: any) => {
   const { child }: any = useRoute().params;
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [levelModalVisible, setLevelModalVisible] = useState(false);
+  const [selectedLevel, setSelectedLevel] = useState<number>(child?.level || 1);
+  const [savingLevel, setSavingLevel] = useState(false);
+  const [childLevel, setChildLevel] = useState<number>(child?.level || 1);
+  const [teacherId, setTeacherId] = useState<number | null>(null);
+  const [reason, setReason] = useState("");
 
   useEffect(() => {
     fetchSessions();
+    loadTeacherId();
   }, []);
+
+  const loadTeacherId = async () => {
+    try {
+      const tid = await AsyncStorage.getItem("teacher_id");
+      if (tid) setTeacherId(parseInt(tid, 10));
+    } catch {}
+  };
 
   const fetchSessions = async () => {
     try {
@@ -84,6 +105,90 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
 
   const { todayList, yesterdayList, earlierList } = groupByDate();
 
+  const handleLevelSave = async () => {
+    Alert.alert(
+      "Confirm",
+      `Set child level to ${selectedLevel}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Save",
+          onPress: async () => {
+            if (!teacherId) {
+              Alert.alert("Error", "Teacher ID not found. Please re-login.");
+              return;
+            }
+            setSavingLevel(true);
+            try {
+              const res = await fetch(
+                API_ENDPOINTS.MANUAL_LEVEL_UPDATE(child.id),
+                {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    level: selectedLevel,
+                    teacher_id: teacherId,
+                    changed_by_role: "teacher",
+                    reason: reason.trim() || undefined,
+                  }),
+                }
+              );
+              const json = await res.json();
+              if (json.success) {
+                setChildLevel(selectedLevel);
+                setLevelModalVisible(false);
+                // Refresh sessions / stats if needed
+                fetchSessions();
+                if (Platform.OS === "android") {
+                  ToastAndroid.show("Seviye başarıyla güncellendi ✅", ToastAndroid.SHORT);
+                } else {
+                  Alert.alert("Success", "Seviye başarıyla güncellendi ✅");
+                }
+              } else {
+                Alert.alert("Error", json.message || "Failed to update level");
+              }
+            } catch (e) {
+              Alert.alert("Error", "Network error updating level");
+            } finally {
+              setSavingLevel(false);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
+  const LevelSelector = () => {
+    const levels = [1, 2, 3, 4, 5];
+    return (
+      <View style={{ marginTop: 12 }}>
+        <Text style={{ fontWeight: "700", marginBottom: 8 }}>
+          Select new level
+        </Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          {levels.map((lvl) => {
+            const active = selectedLevel === lvl;
+            return (
+              <Pressable
+                key={lvl}
+                onPress={() => setSelectedLevel(lvl)}
+                style={[
+                  styles.levelPill,
+                  active && styles.levelPillActive,
+                ]}
+              >
+                <Text style={[styles.levelPillText, active && styles.levelPillTextActive]}>
+                  Level {lvl}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
+    );
+  };
+
   const StatBar = ({ label, value, max, color }: any) => {
     const percent = Math.min((value / max) * 100, 100);
 
@@ -147,12 +252,22 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>{child.name}'s Games</Text>
+        <View>
+          <Text style={styles.headerTitle}>{child.name}'s Games</Text>
+          <Text style={styles.headerSubtitle}>Current Level: {childLevel}</Text>
+        </View>
 
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16 }}>
+        <TouchableOpacity
+          style={styles.levelButton}
+          onPress={() => setLevelModalVisible(true)}
+        >
+          <Text style={styles.levelButtonText}>Change Level</Text>
+        </TouchableOpacity>
+
         {loading ? (
           <ActivityIndicator size="large" color="#4ECDC4" />
         ) : (
@@ -180,6 +295,55 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
           </>
         )}
       </ScrollView>
+
+      {/* Level Change Modal */}
+      <Modal
+        visible={levelModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setLevelModalVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Change Level</Text>
+            <Text style={styles.modalDesc}>
+              Choose the new level for this child.
+            </Text>
+            <LevelSelector />
+
+            <Text style={styles.modalDesc}>
+              Optional note to parent (will be included in notification)
+            </Text>
+            <TextInput
+              style={styles.reasonInput}
+              placeholder="Reason / note"
+              multiline
+              value={reason}
+              onChangeText={setReason}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setLevelModalVisible(false)}
+                disabled={savingLevel}
+              >
+                <Text style={styles.modalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.saveButton]}
+                onPress={handleLevelSave}
+                disabled={savingLevel}
+              >
+                <Text style={[styles.modalButtonText, { color: "#fff" }]}>
+                  {savingLevel ? "Saving..." : "Save"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -213,6 +377,7 @@ const styles = StyleSheet.create({
   backIcon: { fontSize: 22, color: "#fff", fontWeight: "700" },
 
   headerTitle: { fontSize: 18, color: "#fff", fontWeight: "700" },
+  headerSubtitle: { fontSize: 13, color: "#e8fdf8", marginTop: 2 },
 
   section: {
     marginTop: 18,
@@ -220,6 +385,17 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#007F73",
   },
+
+  levelButton: {
+    backgroundColor: "#10b981",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignSelf: "stretch",
+    marginBottom: 16,
+    elevation: 2,
+  },
+  levelButtonText: { color: "#fff", fontWeight: "800", textAlign: "center" },
 
   card: {
     marginTop: 10,
@@ -275,4 +451,60 @@ const styles = StyleSheet.create({
   },
 
   empty: { color: "#AAA", marginTop: 4, fontStyle: "italic" },
+
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 16,
+  },
+  modalCard: {
+    width: "100%",
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+  },
+  modalTitle: { fontSize: 18, fontWeight: "700", color: "#0f172a" },
+  modalDesc: { fontSize: 14, color: "#334155", marginTop: 6 },
+  reasonInput: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    borderRadius: 10,
+    padding: 10,
+    minHeight: 60,
+    textAlignVertical: "top",
+    color: "#0f172a",
+  },
+  modalActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 8,
+    marginTop: 16,
+  },
+  modalButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+  },
+  cancelButton: { backgroundColor: "#e2e8f0" },
+  saveButton: { backgroundColor: "#4ECDC4" },
+  modalButtonText: { fontWeight: "700", color: "#0f172a" },
+
+  levelPill: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#cbd5e1",
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  levelPillActive: {
+    backgroundColor: "#e6fffa",
+    borderColor: "#4ECDC4",
+  },
+  levelPillText: { color: "#0f172a", fontWeight: "600" },
+  levelPillTextActive: { color: "#0f766e" },
 });

@@ -628,6 +628,113 @@ app.post('/children/:id/update-level', async (req, res) => {
   }
 });
 
+// === MANUAL LEVEL UPDATE (TEACHER ACTION) ===
+app.patch('/children/:id/level', async (req, res) => {
+  const { id } = req.params;
+  const { level, reason, teacher_id, changed_by_role } = req.body || {};
+
+  const parsedLevel = Number(level);
+  if (!Number.isInteger(parsedLevel) || parsedLevel < 1 || parsedLevel > 5) {
+    return res
+      .status(400)
+      .json({ success: false, message: 'Invalid level. Must be 1-5.' });
+  }
+
+  if (!teacher_id) {
+    return res
+      .status(400)
+      .json({ success: false, message: 'Missing teacher_id' });
+  }
+
+  try {
+    const current = await pool.query(
+      'SELECT level, teacher_id, parent_id, name FROM children WHERE id = $1',
+      [id]
+    );
+    if (current.rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'Child not found' });
+    }
+
+    const oldLevel = current.rows[0].level;
+    const childTeacherId = current.rows[0].teacher_id;
+    const parentId = current.rows[0].parent_id;
+    const childName = current.rows[0].name || 'Student';
+
+    // Ownership check: teacher can only update own student
+    if (Number(childTeacherId) !== Number(teacher_id)) {
+      return res
+        .status(403)
+        .json({ success: false, message: 'Not authorized to change this child level' });
+    }
+
+    // Lightweight rate-limit: prevent rapid consecutive changes (10s)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS level_history (
+        id SERIAL PRIMARY KEY,
+        child_id INTEGER NOT NULL,
+        old_level INTEGER,
+        new_level INTEGER,
+        changed_by TEXT,
+        changed_by_role TEXT,
+        reason TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    // Ensure column exists (idempotent safety)
+    await pool.query(`ALTER TABLE level_history ADD COLUMN IF NOT EXISTS changed_by_role TEXT;`);
+    await pool.query(`ALTER TABLE level_history ADD COLUMN IF NOT EXISTS reason TEXT;`);
+
+    const lastChange = await pool.query(
+      'SELECT created_at FROM level_history WHERE child_id = $1 ORDER BY created_at DESC LIMIT 1',
+      [id]
+    );
+    if (lastChange.rowCount > 0) {
+      const lastTs = new Date(lastChange.rows[0].created_at).getTime();
+      const nowTs = Date.now();
+      if (nowTs - lastTs < 10000) {
+        return res
+          .status(429)
+          .json({ success: false, message: 'Please wait a few seconds before changing again.' });
+      }
+    }
+
+    const updated = await pool.query(
+      'UPDATE children SET level = $1 WHERE id = $2 RETURNING id, level',
+      [parsedLevel, id]
+    );
+
+    await pool.query(
+      `INSERT INTO level_history (child_id, old_level, new_level, changed_by, changed_by_role, reason)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [id, oldLevel, parsedLevel, teacher_id, changed_by_role || 'teacher', reason || null]
+    );
+
+    // Notify parent via feedback (if parent exists)
+    if (parentId) {
+      const messageText = reason
+        ? `Teacher updated ${childName}'s level to ${parsedLevel}. Note: ${reason}`
+        : `Teacher updated ${childName}'s level to ${parsedLevel}.`;
+      try {
+        await pool.query(
+          `INSERT INTO feedbacks (child_id, parent_id, teacher_id, message, is_read)
+           VALUES ($1,$2,$3,$4,FALSE)`,
+          [id, parentId, teacher_id, messageText]
+        );
+      } catch (err) {
+        console.error('WARN: failed to notify parent (feedback) about level change', err);
+      }
+    }
+
+    return res.json({ success: true, child: updated.rows[0] });
+  } catch (err) {
+    console.error('DB Error (PATCH /children/:id/level):', err);
+    return res
+      .status(500)
+      .json({ success: false, message: 'Server error updating level.' });
+  }
+});
+
 // === PARENT LOGIN ===
 app.post('/parent/login', async (req, res) => {
   const { email, password } = req.body;

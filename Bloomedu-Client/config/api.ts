@@ -23,6 +23,8 @@ export const API_ENDPOINTS = {
 
   UPDATE_LEVEL: (childId: number) =>
     `${API_BASE_URL}/children/${childId}/update-level`,
+  MANUAL_LEVEL_UPDATE: (childId: number) =>
+    `${API_BASE_URL}/children/${childId}/level`,
 
   MARK_SURVEY_COMPLETE: (childId: number) =>
     `${API_BASE_URL}/children/${childId}/mark-survey-complete`,
