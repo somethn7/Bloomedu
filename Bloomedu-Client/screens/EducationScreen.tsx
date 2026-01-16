@@ -6,83 +6,39 @@ import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ScrollView } fr
 const categories = [
   { 
     title: 'Colors', 
+    image: require('./assets/colors.png'),
     gradient: ['#FF6B9A', '#FF8FAB'],
     emoji: '🎨',
     description: 'Learn and match colors'
   },
   { 
     title: 'Numbers', 
+    image: require('./assets/numbers.png'),
     gradient: ['#4DABF7', '#74C0FC'],
     emoji: '🔢',
     description: 'Count and recognize numbers'
   },
   { 
     title: 'Objects', 
+    image: require('./assets/objects.png'),
     gradient: ['#51CF66', '#69DB7C'],
     emoji: '🎯',
     description: 'Identify everyday objects'
   },
   { 
     title: 'Animals', 
+    image: require('./assets/animals.png'),
     gradient: ['#FFD43B', '#FFE066'],
     emoji: '🦁',
     description: 'Discover animals'
   },
-  
-  { 
-        title: 'Fruits',
-    gradient: ['#FF9F43', '#FFC368'],
-    emoji: '🍎',
-    description: 'Learn about fruits'
-  },
-  {
-    title: 'Vegetables',
-    gradient: ['#37B24D', '#51CF66'],
-    emoji: '🥦',
-    description: 'Learn about vegetables'
-  },
-  {
-    title: 'BodyParts',
-    gradient: ['#FF8787', '#FFA8A8'],
-    emoji: '🧠',
-    description: 'Know your body parts'
-  },
-    {
-    title: 'Emotions',
-    gradient: ['#F03E3E', '#FF6B6B'],
-    emoji: '😊',
-    description: 'Understand different emotions'
-  },
-  {
-    title: 'Vehicles',
-    gradient: ['#FF922B', '#FFA94D'],
-    emoji: '🚗',
-    description: 'Learn about vehicles'
-  },
   { 
     title: 'Family', 
+    image: require('./assets/child.png'),
     gradient: ['#FF6B9A', '#FF8FAB'],
     emoji: '👨‍👩‍👧‍👦',
     description: 'Meet your family'
   },
-   {
-    title: 'Jobs',
-    gradient: ['#845EF7', '#B197FC'],
-    emoji: '💼',
-    description: 'Explore different professions'
-  },
-  {
-    title: 'School',
-    gradient: ['#339AF0', '#74C0FC'],
-    emoji: '🏫',
-    description: 'Fun school-related games'
-  },
-  {
-    title: 'Mixed',
-    gradient: ['#7950F2', '#B197FC'],
-    emoji: '🧩',
-    description: 'Fun mixed games'
-  }
 ];
 
 const EducationScreen = ({ navigation, route }: any) => {
@@ -148,6 +104,7 @@ const EducationScreen = ({ navigation, route }: any) => {
             >
               <View style={styles.cardContent}>
                 <Text style={styles.categoryEmoji}>{category.emoji}</Text>
+                <Image source={category.image} style={styles.image} />
                 <Text style={styles.cardTitle}>{category.title}</Text>
                 <Text style={styles.cardDescription}>{category.description}</Text>
               </View>
@@ -165,23 +122,6 @@ const styles = StyleSheet.create({
     flex: 1, 
     backgroundColor: '#F8F9FA',
   },
-    categoryIconContainer: {
-    width: 80, // İsteğe göre ayarla
-    height: 80,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)', // Hafif şeffaf beyaz arka plan
-    borderRadius: 20,
-    justifyContent: 'center', // Dikeyde ortalar
-    alignItems: 'center',     // Yatayda ortalar
-    marginBottom: 10,
-    alignSelf: 'center',      // Kapsayıcıyı kutu içinde ortalar
-  },
-  // Emojinin kendi stili
-  categoryIconText: {
-    fontSize: 45, // Emojiyi büyütmek istersen burayı artır
-    textAlign: 'center',
-  },
-  // Eğer altındaki o küçük resim grupları duruyorsa onları silmek için
-  // Render kısmında o View'ı tamamen kaldıracağız.
 
   /* 🔥 YENİ EKLENEN OVAL PANEL */
   topPanel: {

@@ -8,41 +8,6 @@ const sendStudentCredentials = require('./utils/sendMail');
 
 const app = express();
 
-// === 1. MIDDLEWARE AYARLARI (Rotalardan Önce Olmalı) ===
-app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-
-// === LOG MIDDLEWARE ===
-app.use((req, res, next) => {
-  console.log(`👉 ${req.method} ${req.url} - Body:`, req.body);
-  next();
-});
-
-// === 2. ROTALAR (ROUTES) ===
-
-// === HEALTH CHECK ===
-app.get('/health', (req, res) => res.json({ ok: true }));
-
-// === GET DYNAMIC SURVEY QUESTIONS ===
-app.get('/surveys', async (req, res) => {
-  try {
-    const result = await pool.query(
-      'SELECT id, question_text, target_level, target_category, tedil_code FROM surveys ORDER BY id ASC'
-    );
-    return res.json({ 
-      success: true, 
-      questions: result.rows 
-    });
-  } catch (err) {
-    console.error('🔥 Survey DB Error:', err);
-    return res.status(500).json({ 
-      success: false, 
-      message: 'Server error while fetching survey.',
-      error: err.message 
-    });
-  }
-});
-
 // === NEW ROUTES (chat) ===
 const messagesRouter = require('./routes/messages');
 
@@ -51,6 +16,18 @@ const serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
+
+app.use(cors());
+app.use(express.json({ limit: '50mb' })); // image base64
+
+// === LOG MIDDLEWARE ===
+app.use((req, res, next) => {
+  console.log(`👉 ${req.method} ${req.url} - Body:`, req.body);
+  next();
+});
+
+// === HEALTH CHECK ===
+app.get('/health', (req, res) => res.json({ ok: true }));
 
 // === TEACHER LOGIN ===
 app.post('/teacher/login', async (req, res) => {
@@ -298,6 +275,7 @@ app.post('/teacher/add-child', async (req, res) => {
   ]
 );
 
+
     await sendStudentCredentials(parent_email, student_code, student_password);
     console.log(`📨 Mail gönderildi: ${parent_email}`);
 
@@ -310,7 +288,6 @@ app.post('/teacher/add-child', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
-
 
 // === GET CHILDREN BY TEACHER ===
 app.get('/children/:teacherId', async (req, res) => {
@@ -548,7 +525,6 @@ app.post('/feedbacks/mark-read-single', async (req, res) => {
     });
   }
 });
-
 // === GET UNREAD FEEDBACK COUNT BY PARENT ===
 app.get('/feedbacks/unread-count/:parentId', async (req, res) => {
   const { parentId } = req.params;
@@ -684,11 +660,30 @@ app.patch('/children/:id/level', async (req, res) => {
     const parentId = current.rows[0].parent_id;
     const childName = current.rows[0].name || 'Student';
 
+    // Ownership check: teacher can only update own student
     if (Number(childTeacherId) !== Number(teacher_id)) {
       return res
         .status(403)
         .json({ success: false, message: 'Not authorized to change this child level' });
     }
+
+    // Lightweight rate-limit: prevent rapid consecutive changes (10s)
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS level_history (
+        id SERIAL PRIMARY KEY,
+        child_id INTEGER NOT NULL,
+        old_level INTEGER,
+        new_level INTEGER,
+        changed_by TEXT,
+        changed_by_role TEXT,
+        reason TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    // Ensure column exists (idempotent safety)
+    await pool.query(`ALTER TABLE level_history ADD COLUMN IF NOT EXISTS changed_by_role TEXT;`);
+    await pool.query(`ALTER TABLE level_history ADD COLUMN IF NOT EXISTS reason TEXT;`);
 
     const lastChange = await pool.query(
       'SELECT created_at FROM level_history WHERE child_id = $1 ORDER BY created_at DESC LIMIT 1',
@@ -715,6 +710,7 @@ app.patch('/children/:id/level', async (req, res) => {
       [id, oldLevel, parsedLevel, teacher_id, changed_by_role || 'teacher', reason || null]
     );
 
+    // Notify parent via feedback (if parent exists)
     if (parentId) {
       const messageText = reason
         ? `Teacher updated ${childName}'s level to ${parsedLevel}. Note: ${reason}`
@@ -845,6 +841,8 @@ app.get('/game-sessions/by-child/:childId', async (req, res) => {
       [childId]
     );
 
+    console.log('🎮 GAME SESSIONS FOUND:', result.rows);
+
     res.json({ success: true, sessions: result.rows });
   } catch (err) {
     console.error('Error (GET /game-sessions/by-child):', err);
@@ -957,23 +955,37 @@ app.post('/ai-chat', async (req, res) => {
   const lowerMsg = message.toLowerCase();
 
   if (lowerMsg.includes('merhaba') || lowerMsg.includes('selam')) {
-    aiResponse = 'Hello! I am your Bloomedu Pedagogue Assistant. How can I help you and your child today?';
+    aiResponse =
+      'Hello! I am your Bloomedu Pedagogue Assistant. How can I help you and your child today?';
   } else if (lowerMsg.includes('oyun') || lowerMsg.includes('game')) {
-    aiResponse = "Playing games is great for your child's development! Have you tried the **'Matching'** and **'Colors'** games in Bloomedu? These support attention and cognitive skills.";
-  } else if (lowerMsg.includes('konuş') || lowerMsg.includes('speak') || lowerMsg.includes('iletişim')) {
-    aiResponse = 'To support communication skills, make plenty of eye contact with your child. Use short and clear sentences.';
-  } else if (lowerMsg.includes('öfke') || lowerMsg.includes('angry') || lowerMsg.includes('cry')) {
-    aiResponse = "Tantrums can be challenging. Try to stay calm in such moments. Name your child's emotion: 'You are sad right now, I understand.'";
+    aiResponse =
+      "Playing games is great for your child's development! Have you tried the **'Matching'** and **'Colors'** games in Bloomedu? These support attention and cognitive skills. You can also play simple 'what color is this?' games with objects at home.";
+  } else if (
+    lowerMsg.includes('konuş') ||
+    lowerMsg.includes('speak') ||
+    lowerMsg.includes('iletişim')
+  ) {
+    aiResponse =
+      'To support communication skills, make plenty of eye contact with your child. Use short and clear sentences. When they point to something they want, name the object before giving it to them. Be patient, every child progresses at their own pace.';
+  } else if (
+    lowerMsg.includes('öfke') ||
+    lowerMsg.includes('angry') ||
+    lowerMsg.includes('cry')
+  ) {
+    aiResponse =
+      "Tantrums can be challenging. Try to stay calm in such moments. Name your child's emotion: 'You are sad right now, I understand.' Wait for them to calm down in a safe space. Sometimes a hug is the best medicine.";
   } else if (lowerMsg.includes('uyku') || lowerMsg.includes('sleep')) {
-    aiResponse = 'Sleep routines are very important. Turn off screens before bed, try calming activities like a warm bath.';
+    aiResponse =
+      'Sleep routines are very important. Turn off screens before bed, try calming activities like a warm bath and reading a story. Keeping the room dark and quiet also makes it easier to fall asleep.';
   } else {
-    aiResponse = 'I understand. Could you please elaborate so I can give you more detailed information? Generally, consistency, love, and patience are the most important keys.';
+    aiResponse =
+      'I understand. Could you please elaborate on your question so I can give you more detailed information? Generally, consistency, love, and patience are the most important keys in child development.';
   }
 
   res.json({ success: true, reply: aiResponse });
 });
 
-// === CHAT ROUTES ===
+// === CHAT ROUTES (en sonda, 404'dan önce) ===
 app.use('/', messagesRouter);
 
 // === 404 HANDLER ===
