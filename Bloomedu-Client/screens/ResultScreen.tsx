@@ -1,14 +1,12 @@
 import React, { useEffect, useLayoutEffect } from 'react';
 import { View, Text, TouchableOpacity, BackHandler, StyleSheet } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { API_ENDPOINTS } from '../config/api';
 
 const ResultScreen = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { answers, child } = route.params;
 
-  // 🚫 Default Header'ı kaldırıyoruz
   useLayoutEffect(() => {
     navigation.setOptions({
       headerShown: false,
@@ -24,12 +22,13 @@ const ResultScreen = () => {
     (total: number, a: string | null) => total + (a === 'yes' ? 1 : 0),
     0
   );
-  const level = Math.ceil(score / 4);
+
+  // --- KOD YAPISINI BOZMADAN SEVİYEYİ 2'YE SABİTLEDİK ---
+  const level = 2; 
 
   return (
     <View style={styles.container}>
 
-      {/* ===================== ÜST OVAL PANEL ===================== */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -41,7 +40,6 @@ const ResultScreen = () => {
         <Text style={styles.headerTitle}>Result</Text>
       </View>
 
-      {/* ===================== KART ===================== */}
       <View style={styles.cardWrapper}>
         <View style={styles.card}>
           <Text style={styles.title}>Survey Completed!</Text>
@@ -50,7 +48,9 @@ const ResultScreen = () => {
 
           <TouchableOpacity
             style={styles.eduBtn}
-            onPress={() => navigation.navigate('Education', { child })}
+            onPress={() => navigation.navigate('Education', { 
+              child: { ...child, level: level } // Navigasyonda level 2 gidiyor
+            })}
           >
             <Text style={styles.eduText}>START EDUCATION →</Text>
           </TouchableOpacity>
@@ -75,8 +75,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f6f5f5',
   },
-
-  /* ----- CUSTOM HEADER ----- */
   header: {
     backgroundColor: '#d9d9d9',
     paddingTop: 55,
@@ -106,8 +104,6 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: '700',
   },
-
-  /* ----- CARD ----- */
   cardWrapper: {
     flex: 1,
     justifyContent: 'center',
@@ -140,7 +136,6 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 22,
   },
-
   eduBtn: {
     backgroundColor: '#FF6B9A',
     paddingVertical: 14,
@@ -154,7 +149,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-
   dashboardBtn: {
     backgroundColor: '#e7e7e7',
     paddingVertical: 14,
