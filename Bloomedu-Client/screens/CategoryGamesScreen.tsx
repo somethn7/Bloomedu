@@ -21,6 +21,9 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
   games: {
     1: [
       { title: 'Color Match', subtitle: 'Find matching colors', screen: 'ColorsRecognitionLevel1', icon: '🎯' },
+      { title: 'Color Parking', subtitle: 'Park the car in the right color spot', screen: 'ColorParking', icon: '🚗' },
+      { title: 'Balloon Pop', subtitle: 'Pop the balloons of the correct color', screen: 'BalloonPop', icon: '🎈' },
+      {title: 'Caterpillar Coloring', subtitle: 'Color the caterpillar parts', screen: 'CaterpillarColoringGame', icon: '🐛' },
     ],
     2: [
       { title: 'Color Objects', subtitle: 'Match colors with objects', screen: 'ColorObjectsLevel2', icon: '🎨' },
@@ -49,6 +52,9 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
         1: [
           { title: 'Learn Numbers', subtitle: 'Recognize numbers 1-10', screen: 'LearnNumbersLevel1', icon: '📚' },
           { title: 'Sort Numbers', subtitle: 'Arrange numbers in order', screen: 'SortNumbersLevel1', icon: '🔄' },
+          { title: 'Missing Numbers', subtitle: 'Find the missing number', screen: 'MissingNumbersLevel1', icon: '❓' },
+          { title: 'Match Numbers', subtitle: 'Memory card game', screen: 'MatchNumbersLevel1', icon: '🎴' },
+          { title: 'Comparison', subtitle: 'Compare two numbers', screen: 'ComparisonLevel1', icon: '⚖️' },
         ],
         2: [
           { title: 'Missing Numbers', subtitle: 'Find the missing number', screen: 'MissingNumbersLevel2', icon: '❓' },
@@ -68,6 +74,7 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
         ],
         2: [
           { title: 'Sorting Baskets', subtitle: 'Sort items by category', screen: 'SortingBasketsLevel2', icon: '🧺' },
+          { title: 'Match Objects', subtitle: 'Find the matching object', screen: 'ObjectMatchLevel2', icon: '🔍' },
         ],
         3: [
           { title: 'Shape Match', subtitle: 'Match the shapes', screen: 'ShapeMatchLevel3', icon: '🌼' },
@@ -81,9 +88,99 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
       gradient: ['#FFD43B', '#FFE066'],
       games: {
         1: [
+         { 
+          title: 'Learn Animals', 
+          subtitle: 'Recognize cute animals', 
+          screen: 'GenericMatchingGame', 
+          icon: '🦒',
+          categoryKey: 'Animals',
+          gameMode: 'recognition' // Birinci mod
+        },
           { title: 'Animal Sounds', subtitle: 'Learn animal sounds', screen: 'AnimalSoundsLevel1', icon: '🎵' },
         ],
-        2: [],
+        2: [ 
+          {
+            title: 'Sound Match', 
+            subtitle: 'Match animals to their sounds',
+            screen: 'GenericMatchingGame',
+            icon: '🦉'
+            ,
+          }
+        ],
+      },
+    },
+        Fruits: {
+      icon: '🍎',
+      color: '#FF6B6B',
+      gradient: ['#FF6B6B', '#FF8787'],
+      games: {
+        1: [
+          { 
+            title: 'Learn Fruits', 
+            subtitle: 'Recognize delicious fruits', 
+            screen: 'GenericMatchingGame', 
+            icon: '🍓',
+            categoryKey: 'Fruits' 
+          },
+        ],
+        2: [
+          { 
+            title: 'Fruit Match', 
+            subtitle: 'Match fruits to their names', 
+            screen: 'GenericMatchingGame', 
+            icon: '🍒',
+            categoryKey: 'Fruits' 
+          },
+        ]
+      },
+    },
+        Vegetables: {
+      icon: '🥦',
+      color: '#26DE81',
+      gradient: ['#26DE81', '#20BF6B'],
+      games: {
+        1: [
+          { 
+            title: 'Learn Vegetables', 
+            subtitle: 'Healthy and tasty vegetables', 
+            screen: 'GenericMatchingGame', 
+            icon: '🥕',
+            categoryKey: 'Vegetables' 
+          },
+        ],
+      },
+    },
+    BodyParts: {
+      icon: '🧠',
+      color: '#FF8787',
+      gradient: ['#FF8787', '#FFA8A8'],
+      games: {
+        1: [
+          {
+            title: 'Learn Body Parts',
+            subtitle: 'Identify different body parts',
+            screen: 'GenericMatchingGame',
+            icon: '🦵',
+            categoryKey: 'BodyParts'
+          },
+        ],
+      },
+    },
+    Emotions: {
+      icon: '😊',
+      color: '#FECA57',
+      gradient: ['#FECA57', '#FF9F43'],
+      games: {
+        1: [
+          { title: 'Learning Emotions', subtitle: 'Recognize facial expressions', screen: 'GenericMatchingGame', icon: '🎭', categoryKey: 'Emotions' },
+        ],
+        // Diğer seviyeler için de ekliyoruz
+        2: [
+          { title: 'Learning Emotions', subtitle: 'Recognize facial expressions', screen: 'GenericMatchingGame', icon: '🎭', categoryKey: 'Emotions' },
+        ],
+        3: [
+          { title: 'Learning Emotions', subtitle: 'Recognize facial expressions', screen: 'GenericMatchingGame', icon: '🎭', categoryKey: 'Emotions' },
+        ],
       },
     },
 
@@ -100,17 +197,85 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
         ],
       },
     },
+       Vehicles: {
+      icon: '🚀',
+      color: '#2F3542',
+      gradient: ['#2F3542', '#57606F'],
+      games: {
+        1: [
+          { 
+            title: 'Learn Vehicles', 
+            subtitle: 'Identify different vehicles', 
+            screen: 'GenericMatchingGame', // Senin sihirli dosyan
+            icon: '🚁',
+            categoryKey: 'Vehicles' // gameData.ts'deki anahtar ile aynı olmalı
+          },
+        ],
+      },
+    },
+     Jobs: {
+      icon: '💼',
+      color: '#45B7D1',
+      gradient: ['#45B7D1', '#3498DB'],
+      games: {
+        1: [
+          { 
+            title: 'Learn Jobs', 
+            subtitle: 'Identify different professions', 
+            screen: 'GenericMatchingGame', 
+            icon: '👨‍🔧',
+            categoryKey: 'Jobs' 
+          },
+        ],
+      },
+    },
+    School: {
+      icon: '🏫',
+      color: '#3C40C6',
+      gradient: ['#3C40C6', '#5758BB'],
+      games: {
+        1: [
+          { 
+            title: 'School Supplies', 
+            subtitle: 'Learn classroom objects', 
+            screen: 'GenericMatchingGame', 
+            icon: '✏️',
+            categoryKey: 'School' 
+          },
+        ],
+      },
+    },
+
+    Mixed: {
+      icon: '🧠',
+      color: '#A29BFE', // Mor tonu, zihinsel becerileri temsil eder
+      gradient: ['#A29BFE', '#6C5CE7'],
+      games: {
+        1: [
+          { title: 'Fruit Basket', subtitle: 'Count and sort delicious fruits', screen: 'CountBasket', icon: '🧺' },
+          { title: 'Size Matching', subtitle: 'Match objects by size', screen: 'SizeMatching', icon: '📏' },
+          { title: 'Size Clothes', subtitle: 'Dress the character according to size', screen: 'SizeClothes', icon: '👗' },
+        ],
+        2: [
+          { title: 'Big or Small', subtitle: 'Compare sizes of objects', screen: 'SizeComparisonLevel2', icon: '📏' },
+        ],
+        3: [
+          { title: 'Logic Path', subtitle: 'Find the correct sequence', screen: 'LogicPathLevel3', icon: '🧩' },
+        ],
+      },
+    },
   };
 
   const categoryData = gamesByCategory[categoryTitle] || null;
   const games = categoryData?.games[childLevel] || [];
 
-  const handleGamePress = (screen: string, index?: number) => {
-    navigation.navigate(screen, { 
+  const handleGamePress = (game: any, index?: number) => {
+    navigation.navigate(game.screen, { 
       child,
       gameSequence: games,
       currentGameIndex: index ?? 0,
       categoryTitle,
+      categoryKey: game.categoryKey || categoryTitle,
     });
   };
 
@@ -168,7 +333,7 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
               <TouchableOpacity
                 key={index}
                 style={[styles.gameCard, { borderLeftColor: categoryData?.color }]}
-                onPress={() => handleGamePress(game.screen, index)}
+                 onPress={() => handleGamePress(game, index)}
                 activeOpacity={0.7}
               >
                 <View style={[styles.gameIconContainer, { backgroundColor: categoryData?.color }]}>

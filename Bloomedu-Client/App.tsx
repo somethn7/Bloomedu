@@ -1,6 +1,7 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import GenericMatchingGame from './screens/games/generic';
 
 import ChildGameDetailsScreen from './screens/ChildGameDetailsScreen';
 import ObjectColorMatchLevel3 from './screens/games/Colors/Level3/ObjectColorMatchLevel3';
@@ -30,18 +31,25 @@ import EducationScreen from './screens/EducationScreen';
 import CategoryGamesScreen from './screens/CategoryGamesScreen';
 import ColorsGameScreen from './screens/ColorsGameScreen';
 import ColorsMatchingGameScreen from './screens/games/Colors/Level2/ColorsMatchingGameScreen';
+import ColorParkingGame from './screens/games/Colors/Level1/ColorParking';
+import BalloonPop from './screens/games/Colors/Level1/BalloonPop';
+import CaterpillarColoringGame from './screens/games/Colors/Level1/Caterpillar';
 
 import ColorsRecognitionLevel1 from './screens/games/Colors/Level1/ColorsRecognitionLevel1';
 import StarTrackingLevel1 from './screens/games/Objects/Level1/StarTrackingLevel1';
 import LearnNumbersLevel1 from './screens/games/Numbers/Level1/LearnNumbersLevel1';
 import SortNumbersLevel1 from './screens/games/Numbers/Level1/SortNumbersLevel1';
+import MissingNumbersLevel1 from './screens/games/Numbers/Level1/MissingNumbers';
+import MatchNumbersLevel1 from './screens/games/Numbers/Level1/MatchNumbers';
+import ComparisonLevel1 from './screens/games/Numbers/Level1/Comparision';
 import AnimalSoundsLevel1 from './screens/games/Animals/Level1/AnimalSoundsLevel1';
 import FruitBasketLevel1 from './screens/games/Objects/Level1/FruitBasketLevel1';
 import MeetMyFamilyLevel1 from './screens/games/Family/Level1/MeetMyFamilyLevel1';
+import CountBasket from './screens/games/Mixed/Mix1/CountBasket';
+import SizeMatching from './screens/games/Mixed/Mix1/SizeMatching';
+ import SizeClothes from './screens/games/Mixed/Mix1/SizeClothes';
 
 import ColorObjectsLevel2 from './screens/games/Colors/Level2/ColorObjectsLevel2';
-import MissingNumbersLevel2 from './screens/games/Numbers/Level2/MissingNumbersLevel2';
-import MatchNumbersLevel2 from './screens/games/Numbers/Level2/MatchNumbersLevel2';
 import ColorMatchPathLevel2 from './screens/games/Colors/Level2/ColorMatchPathLevel2';
 import SortingBasketsLevel2 from './screens/games/Objects/Level2/SortingBasketsLevel2';
 import FindFamilyMemberLevel2 from './screens/games/Family/Level2/FindFamilyMemberLevel2';
@@ -69,6 +77,8 @@ export default function App() {
       <NavigationContainer>
         <Stack.Navigator initialRouteName="Splash" screenOptions={{ headerShown: true }}>
 
+<Stack.Screen name="GenericMatchingGame" component={GenericMatchingGame} />
+
           <Stack.Screen name="Splash" component={SplashScreen} options={{ headerShown: false }} />
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="Login" component={ParentLoginScreen} />
@@ -92,6 +102,9 @@ export default function App() {
 
           <Stack.Screen name="ColorsGame" component={ColorsGameScreen} />
           <Stack.Screen name="ColorsMatchingGame" component={ColorsMatchingGameScreen} />
+                    <Stack.Screen name="ColorParking" component={ColorParkingGame} />
+          <Stack.Screen name="BalloonPop" component={BalloonPop} />
+          <Stack.Screen name="CaterpillarColoringGame" component={CaterpillarColoringGame} />
 
           <Stack.Screen name="ChildGameDetails" component={ChildGameDetailsScreen} options={{ headerShown: false }} />
 
@@ -100,14 +113,18 @@ export default function App() {
           <Stack.Screen name="StarTrackingLevel1" component={StarTrackingLevel1} />
           <Stack.Screen name="LearnNumbersLevel1" component={LearnNumbersLevel1} />
           <Stack.Screen name="SortNumbersLevel1" component={SortNumbersLevel1} />
+                    <Stack.Screen name="MissingNumbersLevel1" component={MissingNumbersLevel1} />
+          <Stack.Screen name="MatchNumbersLevel1" component={MatchNumbersLevel1} />
+          <Stack.Screen name="ComparisonLevel1" component={ComparisonLevel1} />
           <Stack.Screen name="AnimalSoundsLevel1" component={AnimalSoundsLevel1} />
           <Stack.Screen name="FruitBasketLevel1" component={FruitBasketLevel1} />
           <Stack.Screen name="MeetMyFamilyLevel1" component={MeetMyFamilyLevel1} />
+                    <Stack.Screen name="CountBasket" component={CountBasket} />
+          <Stack.Screen name="SizeMatching" component={SizeMatching} />
+          <Stack.Screen name="SizeClothes" component={SizeClothes} />
 
           {/* LEVEL 2 */}
           <Stack.Screen name="ColorObjectsLevel2" component={ColorObjectsLevel2} />
-          <Stack.Screen name="MissingNumbersLevel2" component={MissingNumbersLevel2} />
-          <Stack.Screen name="MatchNumbersLevel2" component={MatchNumbersLevel2} />
           <Stack.Screen name="ColorMatchPathLevel2" component={ColorMatchPathLevel2} />
           <Stack.Screen name="SortingBasketsLevel2" component={SortingBasketsLevel2} />
           <Stack.Screen name="FindFamilyMemberLevel2" component={FindFamilyMemberLevel2} />
