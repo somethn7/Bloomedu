@@ -1,11 +1,11 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, SafeAreaView, PanResponder } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, Dimensions, PanResponder, SafeAreaView, StyleSheet, Text, View } from 'react-native';
 import Tts from 'react-native-tts';
 import { useRoute } from '@react-navigation/native';
 import { createGameCompletionHandler } from '../../../../utils/gameNavigation';
 import { sendGameResult } from '../../../../config/api';
 
-const { width, height } = Dimensions.get('window');
+const { width } = Dimensions.get('window');
 
 // Renkler ve nesneler
 const COLOR_BOXES = [
@@ -43,7 +43,8 @@ const getRandomItems = () => {
   const allItems: any[] = [];
   COLOR_BOXES.forEach((box) => {
     const items = COLOR_ITEMS[box.id];
-    const selected = items.sort(() => 0.5 - Math.random()).slice(0, 4); // Her renkten 4 tane
+    // NOTE: do not mutate the source array (sort mutates)
+    const selected = [...items].sort(() => 0.5 - Math.random()).slice(0, 4); // Her renkten 4 tane
     selected.forEach((item) => {
       allItems.push({ ...item, correctColor: box.id, colorCode: box.code });
     });
@@ -73,16 +74,13 @@ const HomeOrganizer = ({ navigation }: any) => {
 
   // Box layouts
   const boxLayouts = useRef<Record<string, any>>({});
+  const boxRefs = useRef<Record<string, any>>({});
 
-  useEffect(() => {
-    Tts.setDefaultLanguage('en-US');
-    Tts.setDefaultRate(0.35);
-    startNewRound();
-    return () => Tts.stop();
-  }, []);
+  // Prevent double-finalize on re-renders
+  const hasFinalizedRef = useRef(false);
 
-  const startNewRound = () => {
-    if (currentRound >= MAX_ROUNDS) {
+  const startNewRound = useCallback((roundIndex: number) => {
+    if (roundIndex >= MAX_ROUNDS) {
       setGameFinished(true);
       return;
     }
@@ -94,38 +92,61 @@ const HomeOrganizer = ({ navigation }: any) => {
     setTimeout(() => {
       Tts.speak('Organize the items by color! Put each item in the matching color box.');
     }, 500);
-  };
+  }, []);
 
-  const handleItemDrop = (item: any, boxId: string) => {
-    if (item.correctColor === boxId) {
-      // ✅ Correct
-      setScore(prev => prev + 1);
-      Tts.speak(`Great! ${item.name} is ${COLOR_BOXES.find(b => b.id === boxId)?.name}!`);
+  useEffect(() => {
+    Tts.setDefaultLanguage('en-US');
+    Tts.setDefaultRate(0.35);
+    startNewRound(0);
+    return () => {
+      void Tts.stop();
+    };
+  }, [startNewRound]);
 
-      setItems(prev => prev.filter(i => i.id !== item.id || i.correctColor !== item.correctColor));
-      setOrganizedItems(prev => ({
-        ...prev,
-        [boxId]: [...prev[boxId], item],
-      }));
+  const advanceRound = useCallback(() => {
+    setCurrentRound((prev) => {
+      const next = prev + 1;
+      if (next >= MAX_ROUNDS) {
+        setGameFinished(true);
+      } else {
+        setTimeout(() => startNewRound(next), 1500);
+      }
+      return next;
+    });
+  }, [startNewRound]);
 
-      // Check if all items organized
-      setTimeout(() => {
-        if (items.filter(i => !organizedItems[i.correctColor]?.includes(i)).length === 1) {
-          // Last item
-          if (currentRound + 1 >= MAX_ROUNDS) {
-            setGameFinished(true);
-          } else {
-            setCurrentRound(prev => prev + 1);
-            setTimeout(() => startNewRound(), 1500);
+  const handleItemDrop = useCallback(
+    (item: any, boxId: string) => {
+      if (gameFinished) return;
+
+      if (item.correctColor === boxId) {
+        // ✅ Correct
+        setScore((prev) => prev + 1);
+        Tts.speak(`Great! ${item.name} is ${COLOR_BOXES.find((b) => b.id === boxId)?.name}!`);
+
+        setOrganizedItems((prev) => ({
+          ...prev,
+          [boxId]: [...(prev[boxId] || []), item],
+        }));
+
+        setItems((prev) => {
+          const next = prev.filter((i) => i.id !== item.id || i.correctColor !== item.correctColor);
+          if (next.length === 0) {
+            // Round complete
+            setTimeout(() => {
+              advanceRound();
+            }, 500);
           }
-        }
-      }, 500);
-    } else {
-      // ❌ Wrong
-      setWrongCount(prev => prev + 1);
-      Tts.speak(`Hmm, that doesn't match! Try again.`);
-    }
-  };
+          return next;
+        });
+      } else {
+        // ❌ Wrong
+        setWrongCount((prev) => prev + 1);
+        Tts.speak(`Hmm, that doesn't match! Try again.`);
+      }
+    },
+    [advanceRound, gameFinished]
+  );
 
   const DraggableItem = ({ item }: { item: any }) => {
     const pan = useRef(new Animated.ValueXY()).current;
@@ -138,8 +159,9 @@ const HomeOrganizer = ({ navigation }: any) => {
           const { moveX, moveY } = gesture;
 
           // Check which box was hit
-          Object.keys(boxLayouts.current).forEach((boxId) => {
+          for (const boxId of Object.keys(boxLayouts.current)) {
             const layout = boxLayouts.current[boxId];
+            if (!layout) continue;
             if (
               moveX > layout.x &&
               moveX < layout.x + layout.width &&
@@ -147,8 +169,9 @@ const HomeOrganizer = ({ navigation }: any) => {
               moveY < layout.y + layout.height
             ) {
               handleItemDrop(item, boxId);
+              break;
             }
-          });
+          }
 
           Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false }).start();
         },
@@ -156,7 +179,7 @@ const HomeOrganizer = ({ navigation }: any) => {
     ).current;
 
     return (
-      <Animated.View {...panResponder.panHandlers} style={[pan.getLayout()]}>
+      <Animated.View {...panResponder.panHandlers} style={[styles.draggableWrapper, pan.getLayout()]}>
         <View style={[styles.item, { borderColor: item.colorCode }]}>
           <Text style={styles.itemEmoji}>{item.emoji}</Text>
           <Text style={styles.itemName}>{item.name}</Text>
@@ -165,7 +188,7 @@ const HomeOrganizer = ({ navigation }: any) => {
     );
   };
 
-  const finalizeGame = async () => {
+  const finalizeGame = useCallback(async () => {
     if (!child?.id) return;
     const duration = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
     const totalItems = MAX_ROUNDS * 12; // Her round 12 item (3 renk x 4 item)
@@ -181,6 +204,10 @@ const HomeOrganizer = ({ navigation }: any) => {
         duration_seconds: duration,
         wrong_count: wrongCount,
         success_rate: successRate,
+        details: {
+          maxRounds: MAX_ROUNDS,
+          totalItems,
+        },
         completed: true,
       });
     } catch (err) {
@@ -194,20 +221,24 @@ const HomeOrganizer = ({ navigation }: any) => {
       currentGameIndex,
       categoryTitle,
       resetGame: () => {
+        hasFinalizedRef.current = false;
         setScore(0);
         setWrongCount(0);
         setCurrentRound(0);
         setGameFinished(false);
         gameStartTimeRef.current = Date.now();
-        startNewRound();
+        startNewRound(0);
       },
     });
     gameNav.showCompletionMessage(score, totalItems, '🏠 Amazing Organizer!');
-  };
+  }, [categoryTitle, child, currentGameIndex, gameSequence, navigation, score, startNewRound, wrongCount]);
 
   useEffect(() => {
-    if (gameFinished) finalizeGame();
-  }, [gameFinished]);
+    if (!gameFinished) return;
+    if (hasFinalizedRef.current) return;
+    hasFinalizedRef.current = true;
+    finalizeGame();
+  }, [finalizeGame, gameFinished]);
 
   const remainingItems = items.filter(
     (item) => !organizedItems[item.correctColor]?.some((o) => o.id === item.id && o.correctColor === item.correctColor)
@@ -231,10 +262,20 @@ const HomeOrganizer = ({ navigation }: any) => {
           {COLOR_BOXES.map((box) => (
             <View
               key={box.id}
+              ref={(ref) => {
+                boxRefs.current[box.id] = ref;
+              }}
               onLayout={(e) => {
-                e.target.measure((x, y, w, h, px, py) => {
-                  boxLayouts.current[box.id] = { x: px, y: py, width: w, height: h };
-                });
+                const ref = boxRefs.current[box.id];
+                if (ref?.measureInWindow) {
+                  ref.measureInWindow((x: number, y: number, w: number, h: number) => {
+                    boxLayouts.current[box.id] = { x, y, width: w, height: h };
+                  });
+                } else {
+                  // Fallback: local layout (less accurate for absolute drop coords, but avoids crashes)
+                  const { x, y, width: w, height: h } = e.nativeEvent.layout;
+                  boxLayouts.current[box.id] = { x, y, width: w, height: h };
+                }
               }}
               style={[styles.colorBox, { backgroundColor: box.code }]}
             >
@@ -318,8 +359,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
-    gap: 15,
     paddingTop: 20,
+  },
+  draggableWrapper: {
+    margin: 8,
   },
   item: {
     width: 80,

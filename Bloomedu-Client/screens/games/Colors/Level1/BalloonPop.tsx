@@ -32,15 +32,23 @@ const BalloonPopGame = ({ navigation }: any) => {
   const [wrongCount, setWrongCount] = useState(0);
   const gameStartTimeRef = useRef<number>(Date.now());
   const balloonIdCounter = useRef(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const activeAnimationsRef = useRef<Map<number, Animated.CompositeAnimation>>(new Map());
+  const isMountedRef = useRef(true);
 
   useEffect(() => {
     initTts();
     setNewTarget();
     // Yeni balonların çıkış aralığını 2 saniyeye çıkardık (Daha sakin bir oyun için)
-    const interval = setInterval(addBalloon, 2000);
+    intervalRef.current = setInterval(addBalloon, 2000);
     return () => {
-      clearInterval(interval);
-      Tts.stop();
+      isMountedRef.current = false;
+      if (intervalRef.current) clearInterval(intervalRef.current);
+      intervalRef.current = null;
+      // Stop any running animations to prevent late callbacks
+      activeAnimationsRef.current.forEach((anim) => anim.stop());
+      activeAnimationsRef.current.clear();
+      void Tts.stop();
     };
   }, []);
 
@@ -73,17 +81,32 @@ const BalloonPopGame = ({ navigation }: any) => {
     setBalloons(prev => [...prev.slice(-15), newBalloon]); 
 
     // ÇOK YAVAŞ YÜKSELME (15 saniye sürer)
-    Animated.timing(newBalloon.anim, {
+    const anim = Animated.timing(newBalloon.anim, {
       toValue: 1,
       duration: 15000, 
       useNativeDriver: true,
-    }).start(() => {
-      setBalloons(prev => prev.filter(b => b.id !== newBalloon.id));
+    });
+    activeAnimationsRef.current.set(newBalloon.id, anim);
+    anim.start(() => {
+      // Defensive: animation callbacks can fire at awkward times in React 18 dev mode.
+      // Schedule state updates for the next tick to avoid `useInsertionEffect` warnings.
+      setTimeout(() => {
+        if (!isMountedRef.current) return;
+        activeAnimationsRef.current.delete(newBalloon.id);
+        setBalloons(prev => prev.filter(b => b.id !== newBalloon.id));
+      }, 0);
     });
   };
 
   const handlePop = (id: number, color: any) => {
     if (gameFinished) return;
+
+    // Stop animation for this balloon to prevent late completion callbacks
+    const anim = activeAnimationsRef.current.get(id);
+    if (anim) {
+      anim.stop();
+      activeAnimationsRef.current.delete(id);
+    }
 
     if (color.id === targetColor.id) {
       // DOĞRU PATLATMA

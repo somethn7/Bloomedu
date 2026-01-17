@@ -18,14 +18,36 @@ export const createGameCompletionHandler = (
   const goToNextGame = () => {
     if (gameSequence && currentGameIndex >= 0 && currentGameIndex < gameSequence.length - 1) {
       const nextGame = gameSequence[currentGameIndex + 1];
-      navigation.navigate(nextGame.screen, {
+      const nextParams = {
         child,
         gameSequence,
         currentGameIndex: currentGameIndex + 1,
         categoryTitle,
-      });
+        // Preserve extra context for generic/multi-mode games
+        categoryKey: nextGame.categoryKey || categoryTitle,
+        gameMode: nextGame.gameMode,
+      };
+
+      // IMPORTANT: In "Play All" sequences, use replace to avoid stacking games.
+      // This ensures the Android back button returns to CategoryGames instead of the previous game.
+      if (typeof navigation.replace === 'function') {
+        navigation.replace(nextGame.screen, nextParams);
+      } else {
+        navigation.navigate(nextGame.screen, nextParams);
+      }
     } else {
-      navigation.goBack();
+      // End of sequence: return to the same screen as "played individually" flow
+      if (categoryTitle && child) {
+        navigation.reset({
+          index: 1,
+          routes: [
+            { name: 'Education', params: { child } },
+            { name: 'CategoryGames', params: { categoryTitle, child } },
+          ],
+        });
+      } else {
+        navigation.goBack();
+      }
     }
   };
 

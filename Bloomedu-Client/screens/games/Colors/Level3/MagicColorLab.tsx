@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, SafeAreaView, PanResponder } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Dimensions, PanResponder, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Tts from 'react-native-tts';
 import { useRoute } from '@react-navigation/native';
 import { createGameCompletionHandler } from '../../../../utils/gameNavigation';
@@ -51,85 +51,114 @@ const MagicColorLab = ({ navigation }: any) => {
   // Animations
   const mixAnim = useRef(new Animated.Value(0)).current;
   const sparkleAnim = useRef(new Animated.Value(0)).current;
+  const sparkleLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  // Keep latest values to avoid stale closures in timeouts
+  const targetMixRef = useRef<any>(null);
+  const tube1Ref = useRef<any>(null);
+  const tube2Ref = useRef<any>(null);
+  useEffect(() => {
+    targetMixRef.current = targetMix;
+  }, [targetMix]);
+  useEffect(() => {
+    tube1Ref.current = tube1;
+  }, [tube1]);
+  useEffect(() => {
+    tube2Ref.current = tube2;
+  }, [tube2]);
+
+  // Prevent double-finalize on re-renders
+  const hasFinalizedRef = useRef(false);
 
   useEffect(() => {
     Tts.setDefaultLanguage('en-US');
     Tts.setDefaultRate(0.35);
-    startNewRound();
-    return () => Tts.stop();
+    startNewRound(0);
+    return () => {
+      void Tts.stop();
+      sparkleLoopRef.current?.stop?.();
+      sparkleLoopRef.current = null;
+    };
   }, []);
 
-  const startNewRound = () => {
-    if (currentRound >= MAX_ROUNDS) {
+  const startNewRound = useCallback((roundIndex: number) => {
+    if (roundIndex >= MAX_ROUNDS) {
       setGameFinished(true);
       return;
     }
 
-    const target = TARGETS[currentRound];
+    const target = TARGETS[roundIndex];
     setTargetMix(target);
     setTube1(null);
     setTube2(null);
     setResult(null);
     setIsMixing(false);
+    sparkleLoopRef.current?.stop?.();
+    sparkleLoopRef.current = null;
+    sparkleAnim.setValue(0);
+    mixAnim.setValue(0);
 
     setTimeout(() => {
       Tts.speak(`Let's make ${target.result.name}! Which two colors should we mix?`);
     }, 500);
-  };
+  }, [mixAnim, sparkleAnim]);
 
-  const handleColorDrop = (color: any, tubeNumber: 1 | 2) => {
-    if (isMixing || result) return;
+  const advanceRound = useCallback(() => {
+    setCurrentRound((prev) => {
+      const next = prev + 1;
+      if (next >= MAX_ROUNDS) {
+        setGameFinished(true);
+      } else {
+        startNewRound(next);
+      }
+      return next;
+    });
+  }, [startNewRound]);
 
-    if (tubeNumber === 1) {
-      setTube1(color);
-    } else {
-      setTube2(color);
-    }
-
-    // Her iki tüp doluysa karıştır
-    if ((tubeNumber === 1 && tube2) || (tubeNumber === 2 && tube1)) {
-      setTimeout(() => {
-        mixColors(tubeNumber === 1 ? color : tube1, tubeNumber === 2 ? color : tube2);
-      }, 300);
-    }
-  };
-
-  const mixColors = (color1: any, color2: any) => {
+  const mixColors = useCallback((color1: any, color2: any) => {
+    if (!color1 || !color2) return;
     setIsMixing(true);
+
     const mixKey1 = `${color1.id}+${color2.id}`;
     const mixKey2 = `${color2.id}+${color1.id}`;
     const mixResult = COLOR_MIXES[mixKey1] || COLOR_MIXES[mixKey2];
 
     // Animation
+    sparkleLoopRef.current?.stop?.();
+    sparkleLoopRef.current = Animated.loop(
+      Animated.sequence([
+        Animated.timing(sparkleAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
+        Animated.timing(sparkleAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
+      ])
+    );
+
     Animated.parallel([
       Animated.sequence([
         Animated.timing(mixAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
         Animated.timing(mixAnim, { toValue: 0, duration: 0, useNativeDriver: true }),
       ]),
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(sparkleAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
-          Animated.timing(sparkleAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
-        ])
-      ),
+      sparkleLoopRef.current,
     ]).start();
 
     setTimeout(() => {
+      sparkleLoopRef.current?.stop?.();
+      sparkleLoopRef.current = null;
       setIsMixing(false);
       setResult(mixResult);
 
-      if (mixResult && mixResult.name === targetMix.result.name) {
+      const currentTarget = targetMixRef.current;
+      if (mixResult && currentTarget && mixResult.name === currentTarget.result.name) {
         // ✅ Correct!
-        setScore(prev => prev + 1);
+        setScore((prev) => prev + 1);
         Tts.speak(`Perfect! We made ${mixResult.name}!`);
         setTimeout(() => {
-          setCurrentRound(prev => prev + 1);
-          startNewRound();
+          advanceRound();
         }, 2000);
       } else {
         // ❌ Wrong
-        setWrongCount(prev => prev + 1);
-        Tts.speak(`Hmm, that's not ${targetMix.result.name}. Let's try again!`);
+        setWrongCount((prev) => prev + 1);
+        const expected = currentTarget?.result?.name || 'the target color';
+        Tts.speak(`Hmm, that's not ${expected}. Let's try again!`);
         setTimeout(() => {
           setTube1(null);
           setTube2(null);
@@ -137,7 +166,24 @@ const MagicColorLab = ({ navigation }: any) => {
         }, 2000);
       }
     }, 1000);
-  };
+  }, [advanceRound, mixAnim, sparkleAnim]);
+
+  const handleColorDrop = useCallback((color: any, tubeNumber: 1 | 2) => {
+    if (isMixing || result) return;
+
+    if (tubeNumber === 1) setTube1(color);
+    else setTube2(color);
+  }, [isMixing, result]);
+
+  // When both tubes are filled, start mixing (avoids stale state bugs)
+  useEffect(() => {
+    if (isMixing || result) return;
+    if (!tube1 || !tube2) return;
+    const c1 = tube1;
+    const c2 = tube2;
+    const t = setTimeout(() => mixColors(c1, c2), 300);
+    return () => clearTimeout(t);
+  }, [isMixing, mixColors, result, tube1, tube2]);
 
   const DraggableColor = ({ color }: { color: any }) => {
     const pan = useRef(new Animated.ValueXY()).current;
@@ -169,7 +215,7 @@ const MagicColorLab = ({ navigation }: any) => {
     ).current;
 
     return (
-      <Animated.View {...panResponder.panHandlers} style={[pan.getLayout()]}>
+      <Animated.View {...panResponder.panHandlers} style={[styles.draggableWrapper, pan.getLayout()]}>
         <TouchableOpacity
           style={[styles.colorChip, { backgroundColor: color.code }]}
           disabled={isMixing || !!result}
@@ -181,7 +227,7 @@ const MagicColorLab = ({ navigation }: any) => {
     );
   };
 
-  const finalizeGame = async () => {
+  const finalizeGame = useCallback(async () => {
     if (!child?.id) return;
     const duration = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
     const successRate = Math.round((score / MAX_ROUNDS) * 100);
@@ -196,6 +242,9 @@ const MagicColorLab = ({ navigation }: any) => {
         duration_seconds: duration,
         wrong_count: wrongCount,
         success_rate: successRate,
+        details: {
+          targets: TARGETS.map((t) => t.result?.name).filter(Boolean),
+        },
         completed: true,
       });
     } catch (err) {
@@ -209,20 +258,24 @@ const MagicColorLab = ({ navigation }: any) => {
       currentGameIndex,
       categoryTitle,
       resetGame: () => {
+        hasFinalizedRef.current = false;
         setScore(0);
         setWrongCount(0);
         setCurrentRound(0);
         setGameFinished(false);
         gameStartTimeRef.current = Date.now();
-        startNewRound();
+        startNewRound(0);
       },
     });
     gameNav.showCompletionMessage(score, MAX_ROUNDS, '🎨 Amazing Color Scientist!');
-  };
+  }, [categoryTitle, child, currentGameIndex, gameSequence, navigation, score, startNewRound, wrongCount]);
 
   useEffect(() => {
-    if (gameFinished) finalizeGame();
-  }, [gameFinished]);
+    if (!gameFinished) return;
+    if (hasFinalizedRef.current) return;
+    hasFinalizedRef.current = true;
+    finalizeGame();
+  }, [finalizeGame, gameFinished]);
 
   if (!targetMix) return null;
 
@@ -321,7 +374,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 30,
     marginBottom: 30,
   },
   tube: {
@@ -366,9 +418,11 @@ const styles = StyleSheet.create({
   colorsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 20,
     marginTop: 'auto',
     paddingBottom: 30,
+  },
+  draggableWrapper: {
+    marginHorizontal: 10,
   },
   colorChip: {
     width: 90,

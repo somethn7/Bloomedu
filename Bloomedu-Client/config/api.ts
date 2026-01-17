@@ -56,8 +56,6 @@ export const sendGameResult = async (data: {
   score: number;
   max_score: number;
   duration_seconds: number;
-
-  // 🆕 Yeni eklenenler:
   wrong_count: number;
   success_rate: number;
   details: any;

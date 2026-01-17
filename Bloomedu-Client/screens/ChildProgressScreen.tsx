@@ -140,9 +140,9 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
                 // Refresh sessions / stats if needed
                 fetchSessions();
                 if (Platform.OS === "android") {
-                  ToastAndroid.show("Seviye başarıyla güncellendi ✅", ToastAndroid.SHORT);
+                  ToastAndroid.show("Level updated successfully ✅", ToastAndroid.SHORT);
                 } else {
-                  Alert.alert("Success", "Seviye başarıyla güncellendi ✅");
+                  Alert.alert("Success", "Level updated successfully ✅");
                 }
               } else {
                 Alert.alert("Error", json.message || "Failed to update level");

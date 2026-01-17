@@ -2,7 +2,6 @@ import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   Alert,
   ScrollView,
   TouchableOpacity,
@@ -12,10 +11,14 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  Pressable,
+  TextInput,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import uuid from 'react-native-uuid';
 import { Picker } from '@react-native-picker/picker';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 const { width } = Dimensions.get('window');
 
@@ -31,6 +34,11 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
   const [parentEmail, setParentEmail] = useState('');
   const [teacherId, setTeacherId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const [showBirthdatePicker, setShowBirthdatePicker] = useState(false);
+  const [showDiagnosisPicker, setShowDiagnosisPicker] = useState(false);
+  const [birthdateObj, setBirthdateObj] = useState<Date>(new Date());
+  const [diagnosisDateObj, setDiagnosisDateObj] = useState<Date>(new Date());
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -75,6 +83,37 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
   const formatDateForBackend = (dateStr: string) => {
     const [day, month, year] = dateStr.split('-');
     return `${year}-${month}-${day}`; 
+  };
+
+  const formatDateForUi = (d: Date) => {
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = String(d.getFullYear());
+    return `${day}-${month}-${year}`;
+  };
+
+  const parseDdMmYyyy = (s: string) => {
+    const parts = s.split('-');
+    if (parts.length !== 3) return null;
+    const [dd, mm, yyyy] = parts;
+    const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+
+  const onBirthdateChange = (_event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS === 'android') setShowBirthdatePicker(false);
+    if (date) {
+      setBirthdateObj(date);
+      setBirthdate(formatDateForUi(date));
+    }
+  };
+
+  const onDiagnosisDateChange = (_event: DateTimePickerEvent, date?: Date) => {
+    if (Platform.OS === 'android') setShowDiagnosisPicker(false);
+    if (date) {
+      setDiagnosisDateObj(date);
+      setDiagnosisDate(formatDateForUi(date));
+    }
   };
 
   const handleSave = async () => {
@@ -195,15 +234,19 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Birthdate (DD-MM-YYYY)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. 15-08-2010"
-                  value={birthdate}
-                  onChangeText={setBirthdate}
-                  keyboardType="numeric"
-                  placeholderTextColor="#A0AEC0"
-                />
+                <Text style={styles.label}>Birthdate</Text>
+                <Pressable
+                  onPress={() => {
+                    const parsed = parseDdMmYyyy(birthdate);
+                    if (parsed) setBirthdateObj(parsed);
+                    setShowBirthdatePicker(true);
+                  }}
+                  style={styles.dateInput}
+                >
+                  <Text style={styles.dateText}>
+                    {birthdate ? birthdate : 'Select date 📅'}
+                  </Text>
+                </Pressable>
               </View>
 
               <View style={styles.row}>
@@ -245,15 +288,19 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
               <Text style={styles.cardTitle}>🏥 Clinical Info</Text>
               
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Diagnosis Date (DD-MM-YYYY)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="e.g. 01-01-2020"
-                  value={diagnosisDate}
-                  onChangeText={setDiagnosisDate}
-                  keyboardType="numeric"
-                  placeholderTextColor="#A0AEC0"
-                />
+                <Text style={styles.label}>Diagnosis Date</Text>
+                <Pressable
+                  onPress={() => {
+                    const parsed = parseDdMmYyyy(diagnosisDate);
+                    if (parsed) setDiagnosisDateObj(parsed);
+                    setShowDiagnosisPicker(true);
+                  }}
+                  style={styles.dateInput}
+                >
+                  <Text style={styles.dateText}>
+                    {diagnosisDate ? diagnosisDate : 'Select date 📅'}
+                  </Text>
+                </Pressable>
               </View>
 
               <View style={styles.inputGroup}>
@@ -307,6 +354,101 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+
+      {/* Android native pickers */}
+      {showBirthdatePicker && Platform.OS === 'android' && (
+        <DateTimePicker
+          value={birthdateObj}
+          mode="date"
+          display="calendar"
+          maximumDate={new Date()}
+          onChange={onBirthdateChange}
+        />
+      )}
+      {showDiagnosisPicker && Platform.OS === 'android' && (
+        <DateTimePicker
+          value={diagnosisDateObj}
+          mode="date"
+          display="calendar"
+          maximumDate={new Date()}
+          onChange={onDiagnosisDateChange}
+        />
+      )}
+
+      {/* iOS modal pickers */}
+      <Modal
+        visible={showBirthdatePicker && Platform.OS === 'ios'}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowBirthdatePicker(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Select Birthdate</Text>
+            <DateTimePicker
+              value={birthdateObj}
+              mode="date"
+              display="spinner"
+              maximumDate={new Date()}
+              onChange={onBirthdateChange}
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnGhost]}
+                onPress={() => setShowBirthdatePicker(false)}
+              >
+                <Text style={styles.modalBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnPrimary]}
+                onPress={() => {
+                  setBirthdate(formatDateForUi(birthdateObj));
+                  setShowBirthdatePicker(false);
+                }}
+              >
+                <Text style={[styles.modalBtnText, { color: '#fff' }]}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={showDiagnosisPicker && Platform.OS === 'ios'}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDiagnosisPicker(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Select Diagnosis Date</Text>
+            <DateTimePicker
+              value={diagnosisDateObj}
+              mode="date"
+              display="spinner"
+              maximumDate={new Date()}
+              onChange={onDiagnosisDateChange}
+            />
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnGhost]}
+                onPress={() => setShowDiagnosisPicker(false)}
+              >
+                <Text style={styles.modalBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtn, styles.modalBtnPrimary]}
+                onPress={() => {
+                  setDiagnosisDate(formatDateForUi(diagnosisDateObj));
+                  setShowDiagnosisPicker(false);
+                }}
+              >
+                <Text style={[styles.modalBtnText, { color: '#fff' }]}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -402,6 +544,20 @@ const styles = StyleSheet.create({
     color: '#2D3748',
     minHeight: 50, // Minimum yükseklik garantisi
   },
+  dateInput: {
+    backgroundColor: '#F7FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    minHeight: 50,
+    justifyContent: 'center',
+  },
+  dateText: {
+    fontSize: 16,
+    color: '#2D3748',
+  },
   textArea: {
     height: 100,
     paddingTop: 14,
@@ -451,5 +607,46 @@ const styles = StyleSheet.create({
   },
   saveButtonIcon: {
     fontSize: 22,
+  },
+
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#2D3748',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginTop: 12,
+  },
+  modalBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginLeft: 10,
+  },
+  modalBtnGhost: {
+    backgroundColor: '#E2E8F0',
+  },
+  modalBtnPrimary: {
+    backgroundColor: '#4DABF7',
+  },
+  modalBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#2D3748',
   },
 });

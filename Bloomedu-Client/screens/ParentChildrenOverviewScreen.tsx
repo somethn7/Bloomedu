@@ -1,5 +1,5 @@
 // 🚀 ParentChildrenOverviewScreen – UPDATED v3 (header removed!)
-import React, { useEffect, useState, useLayoutEffect } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
+import { API_ENDPOINTS } from '../config/api';
 
 const ParentChildrenOverviewScreen = ({ navigation }: any) => {
   const [children, setChildren] = useState<any[]>([]);
@@ -26,7 +28,14 @@ const ParentChildrenOverviewScreen = ({ navigation }: any) => {
     fetchChildren();
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      fetchChildren();
+    }, [])
+  );
+
   const fetchChildren = async () => {
+    setLoading(true);
     try {
       const parentId = await AsyncStorage.getItem('parent_id');
       if (!parentId) {
@@ -34,9 +43,7 @@ const ParentChildrenOverviewScreen = ({ navigation }: any) => {
         return;
       }
 
-      const response = await fetch(
-        `https://bloomedu-production.up.railway.app/children/by-parent/${parentId}`
-      );
+      const response = await fetch(API_ENDPOINTS.CHILDREN_BY_PARENT(Number(parentId)));
       const json = await response.json();
 
       if (!json.success) {

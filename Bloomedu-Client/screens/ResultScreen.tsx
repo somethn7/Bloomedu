@@ -1,5 +1,5 @@
-import React, { useEffect, useLayoutEffect } from 'react';
-import { View, Text, TouchableOpacity, BackHandler, StyleSheet } from 'react-native';
+import React, { useEffect, useLayoutEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, BackHandler, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { API_ENDPOINTS } from '../config/api';
 
@@ -7,6 +7,10 @@ const ResultScreen = () => {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { answers, child } = route.params;
+
+  const [saving, setSaving] = useState(true);
+  const [finalLevel, setFinalLevel] = useState<number | null>(child?.level ?? null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // 🚫 Default Header'ı kaldırıyoruz
   useLayoutEffect(() => {
@@ -20,11 +24,53 @@ const ResultScreen = () => {
     return () => backHandler.remove();
   }, []);
 
-  const score = answers.reduce(
-    (total: number, a: string | null) => total + (a === 'yes' ? 1 : 0),
-    0
+  const score = useMemo(
+    () =>
+      answers.reduce(
+        (total: number, a: string | null) => total + (a === 'yes' ? 1 : 0),
+        0
+      ),
+    [answers]
   );
-  const level = Math.ceil(score / 4);
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        if (!child?.id) {
+          setSaveError('Child ID missing.');
+          return;
+        }
+
+        // 1) Update level based on survey score (server decides mapping)
+        const levelRes = await fetch(API_ENDPOINTS.UPDATE_LEVEL(child.id), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ correctAnswers: score }),
+        });
+        const levelJson = await levelRes.json().catch(() => null);
+        if (levelRes.ok && levelJson?.success && typeof levelJson?.level === 'number') {
+          setFinalLevel(levelJson.level);
+        }
+
+        // 2) Persist survey completion flag
+        const surveyRes = await fetch(API_ENDPOINTS.MARK_SURVEY_COMPLETE(child.id), {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+        });
+        const surveyJson = await surveyRes.json().catch(() => null);
+        if (!surveyRes.ok || !surveyJson?.success) {
+          setSaveError(surveyJson?.message || `Failed to mark survey complete (HTTP ${surveyRes.status})`);
+        }
+      } catch (e: any) {
+        setSaveError(e?.message || 'Network error while saving survey.');
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [child?.id, score]);
 
   return (
     <View style={styles.container}>
@@ -46,11 +92,24 @@ const ResultScreen = () => {
         <View style={styles.card}>
           <Text style={styles.title}>Survey Completed!</Text>
           <Text style={styles.score}>Your Score: {score} / 20</Text>
-          <Text style={styles.level}>Your Child's Level: {level}</Text>
+          <Text style={styles.level}>Your Child's Level: {finalLevel ?? '—'}</Text>
+
+          {saving && (
+            <View style={styles.savingRow}>
+              <ActivityIndicator size="small" color="#FF6B9A" />
+              <Text style={styles.savingText}>Saving results...</Text>
+            </View>
+          )}
+          {!!saveError && <Text style={styles.errorText}>{saveError}</Text>}
 
           <TouchableOpacity
             style={styles.eduBtn}
-            onPress={() => navigation.navigate('Education', { child })}
+            onPress={() =>
+              navigation.navigate('Education', {
+                child: { ...child, level: finalLevel ?? child?.level },
+              })
+            }
+            disabled={saving}
           >
             <Text style={styles.eduText}>START EDUCATION →</Text>
           </TouchableOpacity>
@@ -58,6 +117,7 @@ const ResultScreen = () => {
           <TouchableOpacity
             style={styles.dashboardBtn}
             onPress={() => navigation.navigate('Dashboard')}
+            disabled={saving}
           >
             <Text style={styles.dashboardText}>GO TO DASHBOARD</Text>
           </TouchableOpacity>
@@ -139,6 +199,22 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#666',
     marginBottom: 22,
+  },
+  savingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  savingText: {
+    marginLeft: 10,
+    color: '#666',
+    fontWeight: '600',
+  },
+  errorText: {
+    color: '#B91C1C',
+    fontWeight: '700',
+    marginBottom: 10,
+    textAlign: 'center',
   },
 
   eduBtn: {

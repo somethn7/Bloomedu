@@ -127,7 +127,7 @@ const TeacherStudentsOverviewScreen = ({ navigation }: any) => {
 
         {/* Feedback */}
         <TouchableOpacity
-          style={styles.feedbackButton}
+          style={[styles.feedbackButton, styles.feedbackButtonSpacing]}
           onPress={() =>
             navigation.navigate("TeacherFeedback", {
               childId: item.id,
@@ -259,7 +259,10 @@ const styles = StyleSheet.create({
   progressText: { fontSize: 15, color: "#334155" },
   valueText: { color: "#4ECDC4", fontWeight: "700" },
 
-  actionButtons: { flexDirection: "row", gap: 10, marginTop: 10 },
+  // NOTE: avoid `gap` for broader RN compatibility
+  actionButtons: { flexDirection: "row", marginTop: 10 },
+  loadingContainer: { paddingTop: 50, alignItems: "center" },
+  loadingText: { marginTop: 10, color: "#6B7280", fontWeight: "600" },
 
   progressButton: {
     flex: 1,
@@ -278,6 +281,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
     elevation: 4,
+  },
+  feedbackButtonSpacing: {
+    marginLeft: 10,
   },
   feedbackButtonText: { color: "#fff", fontWeight: "700", fontSize: 14 },
 

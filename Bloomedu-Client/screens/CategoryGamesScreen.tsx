@@ -270,18 +270,25 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
   const games = categoryData?.games[childLevel] || [];
 
   const handleGamePress = (game: any, index?: number) => {
-    navigation.navigate(game.screen, { 
+    if (!game?.screen) {
+      console.warn('handleGamePress called without a valid game.screen', game);
+      return;
+    }
+
+    navigation.navigate(game.screen, {
       child,
       gameSequence: games,
       currentGameIndex: index ?? 0,
       categoryTitle,
       categoryKey: game.categoryKey || categoryTitle,
+      gameMode: game.gameMode,
     });
   };
 
   const handlePlayAll = () => {
     if (games.length > 0) {
-      handleGamePress(games[0].screen, 0);
+      // IMPORTANT: pass the whole game object (not the screen string)
+      handleGamePress(games[0], 0);
     }
   };
 
