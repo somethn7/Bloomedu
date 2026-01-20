@@ -9,8 +9,8 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_ENDPOINTS } from '../config/api';
 
 const ParentChildrenOverviewScreen = ({ navigation }: any) => {
@@ -24,10 +24,7 @@ const ParentChildrenOverviewScreen = ({ navigation }: any) => {
     });
   }, [navigation]);
 
-  useEffect(() => {
-    fetchChildren();
-  }, []);
-
+  // Ekran her focus olduğunda çocukları yeniden yükle (anket tamamlandıktan sonra level güncellensin)
   useFocusEffect(
     useCallback(() => {
       fetchChildren();
@@ -82,7 +79,7 @@ const ParentChildrenOverviewScreen = ({ navigation }: any) => {
         {/* LEVEL BADGE — boş çizgi, survey tamamlanınca görünür */}
         <View style={styles.levelBadge}>
           <Text style={styles.levelBadgeText}>
-            {isSurveyDone(child.survey_completed) ? `Level ${child.level}` : `—`}
+            {isSurveyDone(child.survey_completed) && child.level ? `Level ${child.level}` : `—`}
           </Text>
         </View>
       </View>

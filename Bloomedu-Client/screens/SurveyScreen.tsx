@@ -70,7 +70,7 @@ const SurveyScreen = () => {
     setAnswers(updatedAnswers);
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     const startIndex = currentPage * questionsPerPage;
     const currentBatch = dbQuestions.slice(startIndex, startIndex + questionsPerPage);
     const unanswered = currentBatch.some((_, index) => answers[startIndex + index] === null);
@@ -95,14 +95,51 @@ const SurveyScreen = () => {
         }
       });
 
+      // Anket sonuçlarına göre level hesapla
       let finalLevel = 1;
       if (level1Yes >= 3) finalLevel = 2;
       if (level1Yes >= 3 && level2Yes >= 4) finalLevel = 3;
 
+      // Backend'e level'ı kaydet (anket sonucuna göre)
+      const correctAnswers = answers.filter(a => a === 'yes').length;
+      
+      if (child?.id) {
+        try {
+          const response = await fetch(`${BASE_URL}/children/${child.id}/update-level`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ correctAnswers }),
+          });
+          
+          const data = await response.json();
+          if (data.success) {
+            // Backend'den gelen level'ı kullan (backend kendi mantığıyla hesaplıyor)
+            finalLevel = data.level || finalLevel;
+          }
+        } catch (error) {
+          console.error('Error updating child level:', error);
+          // Hata olsa bile anket tamamlanmış sayılır, client-side hesaplanan level kullanılır
+        }
+
+        // Anket tamamlandı olarak işaretle
+        try {
+          const markCompleteResponse = await fetch(`${BASE_URL}/children/${child.id}/mark-survey-complete`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          const markCompleteData = await markCompleteResponse.json();
+          if (!markCompleteData.success) {
+            console.error('Failed to mark survey complete:', markCompleteData.message);
+          }
+        } catch (error) {
+          console.error('Error marking survey complete:', error);
+        }
+      }
+
       navigation.replace('Result', { 
         answers, 
         child: { ...child, level: finalLevel },
-        score: answers.filter(a => a === 'yes').length
+        score: correctAnswers
       });
     }
   };

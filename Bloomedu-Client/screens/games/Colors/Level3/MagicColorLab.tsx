@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Dimensions, PanResponder, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, Animated, Dimensions, SafeAreaView, PanResponder, TouchableOpacity } from 'react-native';
 import Tts from 'react-native-tts';
 import { useRoute } from '@react-navigation/native';
 import { createGameCompletionHandler } from '../../../../utils/gameNavigation';
@@ -7,14 +7,12 @@ import { sendGameResult } from '../../../../config/api';
 
 const { width, height } = Dimensions.get('window');
 
-// Ana renkler (karışım için)
 const PRIMARY_COLORS = [
   { id: 'red', name: 'RED', code: '#FF0000', emoji: '🔴' },
   { id: 'blue', name: 'BLUE', code: '#0000FF', emoji: '🔵' },
   { id: 'yellow', name: 'YELLOW', code: '#FFD700', emoji: '🟡' },
 ];
 
-// Karışım sonuçları
 const COLOR_MIXES: Record<string, { code: string; name: string; emoji: string }> = {
   'red+blue': { code: '#8B00FF', name: 'PURPLE', emoji: '🟣' },
   'red+yellow': { code: '#FF8C00', name: 'ORANGE', emoji: '🟠' },
@@ -25,8 +23,8 @@ const TARGETS = [
   { mix: 'red+blue', result: COLOR_MIXES['red+blue'] },
   { mix: 'red+yellow', result: COLOR_MIXES['red+yellow'] },
   { mix: 'blue+yellow', result: COLOR_MIXES['blue+yellow'] },
-  { mix: 'red+blue', result: COLOR_MIXES['red+blue'] }, // Tekrar
-  { mix: 'red+yellow', result: COLOR_MIXES['red+yellow'] },
+  { mix: 'red+blue', result: COLOR_MIXES['red+blue'] },
+  { mix: 'blue+yellow', result: COLOR_MIXES['blue+yellow'] },
 ];
 
 const MAX_ROUNDS = 5;
@@ -36,406 +34,284 @@ const MagicColorLab = ({ navigation }: any) => {
   const { child, gameSequence, currentGameIndex, categoryTitle }: any = route.params || {};
 
   const [currentRound, setCurrentRound] = useState(0);
-  const [targetMix, setTargetMix] = useState<any>(null);
   const [tube1, setTube1] = useState<any>(null);
   const [tube2, setTube2] = useState<any>(null);
   const [isMixing, setIsMixing] = useState(false);
   const [result, setResult] = useState<any>(null);
-  const [gameFinished, setGameFinished] = useState(false);
+  const [feedback, setFeedback] = useState<'success' | 'error' | null>(null);
 
-  // Metrics
+  const tube1Ref = useRef<any>(null);
+  const tube2Ref = useRef<any>(null);
+  const isBusyRef = useRef(false);
+  const sparkleLoopRef = useRef<any>(null); // Eksik olan ref eklendi
+
   const [score, setScore] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
   const gameStartTimeRef = useRef<number>(Date.now());
 
   // Animations
-  const mixAnim = useRef(new Animated.Value(0)).current;
-  const sparkleAnim = useRef(new Animated.Value(0)).current;
-  const sparkleLoopRef = useRef<Animated.CompositeAnimation | null>(null);
+  const liquid1Anim = useRef(new Animated.Value(0)).current;
+  const liquid2Anim = useRef(new Animated.Value(0)).current;
+  const feedbackAnim = useRef(new Animated.Value(0)).current;
+  const shakeAnim = useRef(new Animated.Value(0)).current;
+  const bgAnim = useRef(new Animated.Value(0)).current;
 
-  // Keep latest values to avoid stale closures in timeouts
-  const targetMixRef = useRef<any>(null);
-  const tube1Ref = useRef<any>(null);
-  const tube2Ref = useRef<any>(null);
-  useEffect(() => {
-    targetMixRef.current = targetMix;
-  }, [targetMix]);
   useEffect(() => {
     tube1Ref.current = tube1;
-  }, [tube1]);
-  useEffect(() => {
     tube2Ref.current = tube2;
-  }, [tube2]);
+  }, [tube1, tube2]);
 
-  // Prevent double-finalize on re-renders
-  const hasFinalizedRef = useRef(false);
-
-  useEffect(() => {
-    Tts.setDefaultLanguage('en-US');
-    Tts.setDefaultRate(0.35);
-    startNewRound(0);
-    return () => {
-      void Tts.stop();
-      sparkleLoopRef.current?.stop?.();
-      sparkleLoopRef.current = null;
-    };
-  }, []);
-
-  const startNewRound = useCallback((roundIndex: number) => {
-    if (roundIndex >= MAX_ROUNDS) {
-      setGameFinished(true);
-      return;
-    }
-
-    const target = TARGETS[roundIndex];
-    setTargetMix(target);
+  const startNewRound = useCallback((round: number) => {
     setTube1(null);
     setTube2(null);
     setResult(null);
+    setFeedback(null);
     setIsMixing(false);
-    sparkleLoopRef.current?.stop?.();
-    sparkleLoopRef.current = null;
-    sparkleAnim.setValue(0);
-    mixAnim.setValue(0);
+    isBusyRef.current = false;
+    liquid1Anim.setValue(0);
+    liquid2Anim.setValue(0);
+    feedbackAnim.setValue(0);
+    
+    Animated.timing(bgAnim, { toValue: 0, duration: 500, useNativeDriver: false }).start();
 
-    setTimeout(() => {
-      Tts.speak(`Let's make ${target.result.name}! Which two colors should we mix?`);
-    }, 500);
-  }, [mixAnim, sparkleAnim]);
+    if (TARGETS[round]) {
+      Tts.speak(`Target: ${TARGETS[round].result.name}.`);
+    }
+  }, [bgAnim, feedbackAnim, liquid1Anim, liquid2Anim]);
 
-  const advanceRound = useCallback(() => {
-    setCurrentRound((prev) => {
-      const next = prev + 1;
-      if (next >= MAX_ROUNDS) {
-        setGameFinished(true);
-      } else {
-        startNewRound(next);
+  useEffect(() => {
+    const initTts = async () => {
+      try {
+        await Tts.setDefaultLanguage('en-US');
+        await Tts.setDefaultRate(0.4);
+        startNewRound(0);
+      } catch (error) {
+        console.log("TTS Error:", error);
       }
-      return next;
-    });
+    };
+
+    initTts();
+
+    return () => {
+      Tts.stop();
+    };
   }, [startNewRound]);
 
-  const mixColors = useCallback((color1: any, color2: any) => {
-    if (!color1 || !color2) return;
-    setIsMixing(true);
+  const autoFillTube = (color: any) => {
+    if (isBusyRef.current) return;
+    if (!tube1Ref.current) {
+      setTube1(color);
+      Tts.speak(color.name);
+      Animated.timing(liquid1Anim, { toValue: 1, duration: 800, useNativeDriver: false }).start();
+    } else if (!tube2Ref.current) {
+      setTube2(color);
+      Tts.speak(color.name);
+      Animated.timing(liquid2Anim, { toValue: 1, duration: 800, useNativeDriver: false }).start(() => {
+        mixProcess(tube1Ref.current, color);
+      });
+    }
+  };
 
-    const mixKey1 = `${color1.id}+${color2.id}`;
-    const mixKey2 = `${color2.id}+${color1.id}`;
+  const mixProcess = (c1: any, c2: any) => {
+    isBusyRef.current = true;
+    setIsMixing(true);
+    Tts.speak("Mixing...");
+    
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shakeAnim, { toValue: 5, duration: 50, useNativeDriver: true }),
+        Animated.timing(shakeAnim, { toValue: -5, duration: 50, useNativeDriver: true }),
+      ]),
+      { iterations: 8 }
+    );
+    
+    sparkleLoopRef.current = animation;
+    animation.start();
+
+    const mixKey1 = `${c1.id}+${c2.id}`;
+    const mixKey2 = `${c2.id}+${c1.id}`;
     const mixResult = COLOR_MIXES[mixKey1] || COLOR_MIXES[mixKey2];
 
-    // Animation
-    sparkleLoopRef.current?.stop?.();
-    sparkleLoopRef.current = Animated.loop(
-      Animated.sequence([
-        Animated.timing(sparkleAnim, { toValue: 1, duration: 300, useNativeDriver: true }),
-        Animated.timing(sparkleAnim, { toValue: 0, duration: 300, useNativeDriver: true }),
-      ])
-    );
-
-    Animated.parallel([
-      Animated.sequence([
-        Animated.timing(mixAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
-        Animated.timing(mixAnim, { toValue: 0, duration: 0, useNativeDriver: true }),
-      ]),
-      sparkleLoopRef.current,
-    ]).start();
-
     setTimeout(() => {
-      sparkleLoopRef.current?.stop?.();
-      sparkleLoopRef.current = null;
+      if (sparkleLoopRef.current) {
+        sparkleLoopRef.current.stop();
+        sparkleLoopRef.current = null;
+      }
       setIsMixing(false);
       setResult(mixResult);
+      
+      const isCorrect = mixResult?.name === TARGETS[currentRound].result.name;
+      setFeedback(isCorrect ? 'success' : 'error');
+      
+      Animated.timing(bgAnim, { toValue: isCorrect ? 1 : -1, duration: 500, useNativeDriver: false }).start();
+      Animated.spring(feedbackAnim, { toValue: 1, friction: 4, useNativeDriver: true }).start();
 
-      const currentTarget = targetMixRef.current;
-      if (mixResult && currentTarget && mixResult.name === currentTarget.result.name) {
-        // ✅ Correct!
-        setScore((prev) => prev + 1);
-        Tts.speak(`Perfect! We made ${mixResult.name}!`);
+      if (isCorrect) {
+        setScore(s => s + 1);
+        Tts.speak(`Perfect! You made ${mixResult.name}!`);
         setTimeout(() => {
-          advanceRound();
-        }, 2000);
+          if (currentRound < MAX_ROUNDS - 1) {
+            const next = currentRound + 1;
+            setCurrentRound(next);
+            startNewRound(next);
+          } else {
+            finalizeGame();
+          }
+        }, 2500);
       } else {
-        // ❌ Wrong
-        setWrongCount((prev) => prev + 1);
-        const expected = currentTarget?.result?.name || 'the target color';
-        Tts.speak(`Hmm, that's not ${expected}. Let's try again!`);
+        setWrongCount(w => w + 1);
+        Tts.speak("Not quite. Let's try again!");
         setTimeout(() => {
           setTube1(null);
           setTube2(null);
           setResult(null);
+          setFeedback(null);
+          isBusyRef.current = false;
+          liquid1Anim.setValue(0);
+          liquid2Anim.setValue(0);
+          feedbackAnim.setValue(0);
+          Animated.timing(bgAnim, { toValue: 0, duration: 500, useNativeDriver: false }).start();
         }, 2000);
       }
-    }, 1000);
-  }, [advanceRound, mixAnim, sparkleAnim]);
+    }, 1500);
+  };
 
-  const handleColorDrop = useCallback((color: any, tubeNumber: 1 | 2) => {
-    if (isMixing || result) return;
+  const finalizeGame = async () => {
+    const duration = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
+    const totalAttempts = score + wrongCount;
+    const successRate = totalAttempts > 0 ? Math.round(((score + 1) / (totalAttempts + 1)) * 100) : 0;
+    
+    try {
+      await sendGameResult({
+        child_id: child?.id,
+        game_type: 'magic-color-lab',
+        level: 3,
+        score: score + 1,
+        max_score: MAX_ROUNDS,
+        duration_seconds: duration,
+        wrong_count: wrongCount,
+        completed: true,
+        success_rate: successRate,
+        details: {
+          rounds_completed: currentRound + 1,
+          total_attempts: totalAttempts + 1,
+          wrong_count: wrongCount,
+          success_rate: successRate,
+        },
+      } as any);
+    } catch (e) { console.log(e); }
 
-    if (tubeNumber === 1) setTube1(color);
-    else setTube2(color);
-  }, [isMixing, result]);
-
-  // When both tubes are filled, start mixing (avoids stale state bugs)
-  useEffect(() => {
-    if (isMixing || result) return;
-    if (!tube1 || !tube2) return;
-    const c1 = tube1;
-    const c2 = tube2;
-    const t = setTimeout(() => mixColors(c1, c2), 300);
-    return () => clearTimeout(t);
-  }, [isMixing, mixColors, result, tube1, tube2]);
+    createGameCompletionHandler({ navigation, child, gameSequence, currentGameIndex, categoryTitle })
+      .showCompletionMessage(score + 1, MAX_ROUNDS, 'Color Scientist! 🧪');
+  };
 
   const DraggableColor = ({ color }: { color: any }) => {
     const pan = useRef(new Animated.ValueXY()).current;
-
-    const panResponder = useRef(
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
-        onPanResponderRelease: (e, gesture) => {
-          const { moveX, moveY } = gesture;
-          const centerX = width / 2;
-
-          // Tube positions (approx)
-          const tube1X = centerX - 80;
-          const tube2X = centerX + 80;
-          const tubeY = height * 0.4;
-
-          if (moveY > tubeY - 50 && moveY < tubeY + 50) {
-            if (moveX > tube1X - 40 && moveX < tube1X + 40 && !tube1) {
-              handleColorDrop(color, 1);
-            } else if (moveX > tube2X - 40 && moveX < tube2X + 40 && !tube2) {
-              handleColorDrop(color, 2);
-            }
-          }
-
-          Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false }).start();
-        },
-      })
-    ).current;
+    const panResponder = useMemo(() => PanResponder.create({
+      onStartShouldSetPanResponder: () => !isBusyRef.current && !feedback,
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
+      onPanResponderRelease: (e, gesture) => {
+        if (gesture.moveY < height * 0.7) autoFillTube(color);
+        Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false }).start();
+      },
+    }), [color, feedback]);
 
     return (
-      <Animated.View {...panResponder.panHandlers} style={[styles.draggableWrapper, pan.getLayout()]}>
-        <TouchableOpacity
-          style={[styles.colorChip, { backgroundColor: color.code }]}
-          disabled={isMixing || !!result}
-        >
-          <Text style={styles.colorEmoji}>{color.emoji}</Text>
-          <Text style={styles.colorName}>{color.name}</Text>
-        </TouchableOpacity>
+      <Animated.View {...panResponder.panHandlers} style={[pan.getLayout(), styles.colorCircle, { backgroundColor: color.code }]}>
+        <Text style={styles.emoji}>{color.emoji}</Text>
       </Animated.View>
     );
   };
 
-  const finalizeGame = useCallback(async () => {
-    if (!child?.id) return;
-    const duration = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
-    const successRate = Math.round((score / MAX_ROUNDS) * 100);
-
-    try {
-      await sendGameResult({
-        child_id: child.id,
-        game_type: 'colors-magic-lab',
-        level: 3,
-        score,
-        max_score: MAX_ROUNDS,
-        duration_seconds: duration,
-        wrong_count: wrongCount,
-        success_rate: successRate,
-        details: {
-          targets: TARGETS.map((t) => t.result?.name).filter(Boolean),
-        },
-        completed: true,
-      });
-    } catch (err) {
-      console.log('DB Error:', err);
-    }
-
-    const gameNav = createGameCompletionHandler({
-      navigation,
-      child,
-      gameSequence,
-      currentGameIndex,
-      categoryTitle,
-      resetGame: () => {
-        hasFinalizedRef.current = false;
-        setScore(0);
-        setWrongCount(0);
-        setCurrentRound(0);
-        setGameFinished(false);
-        gameStartTimeRef.current = Date.now();
-        startNewRound(0);
-      },
-    });
-    gameNav.showCompletionMessage(score, MAX_ROUNDS, '🎨 Amazing Color Scientist!');
-  }, [categoryTitle, child, currentGameIndex, gameSequence, navigation, score, startNewRound, wrongCount]);
-
-  useEffect(() => {
-    if (!gameFinished) return;
-    if (hasFinalizedRef.current) return;
-    hasFinalizedRef.current = true;
-    finalizeGame();
-  }, [finalizeGame, gameFinished]);
-
-  if (!targetMix) return null;
+  const backgroundColor = bgAnim.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: ['#fff5f5', '#F8F9FA', '#e6ffed'],
+  });
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Magic Color Lab 🧪</Text>
-        <Text style={styles.progressText}>Round {currentRound + 1} / {MAX_ROUNDS}</Text>
-      </View>
-
-      <View style={styles.gameArea}>
-        {/* Target */}
-        <View style={styles.targetBox}>
-          <Text style={styles.targetLabel}>Make this color:</Text>
-          <View style={[styles.targetColorBox, { backgroundColor: targetMix.result.code }]}>
-            <Text style={styles.targetEmoji}>{targetMix.result.emoji}</Text>
-            <Text style={styles.targetName}>{targetMix.result.name}</Text>
-          </View>
+    <Animated.View style={[styles.container, { backgroundColor }]}>
+      <SafeAreaView style={{ flex: 1 }}>
+        <View style={styles.header}>
+          <Text style={styles.targetTitle}>Target: {TARGETS[currentRound].result.name}</Text>
+          <View style={[styles.targetPreview, { backgroundColor: TARGETS[currentRound].result.code }]} />
         </View>
 
-        {/* Mixing Tubes */}
-        <View style={styles.tubesRow}>
-          <View style={[styles.tube, { backgroundColor: tube1?.code || '#E8E8E8' }]}>
-            {tube1 && <Text style={styles.tubeEmoji}>{tube1.emoji}</Text>}
-            <Text style={styles.tubeLabel}>Tube 1</Text>
+        <View style={styles.labArea}>
+          <View style={styles.tubesContainer}>
+            <Animated.View style={[styles.tubeFrame, { transform: [{ translateX: feedback === 'error' ? shakeAnim : (isMixing ? shakeAnim : 0) }] }]}>
+              <View style={styles.tubeInside}>
+                <Animated.View style={[styles.liquid, { 
+                  backgroundColor: tube1?.code || 'transparent',
+                  height: liquid1Anim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '85%'] })
+                }]} />
+              </View>
+              <Text style={styles.tubeLabel}>Tube 1</Text>
+            </Animated.View>
+
+            <Text style={styles.plusSign}>{isMixing ? '🧪' : '+'}</Text>
+
+            <Animated.View style={[styles.tubeFrame, { transform: [{ translateX: feedback === 'error' ? shakeAnim : (isMixing ? shakeAnim : 0) }] }]}>
+              <View style={styles.tubeInside}>
+                <Animated.View style={[styles.liquid, { 
+                  backgroundColor: tube2?.code || 'transparent',
+                  height: liquid2Anim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '85%'] })
+                }]} />
+              </View>
+              <Text style={styles.tubeLabel}>Tube 2</Text>
+            </Animated.View>
           </View>
 
-          {isMixing && (
-            <Animated.View
-              style={[
-                styles.sparkle,
-                {
-                  opacity: sparkleAnim,
-                  transform: [{ scale: sparkleAnim }],
-                },
-              ]}
-            >
-              <Text style={styles.sparkleText}>✨</Text>
+          {feedback && (
+            <Animated.View style={[styles.feedbackOverlay, { transform: [{ scale: feedbackAnim }] }]}>
+              <Text style={styles.feedbackIcon}>{feedback === 'success' ? '✅' : '❌'}</Text>
+              <Text style={[styles.feedbackText, { color: feedback === 'success' ? '#28a745' : '#dc3545' }]}>
+                {feedback === 'success' ? 'WELL DONE!' : 'TRY AGAIN!'}
+              </Text>
             </Animated.View>
           )}
 
-          <View style={[styles.tube, { backgroundColor: tube2?.code || '#E8E8E8' }]}>
-            {tube2 && <Text style={styles.tubeEmoji}>{tube2.emoji}</Text>}
-            <Text style={styles.tubeLabel}>Tube 2</Text>
-          </View>
-        </View>
-
-        {/* Result */}
-        {result && (
-          <View style={styles.resultBox}>
-            <View style={[styles.resultColor, { backgroundColor: result.code }]}>
-              <Text style={styles.resultEmoji}>{result.emoji}</Text>
-              <Text style={styles.resultName}>{result.name}</Text>
+          {result && !feedback && (
+            <View style={styles.resultFlask}>
+              <View style={[styles.flaskInside, { backgroundColor: result.code }]}>
+                 <Text style={styles.flaskEmoji}>{result.emoji}</Text>
+              </View>
             </View>
-          </View>
-        )}
-
-        {/* Primary Colors (Draggable) */}
-        <View style={styles.colorsRow}>
-          {PRIMARY_COLORS.map((color) => (
-            <DraggableColor key={color.id} color={color} />
-          ))}
+          )}
         </View>
-      </View>
-    </SafeAreaView>
+
+        <View style={styles.palette}>
+          {PRIMARY_COLORS.map(c => <DraggableColor key={c.id} color={c} />)}
+        </View>
+      </SafeAreaView>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F0F8FF' },
-  header: {
-    padding: 20,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFF',
-    elevation: 3,
+  container: { flex: 1 },
+  header: { alignItems: 'center', padding: 15 },
+  targetTitle: { fontSize: 24, fontWeight: 'bold', color: '#333' },
+  targetPreview: { width: 50, height: 50, borderRadius: 25, marginTop: 8, borderWidth: 2, borderColor: '#DDD' },
+  labArea: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  tubesContainer: { flexDirection: 'row', alignItems: 'center' },
+  tubeFrame: { alignItems: 'center', marginHorizontal: 15 },
+  tubeInside: {
+    width: 75, height: 165, borderWidth: 4, borderColor: '#444',
+    borderBottomLeftRadius: 37, borderBottomRightRadius: 37,
+    backgroundColor: '#FFF', overflow: 'hidden', justifyContent: 'flex-end'
   },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#333' },
-  progressText: { fontSize: 16, fontWeight: '600', color: '#666' },
-  gameArea: { flex: 1, padding: 20, alignItems: 'center' },
-  targetBox: { alignItems: 'center', marginBottom: 30 },
-  targetLabel: { fontSize: 18, fontWeight: '600', color: '#555', marginBottom: 10 },
-  targetColorBox: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    borderWidth: 4,
-    borderColor: '#FFF',
-  },
-  targetEmoji: { fontSize: 50, marginBottom: 5 },
-  targetName: { fontSize: 18, fontWeight: 'bold', color: '#FFF', textShadowColor: 'rgba(0,0,0,0.3)' },
-  tubesRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  tube: {
-    width: 70,
-    height: 150,
-    borderRadius: 35,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 3,
-    borderColor: '#333',
-    elevation: 4,
-  },
-  tubeEmoji: { fontSize: 30 },
-  tubeLabel: {
-    position: 'absolute',
-    bottom: -25,
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#666',
-  },
-  sparkle: {
-    position: 'absolute',
-    zIndex: 10,
-  },
-  sparkleText: { fontSize: 40 },
-  resultBox: {
-    marginBottom: 30,
-    alignItems: 'center',
-  },
-  resultColor: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    borderWidth: 3,
-    borderColor: '#FFF',
-  },
-  resultEmoji: { fontSize: 40, marginBottom: 5 },
-  resultName: { fontSize: 16, fontWeight: 'bold', color: '#FFF' },
-  colorsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: 'auto',
-    paddingBottom: 30,
-  },
-  draggableWrapper: {
-    marginHorizontal: 10,
-  },
-  colorChip: {
-    width: 90,
-    height: 90,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    borderWidth: 3,
-    borderColor: '#FFF',
-  },
-  colorEmoji: { fontSize: 35, marginBottom: 5 },
-  colorName: { fontSize: 14, fontWeight: 'bold', color: '#FFF' },
+  liquid: { width: '100%' },
+  tubeLabel: { marginTop: 10, fontWeight: 'bold', color: '#666' },
+  plusSign: { fontSize: 40, marginHorizontal: 10, color: '#444' },
+  feedbackOverlay: { position: 'absolute', alignItems: 'center', justifyContent: 'center', zIndex: 10 },
+  feedbackIcon: { fontSize: 100 },
+  feedbackText: { fontSize: 28, fontWeight: '900', marginTop: 10 },
+  resultFlask: { position: 'absolute' },
+  flaskInside: { width: 110, height: 110, borderRadius: 55, borderWidth: 4, borderColor: '#444', justifyContent: 'center', alignItems: 'center', backgroundColor: 'white' },
+  flaskEmoji: { fontSize: 45 },
+  palette: { flexDirection: 'row', justifyContent: 'space-around', paddingBottom: 40, backgroundColor: '#FFF', paddingTop: 20, borderTopLeftRadius: 30, borderTopRightRadius: 30, elevation: 20 },
+  colorCircle: { width: 85, height: 85, borderRadius: 42, justifyContent: 'center', alignItems: 'center', elevation: 5 },
+  emoji: { fontSize: 38 }
 });
 
 export default MagicColorLab;

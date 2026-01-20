@@ -5,6 +5,7 @@ import GenericMatchingGame from './screens/games/generic';
 
 import ChildGameDetailsScreen from './screens/ChildGameDetailsScreen';
 import ObjectColorMatchLevel3 from './screens/games/Colors/Level3/ObjectColorMatchLevel3';
+import MagicColorLab from './screens/games/Colors/Level3/MagicColorLab';
 import ObjectColorMatchLevel4 from './screens/games/Colors/Level4/ObjectColorMatchLevel4';
 
 import SplashScreen from './screens/SplashScreen';
@@ -43,6 +44,8 @@ import MissingNumbersLevel1 from './screens/games/Numbers/Level1/MissingNumbers'
 import MatchNumbersLevel1 from './screens/games/Numbers/Level1/MatchNumbers';
 import ComparisonLevel1 from './screens/games/Numbers/Level1/Comparision';
 import AnimalSoundsLevel1 from './screens/games/Animals/Level1/AnimalSoundsLevel1';
+import AnimalHabitat from './screens/games/Animals/Level1/Level3/AnimalHabitat';
+import AnimalLifeCycleLevel3 from './screens/games/Animals/Level1/Level3/AnimalLifeCycle';
 import FruitBasketLevel1 from './screens/games/Objects/Level1/FruitBasketLevel1';
 import MeetMyFamilyLevel1 from './screens/games/Family/Level1/MeetMyFamilyLevel1';
 import CountBasket from './screens/games/Mixed/Mix1/CountBasket';
@@ -53,8 +56,18 @@ import ColorObjectsLevel2 from './screens/games/Colors/Level2/ColorObjectsLevel2
 import ColorMatchPathLevel2 from './screens/games/Colors/Level2/ColorMatchPathLevel2';
 import SortingBasketsLevel2 from './screens/games/Objects/Level2/SortingBasketsLevel2';
 import FindFamilyMemberLevel2 from './screens/games/Family/Level2/FindFamilyMemberLevel2';
+import FamilyDutyLevel3 from './screens/games/Family/Level3/FamilyDutyLevel3';
 
 import ShapeMatchLevel3 from './screens/games/Objects/Level3/ShapeMatchLevel3';
+import BasicMath from './screens/games/Numbers/Level3/BasicMath';
+import FruitChefLevel3 from './screens/games/Fruits/Level3/FruitChef';
+import VeggiePatternLevel3 from './screens/games/Vegetables/Level3/VeggiePattern';
+import SocialReasoningLevel3 from './screens/games/Emotions/Level3/HowDoTheyFeel';
+import RouteMasterLevel3 from './screens/games/Vehicles/Level3/RouteMaster';
+import JobHeroesLevel3 from './screens/games/Jobs/Level3/JobHeroes';
+import BodyCareLevel3 from './screens/games/BodyParts/Level3/BodyCareLevel3';
+import SchoolMissionsLevel3 from './screens/games/School/Level3/SchoolMissions';
+import FruitLogicLevel3 from './screens/games/Fruits/Level3/FruitLogicLevel3';
 
 import TeacherLoginScreen from './screens/TeacherLoginScreen';
 import TeacherDashboardScreen from './screens/TeacherDashboardScreen';
@@ -132,6 +145,19 @@ export default function App() {
           {/* LEVEL 3 */}
           <Stack.Screen name="ShapeMatchLevel3" component={ShapeMatchLevel3} />
           <Stack.Screen name="ObjectColorMatchLevel3" component={ObjectColorMatchLevel3} />
+          <Stack.Screen name="MagicColorLab" component={MagicColorLab} />
+          <Stack.Screen name="FamilyDutyLevel3" component={FamilyDutyLevel3} />
+          <Stack.Screen name="BasicMath" component={BasicMath} />
+          <Stack.Screen name="AnimalHabitat" component={AnimalHabitat} />
+          <Stack.Screen name="AnimalLifeCycle" component={AnimalLifeCycleLevel3} />
+          <Stack.Screen name="FruitChef" component={FruitChefLevel3} />
+          <Stack.Screen name="VeggiePatternLevel3" component={VeggiePatternLevel3} />
+          <Stack.Screen name="SocialReasoning" component={SocialReasoningLevel3} />
+          <Stack.Screen name="RouteMaster" component={RouteMasterLevel3} />
+          <Stack.Screen name="JobHeroes" component={JobHeroesLevel3} />
+          <Stack.Screen name="BodyCare" component={BodyCareLevel3} />
+          <Stack.Screen name="SchoolMissions" component={SchoolMissionsLevel3} />
+          <Stack.Screen name="FruitLogic" component={FruitLogicLevel3} />
 
           {/* LEVEL 4 — NEW GAME */}
           <Stack.Screen name="ObjectColorMatchLevel4" component={ObjectColorMatchLevel4} />

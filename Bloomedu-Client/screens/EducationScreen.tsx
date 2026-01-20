@@ -1,6 +1,6 @@
 // -umut: Education Screen - Modern ve renkli tasarım (28.10.2025)
 import React, { useLayoutEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView } from 'react-native';
 
 // -umut: Kategoriler - Her birinin kendine özgü rengi var (28.10.2025)
 const categories = [
@@ -86,8 +86,8 @@ const categories = [
 ];
 
 const EducationScreen = ({ navigation, route }: any) => {
-  const { child } = route.params || {};
-  const childLevel = child?.level || 1;
+  // Route params'dan child'ı direkt al - her render'da güncel değeri kullan
+  const child = route.params?.child;
 
   // 🔥 DEFAULT HEADER’I KALDIR
   useLayoutEffect(() => {
@@ -124,9 +124,11 @@ const EducationScreen = ({ navigation, route }: any) => {
         
         {/* Mevcut içerik aynen duruyor */}
         {child && (
-          <View style={styles.levelBadge}>
-            <Text style={styles.levelText}>Level {childLevel}</Text>
-            <Text style={styles.levelName}>{getLevelName(childLevel)}</Text>
+          <View style={styles.levelContainer}>
+            <View style={styles.levelBadge}>
+              <Text style={styles.levelText}>Level {child?.level || 1}</Text>
+              <Text style={styles.levelName}>{getLevelName(child?.level || 1)}</Text>
+            </View>
           </View>
         )}
 
@@ -220,13 +222,15 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 12,
   },
+  levelContainer: {
+    alignItems: 'center',
+    marginTop: 20,
+  },
   levelBadge: {
     backgroundColor: '#FF6B9A',
     borderRadius: 20,
     paddingVertical: 8,
     paddingHorizontal: 20,
-    alignSelf: 'center',
-    marginTop: 20,
     shadowColor: '#FF6B9A',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
