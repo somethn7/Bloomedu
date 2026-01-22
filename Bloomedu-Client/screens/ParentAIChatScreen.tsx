@@ -24,7 +24,7 @@ const ParentAIChatScreen = ({ navigation }: any) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: 'Merhaba! Ben Bloomedu Pedagog Asistanıyım. Çocuğunuzun gelişimi, oyun önerileri veya yaşadığınız zorluklarla ilgili soru sorabilirsiniz. Size nasıl yardımcı olabilirim?',
+      text: "Hello! I’m the Bloomedu Pedagogical Assistant. You can ask about your child’s development, game recommendations, routines, or challenges you’re facing. I can also help with Bloomedu app questions (for example: how to message the teacher). How can I help today?",
       sender: 'ai',
       timestamp: new Date(),
     },
@@ -63,7 +63,7 @@ const ParentAIChatScreen = ({ navigation }: any) => {
 
         const aiMessage: Message = {
           id: (Date.now() + 1).toString(),
-          text: `Şu anda yanıt üretemedim. Lütfen tekrar dener misiniz?\n\nDetay: ${errorText}`,
+          text: `I couldn’t generate a response right now. Please try again.\n\nDetails: ${errorText}`,
           sender: 'ai',
           timestamp: new Date(),
         };
@@ -81,7 +81,7 @@ const ParentAIChatScreen = ({ navigation }: any) => {
     } catch (err) {
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: 'Bağlantı hatası oluştu. İnternetinizi kontrol edip tekrar dener misiniz?',
+        text: 'A network error occurred. Please check your internet connection and try again.',
         sender: 'ai',
         timestamp: new Date(),
       };
@@ -154,7 +154,7 @@ const ParentAIChatScreen = ({ navigation }: any) => {
             style={styles.input}
             value={inputText}
             onChangeText={setInputText}
-            placeholder="Bir soru yazın..."
+            placeholder="Type your question..."
             placeholderTextColor="#999"
             multiline
           />
