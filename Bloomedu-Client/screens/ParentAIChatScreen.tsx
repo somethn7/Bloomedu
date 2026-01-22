@@ -11,6 +11,7 @@ import {
   SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
+import { API_ENDPOINTS } from '../config/api';
 
 interface Message {
   id: string;
@@ -19,12 +20,11 @@ interface Message {
   timestamp: Date;
 }
 
-// -umut: (22.11.2025) Created new AI Chat screen with mock responses (Updated to English)
 const ParentAIChatScreen = ({ navigation }: any) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: 'Hello! I am the Bloomedu Pedagogical Assistant. You can ask me about your child\'s development, game recommendations, or any challenges you are facing. How can I help you today?',
+      text: 'Merhaba! Ben Bloomedu Pedagog Asistanıyım. Çocuğunuzun gelişimi, oyun önerileri veya yaşadığınız zorluklarla ilgili soru sorabilirsiniz. Size nasıl yardımcı olabilirim?',
       sender: 'ai',
       timestamp: new Date(),
     },
@@ -47,58 +47,48 @@ const ParentAIChatScreen = ({ navigation }: any) => {
     setInputText('');
     setIsTyping(true);
 
-    // Mock AI Response Logic
-    setTimeout(() => {
-      const aiResponseText = getMockResponse(userMessage.text);
+    try {
+      const response = await fetch(API_ENDPOINTS.AI_CHAT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userMessage.text }),
+      });
+
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || !result?.success) {
+        const errorText =
+          result?.message ||
+          `AI request failed (HTTP ${response.status || 'unknown'})`;
+
+        const aiMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          text: `Şu anda yanıt üretemedim. Lütfen tekrar dener misiniz?\n\nDetay: ${errorText}`,
+          sender: 'ai',
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, aiMessage]);
+        return;
+      }
+
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
-        text: aiResponseText,
+        text: String(result.reply || ''),
         sender: 'ai',
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, aiMessage]);
+    } catch (err) {
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        text: 'Bağlantı hatası oluştu. İnternetinizi kontrol edip tekrar dener misiniz?',
+        sender: 'ai',
+        timestamp: new Date(),
+      };
+      setMessages((prev) => [...prev, aiMessage]);
+    } finally {
       setIsTyping(false);
-    }, 1500); // 1.5s delay to simulate thinking
-  };
-
-  const getMockResponse = (text: string): string => {
-    const lowerText = text.toLowerCase();
-    
-    // Helper function to check multiple keywords
-    const contains = (keywords: string[]) => keywords.some(k => lowerText.includes(k));
-
-    // 1. SCREEN TIME & TIME MANAGEMENT
-    if (contains(['screen', 'time', 'minute', 'hour', 'watch', 'tablet', 'phone', 'duration'])) {
-      return "For preschool children (ages 3-6), the recommended daily screen time is limited to 1 hour. \n\n💡 Tip: You can let them play educational games on Bloomedu in 20-minute sessions. Balancing the remaining time with physical activities is great for their development!";
     }
-
-    // 2. EYE CONTACT & COMMUNICATION
-    if (contains(['eye', 'contact', 'look', 'stare', 'communication', 'focus'])) {
-      return "Eye contact is fundamental to social development. You can encourage it gently through play:\n\n👀 Play 'Peek-a-boo'.\n🧸 Hold a favorite toy near your face while talking.\n🎈 Wait for them to look at you while playing blowing bubbles.";
-    }
-
-    // 3. SLEEP & RESTLESSNESS
-    if (contains(['sleep', 'restless', 'cry', 'tantrum', 'angry', 'awake', 'night', 'bed'])) {
-      return "Restlessness or sleep issues often stem from a need or a change in routine.\n\n🌙 Create a sleep routine (Bath -> Story -> Sleep).\n🎨 Engage in painting or dancing activities during the day to release energy.";
-    }
-
-    // 4. GAME & ACTIVITY SUGGESTIONS
-    if (contains(['game', 'activity', 'play', 'suggest', 'bored', 'fun', 'recommend'])) {
-      const suggestions = [
-        "Have you tried the 'Color Match' game on Bloomedu? It supports visual perception and is very fun! 🎨",
-        "You can play 'Fruit Basket' at home! Place real fruits in a basket and name them to reinforce the game from Bloomedu. 🍎🍌",
-        "Go on a 'Shape Hunt' with your child! Find round or square objects around the house and match them. 🟧🔴"
-      ];
-      return suggestions[Math.floor(Math.random() * suggestions.length)];
-    }
-
-    // 5. SPEECH & LANGUAGE
-    if (contains(['speak', 'talk', 'word', 'mom', 'dad', 'say', 'language'])) {
-      return "To support language development:\n\n🗣️ Talk to them frequently and narrate what you are doing ('Now we are eating an apple').\n📖 Read picture books together.\n🎶 Sing nursery rhymes.";
-    }
-
-    // 6. GENERAL/FALLBACK (More natural fallback)
-    return "I want to give you the best support possible. Could you provide a bit more detail about the situation?\n\nFor example:\n• 'He doesn't want to play games'\n• 'We struggle during meal times'\n• 'Which game do you recommend?'";
   };
 
   useEffect(() => {
@@ -164,7 +154,7 @@ const ParentAIChatScreen = ({ navigation }: any) => {
             style={styles.input}
             value={inputText}
             onChangeText={setInputText}
-            placeholder="Ask a question..."
+            placeholder="Bir soru yazın..."
             placeholderTextColor="#999"
             multiline
           />
