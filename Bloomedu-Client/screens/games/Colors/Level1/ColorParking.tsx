@@ -6,7 +6,6 @@ import { sendGameResult } from "../../../../config/api";
 
 const { width } = Dimensions.get('window');
 
-// Diğer oyundaki 6 temel renk havuzu
 const ALL_COLORS = [
   { id: 'red', name: 'RED', code: '#FF6B6B', carEmoji: '🚗', garageEmoji: '🏠' },
   { id: 'blue', name: 'BLUE', code: '#4DABF7', carEmoji: '🚙', garageEmoji: '🏠' },
@@ -28,11 +27,13 @@ const ColorParkingGame = ({ navigation }: any) => {
   const [stageCount, setStageCount] = useState(1);
   const [gameFinished, setGameFinished] = useState(false);
 
-  // Arka Plan Metrikleri (Çocuk görmüyor)
+  // Metrikler
   const [score, setScore] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
   const gameStartTimeRef = useRef<number>(Date.now());
 
+  // Animasyon Değerleri
+  const successAnim = useRef(new Animated.Value(0)).current;
   const garageLayouts = useRef<any>({});
 
   useEffect(() => {
@@ -47,7 +48,6 @@ const ColorParkingGame = ({ navigation }: any) => {
     } catch (err) {}
   };
 
-  // Her turda 6 renkten rastgele 3 tanesini seçer
   const setupStage = () => {
     const shuffled = [...ALL_COLORS].sort(() => 0.5 - Math.random());
     const selected = shuffled.slice(0, 3);
@@ -62,24 +62,48 @@ const ColorParkingGame = ({ navigation }: any) => {
     }, 500);
   };
 
+  const triggerSuccessFeedback = () => {
+    successAnim.setValue(0);
+    Animated.sequence([
+      Animated.spring(successAnim, {
+        toValue: 1,
+        friction: 4,
+        useNativeDriver: true,
+      }),
+      Animated.delay(1000),
+      Animated.timing(successAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
   const finalizeGame = async () => {
     if (!child?.id) return;
+    
     const duration = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
-    const successRate = Math.round((score / TOTAL_STAGES) * 100);
+    // Arkadaşının başarı oranı mantığı: (Doğru / Toplam Deneme)
+    const totalAttempts = score + wrongCount;
+    const successRate = totalAttempts > 0 ? Math.round((score / totalAttempts) * 100) : 0;
 
-    // try {
-    //   await sendGameResult({
-    //     child_id: child.id,
-    //     game_type: "color_parking",
-    //     level: 1,
-    //     score: score,
-    //     max_score: TOTAL_STAGES,
-    //     duration_seconds: duration,
-    //     wrong_count: wrongCount,
-    //     success_rate: successRate,
-    //     completed: true,
-    //   });
-    // } catch (err) { console.log(err); }
+    try {
+      await sendGameResult({
+        child_id: child.id,
+        game_type: "color_parking",
+        level: 1,
+        score: score,
+        max_score: TOTAL_STAGES,
+        duration_seconds: duration,
+        wrong_count: wrongCount,
+        success_rate: successRate,
+        completed: true,
+        details: {
+            totalAttempts,
+            successRate
+        }
+      });
+    } catch (err) { console.log(err); }
 
     Tts.speak("Amazing! You are a great driver.");
     setTimeout(() => navigation.goBack(), 2000);
@@ -103,14 +127,21 @@ const ColorParkingGame = ({ navigation }: any) => {
           if (target && moveX > target.x && moveX < target.x + target.width && moveY > target.y && moveY < target.y + target.height) {
             if (car.id === targetColor.id) {
               setScore(s => s + 1);
+              Tts.stop();
               Tts.speak("Correct!");
-              if (stageCount >= TOTAL_STAGES) setGameFinished(true);
-              else {
-                setStageCount(s => s + 1);
-                setupStage();
+              triggerSuccessFeedback();
+              
+              if (stageCount >= TOTAL_STAGES) {
+                setTimeout(() => setGameFinished(true), 1200);
+              } else {
+                setTimeout(() => {
+                  setStageCount(s => s + 1);
+                  setupStage();
+                }, 1200);
               }
             } else {
               setWrongCount(w => w + 1);
+              Tts.stop();
               Tts.speak("Try again!");
             }
           }
@@ -155,12 +186,26 @@ const ColorParkingGame = ({ navigation }: any) => {
           ))}
         </View>
 
-        {/* TALİMAT */}
-        {targetColor && (
-          <View style={styles.instructionBox}>
-             <Text style={styles.instructionText}>Park the <Text style={{color: targetColor.code === '#FFFFFF' ? '#888' : targetColor.code}}>{targetColor.name}</Text> car!</Text>
-          </View>
-        )}
+        {/* TALİMAT VE BAŞARI MESAJI */}
+        <View style={styles.centerContainer}>
+          {targetColor && (
+            <View style={styles.instructionBox}>
+               <Text style={styles.instructionText}>
+                 Park the <Text style={{color: targetColor.code === '#FFFFFF' ? '#888' : targetColor.code}}>{targetColor.name}</Text> car!
+               </Text>
+            </View>
+          )}
+
+          <Animated.View style={[
+            styles.successMessage, 
+            { 
+              opacity: successAnim,
+              transform: [{ scale: successAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }]
+            }
+          ]}>
+            <Text style={styles.successText}>🎉 Perfect Match! 🎉</Text>
+          </Animated.View>
+        </View>
 
         {/* YOL VE ARABALAR */}
         <View style={styles.road}>
@@ -186,8 +231,18 @@ const styles = StyleSheet.create({
   garage: { width: width * 0.28, height: 110, borderWidth: 3, borderStyle: 'dashed', borderRadius: 15, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF' },
   garageEmoji: { fontSize: 50 },
   garageSign: { width: '70%', height: 10, borderRadius: 5, marginTop: 5 },
-  instructionBox: { alignSelf: 'center', padding: 15, backgroundColor: '#FFF', borderRadius: 20, elevation: 1 },
+  centerContainer: { height: 100, justifyContent: 'center', alignItems: 'center' },
+  instructionBox: { padding: 15, backgroundColor: '#FFF', borderRadius: 20, elevation: 1, position: 'absolute' },
   instructionText: { fontSize: 20, fontWeight: 'bold' },
+  successMessage: { 
+    position: 'absolute', 
+    backgroundColor: 'rgba(76, 175, 80, 0.95)', 
+    paddingHorizontal: 25, 
+    paddingVertical: 12, 
+    borderRadius: 30, 
+    zIndex: 10 
+  },
+  successText: { color: '#FFF', fontSize: 22, fontWeight: 'bold' },
   road: { width: '100%', height: 160, backgroundColor: '#37474F', justifyContent: 'center' },
   roadLine: { position: 'absolute', width: '100%', height: 2, borderStyle: 'dashed', borderWidth: 1, borderColor: '#FFF', top: '50%' },
   carRow: { flexDirection: 'row', justifyContent: 'space-around' },

@@ -45,7 +45,6 @@ interface ColorData {
 const COLORS: ColorData[] = [
   { name: 'red', color: '#FF6B6B', emoji: '🔴' },
   { name: 'blue', color: '#4ECDC4', emoji: '🔵' },
-  { name: 'green', color: '#95E1D3', emoji: '🟢' },
   { name: 'yellow', color: '#F9CA24', emoji: '🟡' },
   { name: 'purple', color: '#A29BFE', emoji: '🟣' },
 ];
@@ -336,7 +335,7 @@ const ColorMatchPathLevel2 = ({ navigation }: any) => {
 
               {/* Success Message */}
               <Animated.View style={[styles.successMessage, { opacity: successOpacity }]}>
-                <Text style={styles.successText}>🎉 Perfect Match! 🎉</Text>
+                <Text style={styles.successText}>🎉 Perfect ! 🎉</Text>
               </Animated.View>
             </View>
 

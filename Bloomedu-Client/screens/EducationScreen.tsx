@@ -99,11 +99,9 @@ const EducationScreen = ({ navigation, route }: any) => {
   };
 
   const getLevelName = (level: number) => {
-    if (level === 1) return 'Beginner';
-    if (level === 2) return 'Intermediate';
-    if (level === 3) return 'Advanced';
-    if (level === 4) return 'Expert';
-    return 'Master';
+    if (level === 1) return 'Recognition';
+    if (level === 2) return 'Association';
+    return 'Scenario';
   };
 
   return (

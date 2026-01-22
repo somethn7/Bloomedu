@@ -19,40 +19,24 @@ const SurveyScreen = () => {
 
   useLayoutEffect(() => {
     navigation.setOptions({ headerShown: false });
-  }, []);
+  }, [navigation]);
 
-  // === BACKEND'DEN SORULARI ÇEK + LOG EKLEMESİ ===
   useEffect(() => {
     const fetchQuestions = async () => {
       try {
-        console.log("Fetching from:", `${BASE_URL}/surveys`);
         const response = await fetch(`${BASE_URL}/surveys`);
-        
-        // Yanıtın JSON olup olmadığını anlamak için önce text olarak alıyoruz
-        const responseText = await response.text();
-        console.log("Raw Backend Response:", responseText);
-
-        try {
-          const data = JSON.parse(responseText);
-          if (data.success) {
-            setDbQuestions(data.questions);
-            setAnswers(Array(data.questions.length).fill(null));
-          } else {
-            console.error("Data success is false:", data);
-          }
-        } catch (jsonError) {
-          console.error("JSON Parse Error! Backend muhtemelen HTML veya hata mesajı döndü.");
-          Alert.alert("Server Error", "Backend is not sending valid JSON.");
+        const data = await response.json();
+        if (data.success) {
+          setDbQuestions(data.questions);
+          setAnswers(Array(data.questions.length).fill(null));
         }
-
       } catch (error) {
-        console.error("Survey fetch network error:", error);
-        Alert.alert("Connection Error", "Could not connect to Railway server.");
+        console.error("Survey fetch error:", error);
+        Alert.alert("Connection Error", "Could not connect to the server.");
       } finally {
         setLoading(false);
       }
     };
-
     fetchQuestions();
   }, []);
 
@@ -83,6 +67,7 @@ const SurveyScreen = () => {
     if (currentPage < totalPages - 1) {
       setCurrentPage(currentPage + 1);
     } else {
+      // --- LEVEL 3 HESAPLAMA MANTIĞI ---
       let level1Yes = 0;
       let level2Yes = 0;
       let level3Yes = 0;
@@ -95,51 +80,50 @@ const SurveyScreen = () => {
         }
       });
 
-      // Anket sonuçlarına göre level hesapla
+      // Kademeli Seviye Belirleme
       let finalLevel = 1;
-      if (level1Yes >= 3) finalLevel = 2;
-      if (level1Yes >= 3 && level2Yes >= 4) finalLevel = 3;
+      if (level1Yes >= 3) {
+        finalLevel = 2;
+        if (level2Yes >= 4) {
+          finalLevel = 3;
+        }
+      }
 
-      // Backend'e level'ı kaydet (anket sonucuna göre)
-      const correctAnswers = answers.filter(a => a === 'yes').length;
+      const totalCorrect = answers.filter(a => a === 'yes').length;
       
       if (child?.id) {
         try {
+          // Backend'e detaylı veri gönderimi
           const response = await fetch(`${BASE_URL}/children/${child.id}/update-level`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ correctAnswers }),
+            body: JSON.stringify({ 
+                correctAnswers: totalCorrect,
+                calculatedLevel: finalLevel,
+                levelStats: { l1: level1Yes, l2: level2Yes, l3: level3Yes }
+            }),
           });
           
           const data = await response.json();
           if (data.success) {
-            // Backend'den gelen level'ı kullan (backend kendi mantığıyla hesaplıyor)
             finalLevel = data.level || finalLevel;
           }
-        } catch (error) {
-          console.error('Error updating child level:', error);
-          // Hata olsa bile anket tamamlanmış sayılır, client-side hesaplanan level kullanılır
-        }
 
-        // Anket tamamlandı olarak işaretle
-        try {
-          const markCompleteResponse = await fetch(`${BASE_URL}/children/${child.id}/mark-survey-complete`, {
+          // Anket tamamlandı işaretlemesi
+          await fetch(`${BASE_URL}/children/${child.id}/mark-survey-complete`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
           });
-          const markCompleteData = await markCompleteResponse.json();
-          if (!markCompleteData.success) {
-            console.error('Failed to mark survey complete:', markCompleteData.message);
-          }
+
         } catch (error) {
-          console.error('Error marking survey complete:', error);
+          console.error('Error updating status:', error);
         }
       }
 
       navigation.replace('Result', { 
         answers, 
         child: { ...child, level: finalLevel },
-        score: correctAnswers
+        score: totalCorrect
       });
     }
   };
@@ -152,7 +136,7 @@ const SurveyScreen = () => {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color="#FF6B9A" />
-        <Text style={{ marginTop: 10 }}>Loading Survey Questions...</Text>
+        <Text style={{ marginTop: 10 }}>Loading Survey...</Text>
       </View>
     );
   }
@@ -161,48 +145,58 @@ const SurveyScreen = () => {
   const currentQuestions = dbQuestions.slice(startIndex, startIndex + questionsPerPage);
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#f2f2f2' }}>
+    <View style={{ flex: 1, backgroundColor: '#F8F9FA' }}>
+      {/* HEADER */}
       <View style={{
-        backgroundColor: '#d9d9d9', paddingTop: 55, paddingBottom: 25, paddingHorizontal: 20,
-        borderBottomLeftRadius: 35, borderBottomRightRadius: 35, flexDirection: 'row',
-        alignItems: 'center', justifyContent: 'space-between',
+        backgroundColor: '#FF6B9A', paddingTop: 55, paddingBottom: 25, paddingHorizontal: 20,
+        borderBottomLeftRadius: 30, borderBottomRightRadius: 30, flexDirection: 'row',
+        alignItems: 'center', justifyContent: 'space-between', elevation: 4
       }}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={{
-          width: 40, height: 40, borderRadius: 20, backgroundColor: '#FF6B9A',
+          width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.3)',
           justifyContent: 'center', alignItems: 'center',
         }}>
           <Text style={{ color: 'white', fontSize: 20, fontWeight: '700' }}>←</Text>
         </TouchableOpacity>
-        <Text style={{ fontSize: 22, fontWeight: '700', color: '#444' }}>Survey</Text>
+        <Text style={{ fontSize: 22, fontWeight: '700', color: '#fff' }}>Assessment Survey</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <View style={{ flex: 1, padding: 20 }}>
-        <ScrollView contentContainerStyle={{ paddingBottom: 80 }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 80 }}>
           {currentQuestions.map((item, index) => {
             const questionIndex = startIndex + index;
             const isYes = answers[questionIndex] === 'yes';
             const isNo = answers[questionIndex] === 'no';
 
             return (
-               <View key={item.id} style={{ marginBottom: 28 }}>
-                <Text style={{ fontSize: 18, fontWeight: '500', marginBottom: 12, color: '#333' }}>
+               <View key={item.id} style={{ 
+                 backgroundColor: '#fff', padding: 20, borderRadius: 20, marginBottom: 20,
+                 shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3
+               }}>
+                <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 15, color: '#444', lineHeight: 22 }}>
                  {item.question_text}
                 </Text>
 
-                <View style={{ flexDirection: 'row', justifyContent: 'space-evenly' }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                   <TouchableOpacity
-                    style={{ backgroundColor: isYes ? '#FF6B9A' : '#e5e5e5', paddingVertical: 12, paddingHorizontal: 35, borderRadius: 25 }}
+                    style={{ 
+                      backgroundColor: isYes ? '#FF6B9A' : '#F1F2F6', 
+                      width: '45%', paddingVertical: 12, borderRadius: 15, alignItems: 'center' 
+                    }}
                     onPress={() => handleAnswer(questionIndex, 'yes')}
                   >
-                      <Text style={{ color: isYes ? 'white' : '#222', fontWeight: '700' }}>Yes</Text>
+                      <Text style={{ color: isYes ? 'white' : '#555', fontWeight: '700' }}>YES</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
-                     style={{ backgroundColor: isNo ? '#555' : '#e5e5e5', paddingVertical: 12, paddingHorizontal: 35, borderRadius: 25 }}
+                     style={{ 
+                       backgroundColor: isNo ? '#2F3542' : '#F1F2F6', 
+                       width: '45%', paddingVertical: 12, borderRadius: 15, alignItems: 'center' 
+                     }}
                     onPress={() => handleAnswer(questionIndex, 'no')}
                   >
-                     <Text style={{ color: isNo ? 'white' : '#222', fontWeight: '700' }}>No</Text>
+                     <Text style={{ color: isNo ? 'white' : '#555', fontWeight: '700' }}>NO</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -210,28 +204,31 @@ const SurveyScreen = () => {
           })}
         </ScrollView>
 
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
+        {/* NAVIGATION BUTTONS */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <TouchableOpacity
-             style={{ backgroundColor: currentPage > 0 ? '#a0a0a0' : 'transparent', paddingVertical: 12, paddingHorizontal: 25, borderRadius: 25 }}
               onPress={handleBack}
               disabled={currentPage === 0}
+              style={{ padding: 10 }}
             >
-              {currentPage > 0 && <Text style={{ color: '#fff', fontWeight: 'bold' }}>Back</Text>}
+              <Text style={{ color: currentPage > 0 ? '#FF6B9A' : 'transparent', fontWeight: '700' }}>Previous</Text>
             </TouchableOpacity>
 
           <TouchableOpacity
-           style={{ backgroundColor: '#FF6B9A', paddingVertical: 12, paddingHorizontal: 25, borderRadius: 25, flexDirection: 'row', alignItems: 'center' }}
+            style={{ 
+              backgroundColor: '#FF6B9A', paddingVertical: 15, paddingHorizontal: 35, 
+              borderRadius: 25, shadowColor: '#FF6B9A', shadowOpacity: 0.3, shadowRadius: 5, elevation: 5
+            }}
             onPress={handleNext}
           >
-             <Text style={{ color: 'white', fontWeight: 'bold' }}>
-              {currentPage < totalPages - 1 ? 'Next' : 'Finish'}
+             <Text style={{ color: 'white', fontWeight: '800', fontSize: 16 }}>
+              {currentPage < totalPages - 1 ? 'NEXT' : 'FINISH'}
             </Text>
-            <Text style={{ color: 'white', fontSize: 18, fontWeight: 'bold', marginLeft: 5 }}>→</Text>
           </TouchableOpacity>
         </View>
 
-        <Text style={{ textAlign: 'center', marginTop: 10, fontSize: 14, color: '#555' }}>
-          Page {currentPage + 1} of {totalPages}
+        <Text style={{ textAlign: 'center', marginTop: 15, fontSize: 13, color: '#A4B0BE', fontWeight: '600' }}>
+          PROGRESS: {currentPage + 1} / {totalPages}
         </Text>
       </View>
     </View>

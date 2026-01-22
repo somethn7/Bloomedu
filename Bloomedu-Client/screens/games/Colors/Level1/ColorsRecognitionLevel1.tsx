@@ -326,33 +326,6 @@ export default function ColorsRecognitionLevel1({ navigation }: any) {
           </View>
         </View>
 
-        {/* SCORE CARDS */}
-        <View style={styles.scoreCards}>
-          <View style={[styles.scoreCard, styles.correctCard]}>
-            <View style={styles.scoreIconCircle}>
-              <Text style={styles.scoreEmoji}>✓</Text>
-            </View>
-            <Text style={styles.scoreNumber}>{Math.max(score, 0)}</Text>
-            <Text style={styles.scoreLabel}>Correct</Text>
-          </View>
-
-          <View style={[styles.scoreCard, styles.wrongCard]}>
-            <View style={styles.scoreIconCircle}>
-              <Text style={styles.scoreEmoji}>✗</Text>
-            </View>
-            <Text style={styles.scoreNumber}>{wrongCount}</Text>
-            <Text style={styles.scoreLabel}>Wrong</Text>
-          </View>
-
-          <View style={[styles.scoreCard, styles.rateCard]}>
-            <View style={styles.scoreIconCircle}>
-              <Text style={styles.scoreEmoji}>⭐</Text>
-            </View>
-            <Text style={styles.scoreNumber}>{successRate}%</Text>
-            <Text style={styles.scoreLabel}>Success</Text>
-          </View>
-        </View>
-
         {/* TARGET COLOR */}
         <View style={styles.targetSection}>
           <Text style={styles.questionText}>Find this color! 👇</Text>

@@ -5,7 +5,7 @@ import { useRoute } from '@react-navigation/native';
 import { createGameCompletionHandler } from '../../../../utils/gameNavigation';
 import { sendGameResult } from '../../../../config/api';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 type ComparisonData = {
   leftNum: number;
@@ -21,7 +21,7 @@ const SYMBOLS = [
 
 const MAX_ROUNDS = 5;
 
-export default function ComparisonLevel1({ navigation }: any) {
+export default function Comparison({ navigation }: any) {
   const route = useRoute();
   const { child, gameSequence, currentGameIndex, categoryTitle }: any = route.params || {};
 
@@ -39,6 +39,7 @@ export default function ComparisonLevel1({ navigation }: any) {
   const gameStartTimeRef = useRef<number>(Date.now());
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const shakeAnim = useRef(new Animated.Value(0)).current;
+  const successAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Tts.setDefaultLanguage('en-US').catch(() => {});
@@ -59,6 +60,23 @@ export default function ComparisonLevel1({ navigation }: any) {
       pulse.stop();
     };
   }, []);
+
+  const triggerSuccessFeedback = () => {
+    successAnim.setValue(0);
+    Animated.sequence([
+      Animated.spring(successAnim, {
+        toValue: 1,
+        friction: 4,
+        useNativeDriver: true,
+      }),
+      Animated.delay(1000),
+      Animated.timing(successAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
 
   const generateComparison = (): ComparisonData => {
     const left = Math.floor(Math.random() * 10) + 1;
@@ -91,7 +109,9 @@ export default function ComparisonLevel1({ navigation }: any) {
 
     if (correct) {
       setScore(prev => prev + 1);
+      Tts.stop();
       Tts.speak("Correct! Well done.");
+      triggerSuccessFeedback();
 
       setTimeout(() => {
         if (currentRound < MAX_ROUNDS) {
@@ -110,6 +130,7 @@ export default function ComparisonLevel1({ navigation }: any) {
         Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
       ]).start();
 
+      Tts.stop();
       Tts.speak('Try again! Look at the numbers.');
       setTimeout(() => {
         setSelectedSymbol(null);
@@ -121,22 +142,28 @@ export default function ComparisonLevel1({ navigation }: any) {
   const finalizeGame = async () => {
     if (!child?.id) return;
     const duration = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
-    const totalAttempts = MAX_ROUNDS + wrongCount;
-    const successRate = Math.round((MAX_ROUNDS / (totalAttempts || 1)) * 100);
+    
+    // Arkadaşının Başarı Oranı Mantığı: (Doğru / Toplam Deneme)
+    const totalAttempts = score + wrongCount;
+    const successRate = totalAttempts > 0 ? Math.round((score / totalAttempts) * 100) : 0;
 
-    // try {
-    //     await sendGameResult({
-    //         child_id: child.id,
-    //         game_type: 'numbers-comparison',
-    //         level: 1,
-    //         score: score,
-    //         max_score: MAX_ROUNDS,
-    //         duration_seconds: duration,
-    //         wrong_count: wrongCount,
-    //         success_rate: successRate,
-    //         completed: true,
-    //     });
-    // } catch (err) { console.log(err); }
+    try {
+        await sendGameResult({
+            child_id: child.id,
+            game_type: 'numbers_comparison',
+            level: 2,
+            score: score,
+            max_score: MAX_ROUNDS,
+            duration_seconds: duration,
+            wrong_count: wrongCount,
+            success_rate: successRate,
+            completed: true,
+            details: {
+                totalAttempts,
+                successRate
+            }
+        });
+    } catch (err) { console.log(err); }
 
     handleGameCompletion();
   };
@@ -177,6 +204,17 @@ export default function ComparisonLevel1({ navigation }: any) {
               <View style={[styles.progressFill, { width: `${(currentRound / MAX_ROUNDS) * 100}%` }]} />
             </View>
           </View>
+
+          {/* Success Message Overlay */}
+          <Animated.View style={[
+            styles.successMessage, 
+            { 
+              opacity: successAnim,
+              transform: [{ scale: successAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }]
+            }
+          ]}>
+            <Text style={styles.successText}>🎉 Correct! 🎉</Text>
+          </Animated.View>
 
           <View style={styles.comparisonArea}>
             <View style={[styles.numCard, { backgroundColor: '#4ECDC4' }]}>
@@ -239,4 +277,18 @@ const styles = StyleSheet.create({
   symLabel: { fontSize: 12, color: '#999', marginTop: 5 },
   correctBtn: { borderColor: '#4CAF50', backgroundColor: '#E8F5E9' },
   wrongBtn: { borderColor: '#FFB3BA', backgroundColor: '#FFF0F0' },
+  
+  // Success Message Styles
+  successMessage: { 
+    position: 'absolute', 
+    top: height / 3, 
+    alignSelf: 'center', 
+    backgroundColor: 'rgba(76, 175, 80, 0.9)', 
+    paddingHorizontal: 30, 
+    paddingVertical: 15, 
+    borderRadius: 30, 
+    zIndex: 999,
+    elevation: 10
+  },
+  successText: { color: '#FFF', fontSize: 24, fontWeight: 'bold' },
 });

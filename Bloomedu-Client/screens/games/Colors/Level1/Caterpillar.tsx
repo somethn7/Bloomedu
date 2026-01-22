@@ -5,15 +5,14 @@ import { useRoute } from "@react-navigation/native";
 import { sendGameResult } from "../../../../config/api";
 import { createGameCompletionHandler } from "../../../../utils/gameNavigation";
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 const ALL_COLORS = [
   { id: 'red', name: 'RED', code: '#FF0000' },
   { id: 'blue', name: 'BLUE', code: '#0000FF' },
   { id: 'yellow', name: 'YELLOW', code: '#FFD700' },
   { id: 'green', name: 'GREEN', code: '#008000' },
-  { id: 'black', name: 'BLACK', code: '#000000' },
-  { id: 'white', name: 'WHITE', code: '#FFFFFF', border: true },
+  { id: 'black', name: 'BLACK', code: '#000000ff' }
 ];
 
 const CaterpillarColoringGame = ({ navigation }: any) => {
@@ -23,9 +22,13 @@ const CaterpillarColoringGame = ({ navigation }: any) => {
   const [selectedColor, setSelectedColor] = useState<any>(null);
   const [caterpillarParts, setCaterpillarParts] = useState<any[]>([]);
   
+  // Metrikler
   const scoreRef = useRef(0);
   const wrongCountRef = useRef(0);
   const gameStartTimeRef = useRef<number>(Date.now());
+
+  // Animasyon Değerleri
+  const successAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Tts.setDefaultLanguage('en-US');
@@ -38,7 +41,6 @@ const CaterpillarColoringGame = ({ navigation }: any) => {
 
   const setupCaterpillar = () => {
     const parts = Array.from({ length: 5 }).map((_, index) => {
-      // DÜZELTİLEN SATIR: Math.floor tüm işlemi kapsamalı
       const randomIndex = Math.floor(Math.random() * ALL_COLORS.length);
       const randomColor = ALL_COLORS[randomIndex];
       
@@ -53,27 +55,52 @@ const CaterpillarColoringGame = ({ navigation }: any) => {
     setCaterpillarParts(parts);
   };
 
+  const triggerSuccessFeedback = () => {
+    successAnim.setValue(0);
+    Animated.sequence([
+      Animated.spring(successAnim, {
+        toValue: 1,
+        friction: 4,
+        useNativeDriver: true,
+      }),
+      Animated.delay(800),
+      Animated.timing(successAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
   const finalizeGame = async () => {
     if (!child?.id) return;
     const duration = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
     const totalCorrect = scoreRef.current;
     const totalWrong = wrongCountRef.current;
 
-    // try {
-    //   await sendGameResult({
-    //     child_id: child.id,
-    //     game_type: "caterpillar_coloring",
-    //     level: 1,
-    //     score: totalCorrect,
-    //     max_score: 5,
-    //     duration_seconds: duration,
-    //     wrong_count: totalWrong,
-    //     success_rate: Math.round((totalCorrect / (totalCorrect + totalWrong || 1)) * 100),
-    //     completed: true,
-    //   });
-    // } catch (err) {
-    //   console.log("DB Error:", err);
-    // }
+    // Arkadaşının Başarı Oranı Mantığı: (Doğru / Toplam Deneme)
+    const totalAttempts = totalCorrect + totalWrong;
+    const successRate = totalAttempts > 0 ? Math.round((totalCorrect / totalAttempts) * 100) : 0;
+
+    try {
+      await sendGameResult({
+        child_id: child.id,
+        game_type: "caterpillar_coloring",
+        level: 1,
+        score: totalCorrect,
+        max_score: 5,
+        duration_seconds: duration,
+        wrong_count: totalWrong,
+        success_rate: successRate,
+        completed: true,
+        details: {
+            totalAttempts,
+            successRate
+        }
+      });
+    } catch (err) {
+      console.log("DB Error:", err);
+    }
 
     Tts.stop();
     Tts.speak("Excellent! The caterpillar is so colorful now.");
@@ -111,6 +138,9 @@ const CaterpillarColoringGame = ({ navigation }: any) => {
       scoreRef.current += 1;
       Tts.stop();
       Tts.speak("Perfect match!");
+      
+      // Görsel Feedback Tetikle
+      triggerSuccessFeedback();
 
       const newParts = [...caterpillarParts];
       newParts[partIndex].currentColor = selectedColor.code;
@@ -123,7 +153,7 @@ const CaterpillarColoringGame = ({ navigation }: any) => {
       ]).start();
 
       if (newParts.every(p => p.isPainted)) {
-        setTimeout(finalizeGame, 800);
+        setTimeout(finalizeGame, 1200);
       }
     } else {
       wrongCountRef.current += 1;
@@ -139,6 +169,17 @@ const CaterpillarColoringGame = ({ navigation }: any) => {
       </View>
 
       <View style={styles.gameArea}>
+        {/* Success Message */}
+        <Animated.View style={[
+          styles.successMessage, 
+          { 
+            opacity: successAnim,
+            transform: [{ scale: successAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }]
+          }
+        ]}>
+          <Text style={styles.successText}>🎉 Perfect Match! 🎉</Text>
+        </Animated.View>
+
         <View style={styles.caterpillarBody}>
           <View style={styles.head}>
              <Text style={styles.headEmoji}>😊</Text>
@@ -209,6 +250,20 @@ const styles = StyleSheet.create({
     marginLeft: -15, justifyContent: 'center', alignItems: 'center', elevation: 3 
   },
   hintDot: { width: 15, height: 15, borderRadius: 7.5, opacity: 0.6 },
+  
+  // Success Message Style
+  successMessage: { 
+    position: 'absolute', 
+    top: 50, 
+    backgroundColor: 'rgba(76, 175, 80, 0.9)', 
+    paddingHorizontal: 30, 
+    paddingVertical: 12, 
+    borderRadius: 30, 
+    zIndex: 100,
+    elevation: 5
+  },
+  successText: { color: '#FFF', fontSize: 22, fontWeight: 'bold' },
+
   palette: { width: width * 0.9, backgroundColor: '#FFF', borderRadius: 30, padding: 20, elevation: 10 },
   paletteLabel: { textAlign: 'center', fontWeight: 'bold', marginBottom: 15, color: '#666' },
   colorsRow: { flexDirection: 'row', justifyContent: 'center', flexWrap: 'wrap' },

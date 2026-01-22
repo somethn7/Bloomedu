@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated, Dimensions, SafeAreaView, PanResponder, TouchableOpacity } from 'react-native';
 import Tts from 'react-native-tts';
+import { useRoute } from "@react-navigation/native";
+import { sendGameResult } from "../../../../config/api";
+import { createGameCompletionHandler } from "../../../../utils/gameNavigation";
 
 const { width, height } = Dimensions.get('window');
 
@@ -11,43 +14,126 @@ const SIZES = [
 ];
 
 const SizeMatchingGame = ({ navigation }: any) => {
+  const route = useRoute();
+  const { child, gameSequence, currentGameIndex, categoryTitle }: any = route.params || {};
+
   const [activeGoal, setActiveGoal] = useState(0); 
   const [matchedIds, setMatchedIds] = useState<string[]>([]);
+  const [gameFinished, setGameFinished] = useState(false);
+
+  // Metrikler
+  const scoreRef = useRef(0);
+  const wrongCountRef = useRef(0);
+  const gameStartTimeRef = useRef<number>(Date.now());
+
+  // Animasyonlar
+  const successAnim = useRef(new Animated.Value(0)).current;
   const bedLayouts = useRef<any>({});
   const currentGoal = SIZES[activeGoal];
 
   useEffect(() => {
-    Tts.setDefaultLanguage('en-US');
+    initTts();
     announceGoal(0);
   }, []);
+
+  const initTts = async () => {
+    try {
+      await Tts.setDefaultLanguage('en-US');
+      await Tts.setDefaultRate(0.35);
+    } catch (err) {}
+  };
 
   const announceGoal = (index: number) => {
     Tts.stop();
     Tts.speak(`Put the ${SIZES[index].id} bear in its bed.`);
   };
 
+  const triggerSuccessFeedback = () => {
+    successAnim.setValue(0);
+    Animated.sequence([
+      Animated.spring(successAnim, {
+        toValue: 1,
+        friction: 4,
+        useNativeDriver: true,
+      }),
+      Animated.delay(1000),
+      Animated.timing(successAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
   const handleMatch = (sizeId: string) => {
     if (sizeId === currentGoal.id) {
+      scoreRef.current += 1;
       Tts.stop();
       Tts.speak(`Well done! The ${sizeId} bear is sleeping.`);
+      
+      triggerSuccessFeedback();
       setMatchedIds(prev => [...prev, sizeId]);
 
       if (activeGoal < SIZES.length - 1) {
         setTimeout(() => {
           setActiveGoal(prev => prev + 1);
           announceGoal(activeGoal + 1);
-        }, 1200);
+        }, 1500);
       } else {
         setTimeout(() => {
-          Tts.speak("Great job! All bears are in their beds.");
-          navigation.goBack();
-        }, 2000);
+          setGameFinished(true);
+        }, 1500);
       }
     } else {
+      wrongCountRef.current += 1;
       Tts.stop();
       Tts.speak(`No, that is not the ${currentGoal.id} bed. Try again!`);
     }
   };
+
+  const finalizeGame = async () => {
+    if (!child?.id) return;
+    
+    Tts.stop();
+    Tts.speak("Great job! All bears are in their beds.");
+
+    const duration = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
+    const totalAttempts = scoreRef.current + wrongCountRef.current;
+    const successRate = totalAttempts > 0 ? Math.round((scoreRef.current / totalAttempts) * 100) : 0;
+
+    try {
+      await sendGameResult({
+        child_id: child.id,
+        game_type: "size_matching",
+        level: 1,
+        score: scoreRef.current,
+        max_score: SIZES.length,
+        duration_seconds: duration,
+        wrong_count: wrongCountRef.current,
+        success_rate: successRate,
+        completed: true,
+        details: { totalAttempts, successRate }
+      });
+    } catch (err) { console.log(err); }
+
+    const gameNav = createGameCompletionHandler({
+      navigation, child, gameSequence, currentGameIndex, categoryTitle,
+      resetGame: () => {
+        scoreRef.current = 0; wrongCountRef.current = 0;
+        setActiveGoal(0); setMatchedIds([]);
+        setGameFinished(false); gameStartTimeRef.current = Date.now();
+        announceGoal(0);
+      }
+    });
+    
+    setTimeout(() => {
+      gameNav.showCompletionMessage(scoreRef.current, SIZES.length, "🎉 Bear Master!");
+    }, 500);
+  };
+
+  useEffect(() => {
+    if (gameFinished) finalizeGame();
+  }, [gameFinished]);
 
   const DraggableBear = ({ size }: { size: any }) => {
     const pan = useRef(new Animated.ValueXY()).current;
@@ -57,8 +143,6 @@ const SizeMatchingGame = ({ navigation }: any) => {
     const panResponder = useRef(
       PanResponder.create({
         onStartShouldSetPanResponder: () => !isMatched,
-        onStartShouldSetPanResponderCapture: () => !isMatched,
-        onMoveShouldSetPanResponder: () => !isMatched,
         onPanResponderGrant: () => {
           Animated.spring(scaleAnim, { toValue: 1.2, useNativeDriver: false }).start();
         },
@@ -81,19 +165,15 @@ const SizeMatchingGame = ({ navigation }: any) => {
       })
     ).current;
 
-    const animatedStyle = {
-      transform: [
-        { translateX: pan.x },
-        { translateY: pan.y },
-        { scale: Animated.multiply(size.scale, scaleAnim) }
-      ]
-    };
-
     return (
       <View style={styles.flexItem}>
         <Animated.View
           {...panResponder.panHandlers}
-          style={[styles.draggableBear, animatedStyle, isMatched && { opacity: 0 }]}
+          style={[
+            styles.draggableBear, 
+            { transform: [{ translateX: pan.x }, { translateY: pan.y }, { scale: Animated.multiply(size.scale, scaleAnim) }] },
+            isMatched && { opacity: 0 }
+          ]}
         >
           <Text style={styles.bearEmoji}>{size.emoji}</Text>
         </Animated.View>
@@ -109,7 +189,17 @@ const SizeMatchingGame = ({ navigation }: any) => {
       </View>
 
       <View style={styles.gameArea}>
-        {/* RESPONSIVE YATAKLAR */}
+        {/* Success Message */}
+        <Animated.View style={[
+          styles.successMessage, 
+          { 
+            opacity: successAnim,
+            transform: [{ scale: successAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1] }) }]
+          }
+        ]}>
+          <Text style={styles.successText}>🎉 Well Done! 🎉</Text>
+        </Animated.View>
+
         <View style={styles.row}>
           {SIZES.map((size) => (
             <View key={size.id} style={styles.flexItem}>
@@ -136,7 +226,6 @@ const SizeMatchingGame = ({ navigation }: any) => {
           ))}
         </View>
 
-        {/* RESPONSIVE AYILAR */}
         <View style={styles.row}>
           {SIZES.map((size) => (
             <DraggableBear key={size.id} size={size} />
@@ -157,43 +246,27 @@ const styles = StyleSheet.create({
   title: { fontSize: 26, fontWeight: 'bold', color: '#1565C0' },
   subtitle: { fontSize: 18, color: '#1E88E5', marginTop: 5, fontWeight: '600' },
   gameArea: { flex: 1, justifyContent: 'center', paddingHorizontal: 10 },
-  row: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-around', 
-    alignItems: 'center', 
-    width: '100%', 
-    height: height * 0.25 
-  },
-  flexItem: { 
-    flex: 1, 
-    alignItems: 'center', 
-    justifyContent: 'center' 
-  },
-  bedContainer: { 
-    width: width * 0.22, // Ekranın %22'si kadar genişlik
-    aspectRatio: 1, // Kare formunu korur
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    borderWidth: 3, 
-    borderColor: '#BBDEFB', 
-    borderStyle: 'dashed', 
-    borderRadius: 20, 
-    backgroundColor: '#FFF' 
-  },
+  row: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', width: '100%', height: height * 0.25 },
+  flexItem: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  bedContainer: { width: width * 0.22, aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderWidth: 3, borderColor: '#BBDEFB', borderStyle: 'dashed', borderRadius: 20, backgroundColor: '#FFF' },
   matchedBed: { borderColor: '#4CAF50', borderStyle: 'solid', backgroundColor: '#E8F5E9' },
   bedEmoji: { fontSize: 50 },
   bearInBedOverlay: { position: 'absolute', top: '15%' },
   smallBearEmoji: { fontSize: 30 },
   draggableBear: { padding: 10, alignItems: 'center', zIndex: 100, elevation: 10 },
   bearEmoji: { fontSize: 55 },
-  quitButton: { 
-    marginBottom: 40, 
+  successMessage: { 
+    position: 'absolute', 
+    top: 20, 
     alignSelf: 'center', 
+    backgroundColor: 'rgba(76, 175, 80, 0.9)', 
+    paddingHorizontal: 30, 
     paddingVertical: 12, 
-    paddingHorizontal: 40, 
-    backgroundColor: '#EF5350', 
-    borderRadius: 30 
+    borderRadius: 30, 
+    zIndex: 999 
   },
+  successText: { color: '#FFF', fontSize: 22, fontWeight: 'bold' },
+  quitButton: { marginBottom: 40, alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 40, backgroundColor: '#EF5350', borderRadius: 30 },
   quitButtonText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' }
 });
 

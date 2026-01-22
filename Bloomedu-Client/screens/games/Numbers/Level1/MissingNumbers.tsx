@@ -195,7 +195,7 @@ export default function MissingNumbersLevel1({ navigation }: any) {
       await sendGameResult({
         child_id: child.id,
         game_type: 'numbers-missing',
-        level: 2,
+        level: 1,
         score: score, // Max 5
         max_score: MAX_ROUNDS,
         duration_seconds: Math.floor(totalTimeMs / 1000),

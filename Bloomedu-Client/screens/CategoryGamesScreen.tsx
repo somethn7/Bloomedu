@@ -28,10 +28,11 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
     2: [
       { title: 'Color Objects', subtitle: 'Match colors with objects', screen: 'ColorObjectsLevel2', icon: '🎨' },
       { title: 'Color Match Path', subtitle: 'Watch colors match', screen: 'ColorMatchPathLevel2', icon: '🎨' },
+      { title: 'Object Color Match', subtitle: 'Choose object with the asked color', screen: 'ObjectColorMatchLevel3', icon: '🌈' },
     ],
         3: [
-          { title: 'Object Color Match', subtitle: 'Choose object with the asked color', screen: 'ObjectColorMatchLevel3', icon: '🌈' },
           { title: 'Magic Color Lab', subtitle: 'Mix colors to create new ones', screen: 'MagicColorLab', icon: '🧪' },
+          { title: 'Color Adventure', subtitle: 'Find colors in different scenes', screen: 'GenericMatchingGame', icon: '🕵️‍♂️' },
         ],
     4: [
       { 
@@ -44,7 +45,6 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
   },
 },
 
-
     Numbers: {
       icon: '🔢',
       color: '#4DABF7',
@@ -54,15 +54,17 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
           { title: 'Learn Numbers', subtitle: 'Recognize numbers 1-10', screen: 'LearnNumbersLevel1', icon: '📚' },
           { title: 'Sort Numbers', subtitle: 'Arrange numbers in order', screen: 'SortNumbersLevel1', icon: '🔄' },
           { title: 'Missing Numbers', subtitle: 'Find the missing number', screen: 'MissingNumbersLevel1', icon: '❓' },
-          { title: 'Match Numbers', subtitle: 'Memory card game', screen: 'MatchNumbersLevel1', icon: '🎴' },
-          { title: 'Comparison', subtitle: 'Compare two numbers', screen: 'ComparisonLevel1', icon: '⚖️' },
+          { title: 'Match Numbers', subtitle: 'Memory card game', screen: 'MatchNumbersLevel1', icon: '🎴' }
+         
         ],
         2: [
-          { title: 'Missing Numbers', subtitle: 'Find the missing number', screen: 'MissingNumbersLevel2', icon: '❓' },
-          { title: 'Match Numbers', subtitle: 'Memory card game', screen: 'MatchNumbersLevel2', icon: '🎴' },
+     { title: 'Comparison', subtitle: 'Compare two numbers', screen: 'Comparison', icon: '⚖️' },
+     { title: 'Basic Addition', subtitle: 'Learn simple addition', screen: 'Addition', icon: '➕' },
+     { title: 'Basic Subtraction', subtitle: 'Learn simple subtraction', screen: 'subtraction', icon: '➖' },
         ],
         3: [
           { title: 'Basic Math', subtitle: 'Learn addition and subtraction', screen: 'BasicMath', icon: '➕' },
+          { title: 'Market Math', subtitle: 'Buy items within budget', screen: 'GenericMatchingGame', icon: '🛒' },
         ],
       },
     },
@@ -75,13 +77,13 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
         1: [
           { title: 'Bedtime Journey', subtitle: 'Follow the stars home', screen: 'StarTrackingLevel1', icon: '🌙' },
           { title: 'Fruit Basket', subtitle: 'Watch fruits go to basket', screen: 'FruitBasketLevel1', icon: '🍎' },
+          { title: 'Learn Objects', subtitle: 'Recognize everyday objects', screen: 'GenericMatchingGame', icon: '📦' },
         ],
         2: [
-          { title: 'Sorting Baskets', subtitle: 'Sort items by category', screen: 'SortingBasketsLevel2', icon: '🧺' },
-          { title: 'Match Objects', subtitle: 'Find the matching object', screen: 'ObjectMatchLevel2', icon: '🔍' },
+          { title: 'Object Match', subtitle: 'Match everyday objects', screen: 'ObjectMatchLevel2', icon: '🧸' },
         ],
         3: [
-          { title: 'Shape Match', subtitle: 'Match the shapes', screen: 'ShapeMatchLevel3', icon: '🌼' },
+          { title: 'Object Adventure', subtitle: 'Find objects in scenes', screen: 'GenericMatchingGame', icon: '🕵️‍♀️' },
         ],
       },
     },
@@ -112,8 +114,9 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
           }
         ],
         3: [
-          { title: 'Animal Habitat', subtitle: 'Match animals to their habitats', screen: 'AnimalHabitat', icon: '🌲' },
           { title: 'Animal Life Cycle', subtitle: 'Learn how animals grow', screen: 'AnimalLifeCycle', icon: '🦋' },
+          { title: 'Animal Habitat', subtitle: 'Match animals to their habitats', screen: 'AnimalHabitat', icon: '🌲' },
+          { title: 'Animal Rescue', subtitle: 'Help animals in need', screen: 'GenericMatchingGame', icon: '🚑' },
         ],
       },
     },
@@ -142,12 +145,6 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
         ],
         3: [
           { 
-            title: 'Fruit Chef', 
-            subtitle: 'Create fruit recipes', 
-            screen: 'FruitChef', 
-            icon: '👨‍🍳',
-          },
-          { 
             title: 'Fruit Detective', 
             subtitle: 'Find fruits from clues', 
             screen: 'FruitLogic', 
@@ -170,7 +167,15 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
             categoryKey: 'Vegetables' 
           },
         ],
-        2: [/* mevcutlar */],
+        2: [
+          {
+            title: 'Veggie Match', 
+            subtitle: 'Match vegetables to their names', 
+            screen: 'GenericMatchingGame', 
+            icon: '🌽',
+            categoryKey: 'Vegetables'
+          }
+        ],
         3: [
           { 
             title: 'Veggie Pattern', 
@@ -195,6 +200,15 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
             categoryKey: 'BodyParts'
           },
         ],
+        2: [
+          {
+            title: 'Body Parts Match',
+            subtitle: 'Match body parts to their functions',
+            screen: 'GenericMatchingGame',
+            icon: '🧠',
+            categoryKey: 'BodyParts'
+          },
+        ],
         3: [
           {
             title: 'Body Care Hero',
@@ -213,12 +227,10 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
         1: [
           { title: 'Learning Emotions', subtitle: 'Recognize facial expressions', screen: 'GenericMatchingGame', icon: '🎭', categoryKey: 'Emotions' },
         ],
-        // Diğer seviyeler için de ekliyoruz
         2: [
-          { title: 'Learning Emotions', subtitle: 'Recognize facial expressions', screen: 'GenericMatchingGame', icon: '🎭', categoryKey: 'Emotions' },
+          { title: 'Emotion Match', subtitle: 'Match emotions to situations', screen: 'GenericMatchingGame', icon: '😢', categoryKey: 'Emotions' },
         ],
         3: [
-          { title: 'Learning Emotions', subtitle: 'Recognize facial expressions', screen: 'GenericMatchingGame', icon: '🎭', categoryKey: 'Emotions' },
           { title: 'How Do They Feel', subtitle: 'Understand emotions in stories', screen: 'SocialReasoning', icon: '🧠' },
         ],
       },
@@ -233,7 +245,7 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
           { title: 'Meet My Family', subtitle: 'Learn about family members', screen: 'MeetMyFamilyLevel1', icon: '💕' },
         ],
         2: [
-          { title: 'Find Family Member', subtitle: 'Identify family members', screen: 'FindFamilyMemberLevel2', icon: '🤔' },
+          { title: 'Family Roles', subtitle: 'Match family members to their roles', screen: 'GenericMatchingGame', icon: '🏡' } ,
         ],
         3: [
           { title: 'Family Duty', subtitle: 'Complete family responsibilities', screen: 'FamilyDutyLevel3', icon: '🏠' },
@@ -253,6 +265,15 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
             icon: '🚁',
             categoryKey: 'Vehicles' // gameData.ts'deki anahtar ile aynı olmalı
           },
+        ],
+        2: [
+          {
+            title: 'Vehicle Match', 
+            subtitle: 'Match vehicles to their sounds', 
+            screen: 'GenericMatchingGame', 
+            icon: '🚤',
+            categoryKey: 'Vehicles' 
+          }
         ],
         3: [
           { 
@@ -278,6 +299,15 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
             categoryKey: 'Jobs' 
           },
         ],
+        2: [
+          { 
+            title: 'Job Match', 
+            subtitle: 'Match jobs to their tools', 
+            screen: 'GenericMatchingGame', 
+            icon: '🛠️',
+            categoryKey: 'Jobs' 
+          },
+        ],
         3: [
           { 
             title: 'Job Heroes', 
@@ -299,7 +329,16 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
             subtitle: 'Learn classroom objects', 
             screen: 'GenericMatchingGame', 
             icon: '✏️',
-            categoryKey: 'School' 
+            categoryKey: 'Schools' 
+          },
+        ],
+        2: [
+          { 
+            title: 'Supply Match', 
+            subtitle: 'Match supplies to their uses', 
+            screen: 'GenericMatchingGame', 
+            icon: '📚',
+            categoryKey: 'Schools' 
           },
         ],
         3: [
@@ -325,6 +364,7 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
         ],
         2: [
           { title: 'Big or Small', subtitle: 'Compare sizes of objects', screen: 'SizeComparisonLevel2', icon: '📏' },
+          { title: 'Belonging', subtitle: 'Sort items into their correct places', screen: 'belong', icon: '🧺' },
         ],
         3: [
           { title: 'Logic Path', subtitle: 'Find the correct sequence', screen: 'LogicPathLevel3', icon: '🧩' },
@@ -360,11 +400,9 @@ const CategoryGamesScreen: React.FC<CategoryGamesScreenProps> = ({ navigation, r
   };
 
   const getLevelName = (level: number) => {
-    if (level === 1) return 'Beginner';
-    if (level === 2) return 'Intermediate';
-    if (level === 3) return 'Advanced';
-    if (level === 4) return 'Expert';
-    return 'Master';
+    if (level === 1) return 'Recognition';
+    if (level === 2) return 'Association';
+    return 'Scenario';
   };
 
   return (

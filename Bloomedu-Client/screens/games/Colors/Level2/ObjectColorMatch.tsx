@@ -253,28 +253,6 @@ export default function ObjectColorMatchLevel3(props: any) {
           </View>
         </View>
 
-        {/* WRONG + SUCCESS ONLY */}
-        <View style={styles.scoreCards}>
-          <View style={[styles.scoreCard, { borderTopColor: "#FF8787" }]}>
-            <Text style={styles.scoreEmoji}>❌</Text>
-            <Text style={styles.scoreNumber}>{wrongCount}</Text>
-            <Text style={styles.scoreLabel}>Wrong</Text>
-          </View>
-
-          <View style={[styles.scoreCard, { borderTopColor: "#FFD43B" }]}>
-            <Text style={styles.scoreEmoji}>⭐</Text>
-            <Text style={styles.scoreNumber}>
-              {correctRef.current + wrongRef.current > 0
-                ? Math.round(
-                    (correctRef.current /
-                      (correctRef.current + wrongRef.current)) *
-                      100
-                  )
-                : 0}%
-            </Text>
-            <Text style={styles.scoreLabel}>Success</Text>
-          </View>
-        </View>
 
         {/* TARGET COLOR */}
         <View style={styles.target}>

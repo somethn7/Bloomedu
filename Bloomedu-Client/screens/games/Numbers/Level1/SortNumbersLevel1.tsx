@@ -184,11 +184,7 @@ export default function SortNumbersLevel1({ navigation }: any) {
     const totalTimeMs = Date.now() - gameStartTimeRef.current;
     const scoreToUse = finalScore !== undefined ? finalScore : score;
     
-    // DÜZELTİLDİ: Başarı Oranı Hesabı
-    // "Her bir sıralama 1 hamle sayılır."
-    // Toplam Görev = TOTAL_ROUNDS (3)
-    // Başarı Oranı = (Doğru Tur Sayısı / (Doğru Tur Sayısı + Hatalı Denemeler)) * 100
-    // Örnek: 3 Turu bitirdi, 1 kere yanlış bastı. (3 / (3+1)) * 100 = %75.
+
     const totalAttempts = TOTAL_ROUNDS + wrongCount;
     const successRate = Math.round((TOTAL_ROUNDS / totalAttempts) * 100);
 
@@ -276,24 +272,7 @@ export default function SortNumbersLevel1({ navigation }: any) {
         </View>
 
         <ScrollView contentContainerStyle={styles.scrollContent}>
-          {/* SCORE CARDS */}
-          <View style={styles.scoreCards}>
-            <View style={[styles.scoreCard, styles.correctCard]}>
-              <Text style={styles.scoreEmoji}>🎯</Text>
-              <Text style={styles.scoreNumber}>{score}</Text>
-              <Text style={styles.scoreLabel}>Rounds</Text>
-            </View>
-            <View style={[styles.scoreCard, styles.wrongCard]}>
-              <Text style={styles.scoreEmoji}>✗</Text>
-              <Text style={styles.scoreNumber}>{wrongCount}</Text>
-              <Text style={styles.scoreLabel}>Wrong</Text>
-            </View>
-            <View style={[styles.scoreCard, styles.rateCard]}>
-              <Text style={styles.scoreEmoji}>⭐</Text>
-              <Text style={styles.scoreNumber}>{displaySuccessRate}%</Text>
-              <Text style={styles.scoreLabel}>Success</Text>
-            </View>
-          </View>
+
 
           {/* INSTRUCTION */}
           <View style={styles.instructionContainer}>

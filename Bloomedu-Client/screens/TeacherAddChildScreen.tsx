@@ -2,6 +2,7 @@ import React, { useState, useEffect, useLayoutEffect } from 'react';
 import {
   View,
   Text,
+  TextInput,
   Alert,
   ScrollView,
   TouchableOpacity,
@@ -11,34 +12,63 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Modal,
-  Pressable,
-  TextInput,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import uuid from 'react-native-uuid';
 import { Picker } from '@react-native-picker/picker';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import DateTimePicker from '@react-native-community/datetimepicker'; // Assuming you have this library installed
 
 const { width } = Dimensions.get('window');
 
-// -umut: (22.11.2025) Redesigned Teacher Add Child screen with organized cards
+// --- HELPER DATE FUNCTIONS ---
+
+// Converts Date object to YYYY-MM-DD string for the backend API
+const dateToBackendFormat = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+// Converts Date object to DD-MM-YYYY string for the UI display
+const dateToDisplayFormat = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${day}-${month}-${year}`;
+};
+
+// Calculates age in full years
+const getAgeInYears = (dateOfBirth: Date): number => {
+  const today = new Date();
+  let age = today.getFullYear() - dateOfBirth.getFullYear();
+  const monthDifference = today.getMonth() - dateOfBirth.getMonth();
+
+  if (monthDifference < 0 || (monthDifference === 0 && today.getDate() < dateOfBirth.getDate())) {
+    age--;
+  }
+  return age;
+};
+// --- HELPER DATE FUNCTIONS END ---
+
+
 const TeacherAddChildScreen = ({ navigation }: any) => {
   const [name, setName] = useState('');
   const [surname, setSurname] = useState('');
-  const [birthdate, setBirthdate] = useState('');
+  // Dates are now stored as Date objects
+  const [birthdate, setBirthdate] = useState<Date | null>(null); 
+  const [diagnosisDate, setDiagnosisDate] = useState<Date | null>(null);
+  
+  // State for DatePicker visibility
+  const [showBirthdatePicker, setShowBirthdatePicker] = useState(false);
+  const [showDiagnosisDatePicker, setShowDiagnosisDatePicker] = useState(false);
+  
   const [birthplace, setBirthplace] = useState('');
   const [gender, setGender] = useState('');
-  const [diagnosisDate, setDiagnosisDate] = useState('');
   const [communicationNotes, setCommunicationNotes] = useState('');
   const [parentEmail, setParentEmail] = useState('');
   const [teacherId, setTeacherId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  const [showBirthdatePicker, setShowBirthdatePicker] = useState(false);
-  const [showDiagnosisPicker, setShowDiagnosisPicker] = useState(false);
-  const [birthdateObj, setBirthdateObj] = useState<Date>(new Date());
-  const [diagnosisDateObj, setDiagnosisDateObj] = useState<Date>(new Date());
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -55,6 +85,7 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
 
   useEffect(() => {
     const fetchTeacher = async () => {
+      // (AsyncStorage logic remains the same)
       try {
         const stored = await AsyncStorage.getItem('loggedInTeacher');
         if (stored) {
@@ -80,41 +111,58 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
 
   const generateCode = () => uuid.v4().toString().slice(0, 8);
 
-  const formatDateForBackend = (dateStr: string) => {
-    const [day, month, year] = dateStr.split('-');
-    return `${year}-${month}-${day}`; 
+  // Function to format Date object for API call (YYYY-MM-DD)
+  const formatDateForBackend = (date: Date) => {
+    return dateToBackendFormat(date);
+  };
+  
+  // Function to display date string for UI
+  const renderDate = (date: Date | null, placeholder: string) => {
+    return date ? dateToDisplayFormat(date) : placeholder;
   };
 
-  const formatDateForUi = (d: Date) => {
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const year = String(d.getFullYear());
-    return `${day}-${month}-${year}`;
-  };
+  // --- Birthdate Picker Logic (4-8 years validation) ---
+  const handleBirthdateChange = (event: any, selectedDate?: Date) => {
+    setShowBirthdatePicker(false);
+    if (selectedDate) {
+      const age = getAgeInYears(selectedDate);
+      
+      // 4-8 Year Age Restriction
+      if (age < 4 || age > 8) {
+        Alert.alert('Validation Error', 'The child\'s age must be between 4 and 8 years old.');
+        setBirthdate(null);
+        return;
+      }
 
-  const parseDdMmYyyy = (s: string) => {
-    const parts = s.split('-');
-    if (parts.length !== 3) return null;
-    const [dd, mm, yyyy] = parts;
-    const d = new Date(Number(yyyy), Number(mm) - 1, Number(dd));
-    return Number.isNaN(d.getTime()) ? null : d;
-  };
+      setBirthdate(selectedDate);
 
-  const onBirthdateChange = (_event: DateTimePickerEvent, date?: Date) => {
-    if (Platform.OS === 'android') setShowBirthdatePicker(false);
-    if (date) {
-      setBirthdateObj(date);
-      setBirthdate(formatDateForUi(date));
+      // Check Diagnosis Date consistency if Birthdate is updated
+      if (diagnosisDate && selectedDate > diagnosisDate) {
+         Alert.alert('Warning', 'Birthdate updated. Diagnosis date must be on or after the Birthdate.');
+         setDiagnosisDate(null); // Reset diagnosis date if inconsistent
+      }
+    }
+  };
+  
+  // --- Diagnosis Date Picker Logic (Cannot be before Birthdate) ---
+  const handleDiagnosisDateChange = (event: any, selectedDate?: Date) => {
+    setShowDiagnosisDatePicker(false);
+    if (selectedDate) {
+      if (!birthdate) {
+        Alert.alert('Error', 'Please select the Birthdate first.');
+        return;
+      }
+      
+      // Diagnosis Date > Birthdate Restriction
+      if (selectedDate < birthdate) {
+        Alert.alert('Validation Error', 'The Diagnosis Date cannot be before the Birthdate.');
+        setDiagnosisDate(null);
+      } else {
+        setDiagnosisDate(selectedDate);
+      }
     }
   };
 
-  const onDiagnosisDateChange = (_event: DateTimePickerEvent, date?: Date) => {
-    if (Platform.OS === 'android') setShowDiagnosisPicker(false);
-    if (date) {
-      setDiagnosisDateObj(date);
-      setDiagnosisDate(formatDateForUi(date));
-    }
-  };
 
   const handleSave = async () => {
     if (!teacherId) {
@@ -122,10 +170,23 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
       return;
     }
 
+    // Check if Date objects exist
     if (!name || !surname || !birthdate || !birthplace || !gender || !diagnosisDate || !parentEmail) {
-      Alert.alert('Missing Fields', 'Please fill in all required fields.');
+      Alert.alert('Missing Fields', 'Please fill in all required fields and select dates.');
       return;
     }
+    
+    // Redundant Frontend Validation check (Backend will also enforce this)
+    const age = getAgeInYears(birthdate);
+    if (age < 4 || age > 8) {
+        Alert.alert('Validation Error', 'Child\'s age must be between 4 and 8 years old.');
+        return;
+    }
+    if (diagnosisDate < birthdate) {
+         Alert.alert('Validation Error', 'Diagnosis Date cannot be before Birthdate.');
+         return;
+    }
+
 
     setLoading(true);
     const student_code = generateCode();
@@ -134,6 +195,7 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
     const bodyData = {
       name,
       surname,
+      // Format Date objects for backend
       birthdate: formatDateForBackend(birthdate),
       birthplace,
       gender,
@@ -167,12 +229,13 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
           [{ text: 'OK', onPress: () => navigation.goBack() }]
         );
         
+        // Clear form
         setName('');
         setSurname('');
-        setBirthdate('');
+        setBirthdate(null);
         setBirthplace('');
         setGender('');
-        setDiagnosisDate('');
+        setDiagnosisDate(null);
         setCommunicationNotes('');
         setParentEmail('');
       } else {
@@ -185,6 +248,7 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
     }
   };
 
+  // --- UI RENDER ---
   return (
     <View style={styles.container}>
       {/* Header - Geniş ve Ferah */}
@@ -233,21 +297,38 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
                 </View>
               </View>
 
+              {/* --- BIRTHDATE: Date Picker UI --- */}
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>Birthdate</Text>
-                <Pressable
-                  onPress={() => {
-                    const parsed = parseDdMmYyyy(birthdate);
-                    if (parsed) setBirthdateObj(parsed);
-                    setShowBirthdatePicker(true);
-                  }}
-                  style={styles.dateInput}
+                <Text style={styles.label}>Birthdate (4-8 Year Restriction)</Text>
+                <TouchableOpacity
+                  style={styles.input} 
+                  onPress={() => setShowBirthdatePicker(true)}
                 >
-                  <Text style={styles.dateText}>
-                    {birthdate ? birthdate : 'Select date 📅'}
+                  <Text style={{ 
+                      fontSize: 16, 
+                      color: birthdate ? '#2D3748' : '#A0AEC0' 
+                  }}>
+                    {renderDate(birthdate, 'Select Date (DD-MM-YYYY)')}
                   </Text>
-                </Pressable>
+                </TouchableOpacity>
+                {showBirthdatePicker && (
+                    <DateTimePicker
+                        testID="birthdatePicker"
+                        // If no date is selected, initialize to a valid default date (e.g., 5 years ago)
+                        value={birthdate || new Date(new Date().setFullYear(new Date().getFullYear() - 5))} 
+                        mode="date"
+                        display="default"
+                        onChange={handleBirthdateChange}
+                        // Max date: Children older than 8 years cannot register (4 years ago is the latest date)
+                        maximumDate={new Date(new Date().setFullYear(new Date().getFullYear() - 4))}
+                        // Min date: Children younger than 4 years cannot register (9 years ago is the earliest date)
+                        minimumDate={new Date(new Date().setFullYear(new Date().getFullYear() - 9))}
+                    />
+                )}
+                <Text style={styles.helperText}>The child must be between 4 and 8 years old at the time of registration.</Text>
               </View>
+              {/* --- BIRTHDATE END --- */}
+
 
               <View style={styles.row}>
                 <View style={[styles.inputGroup, { flex: 1, marginRight: 12 }]}>
@@ -287,21 +368,37 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
             <View style={styles.sectionCard}>
               <Text style={styles.cardTitle}>🏥 Clinical Info</Text>
               
+              {/* --- DIAGNOSIS DATE: Date Picker UI --- */}
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Diagnosis Date</Text>
-                <Pressable
-                  onPress={() => {
-                    const parsed = parseDdMmYyyy(diagnosisDate);
-                    if (parsed) setDiagnosisDateObj(parsed);
-                    setShowDiagnosisPicker(true);
-                  }}
-                  style={styles.dateInput}
+                 <TouchableOpacity
+                  style={styles.input} 
+                  onPress={() => setShowDiagnosisDatePicker(true)}
+                  disabled={!birthdate} // Disable if birthdate is not selected
                 >
-                  <Text style={styles.dateText}>
-                    {diagnosisDate ? diagnosisDate : 'Select date 📅'}
+                  <Text style={{ 
+                      fontSize: 16, 
+                      color: diagnosisDate ? '#2D3748' : '#A0AEC0' 
+                  }}>
+                    {renderDate(diagnosisDate, birthdate ? 'Select Date (DD-MM-YYYY)' : 'Select Birthdate First')}
                   </Text>
-                </Pressable>
+                </TouchableOpacity>
+                {showDiagnosisDatePicker && (
+                    <DateTimePicker
+                        testID="diagnosisDatePicker"
+                        value={diagnosisDate || new Date()}
+                        mode="date"
+                        display="default"
+                        onChange={handleDiagnosisDateChange}
+                        // Restriction: Cannot be before birthdate
+                        minimumDate={birthdate || new Date(1950, 0, 1)} 
+                        // Restriction: Cannot be in the future
+                        maximumDate={new Date()} 
+                    />
+                )}
+                <Text style={styles.helperText}>Diagnosis date must be on or after the Birthdate.</Text>
               </View>
+              {/* --- DIAGNOSIS DATE END --- */}
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Notes (Optional)</Text>
@@ -354,101 +451,6 @@ const TeacherAddChildScreen = ({ navigation }: any) => {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
-
-      {/* Android native pickers */}
-      {showBirthdatePicker && Platform.OS === 'android' && (
-        <DateTimePicker
-          value={birthdateObj}
-          mode="date"
-          display="calendar"
-          maximumDate={new Date()}
-          onChange={onBirthdateChange}
-        />
-      )}
-      {showDiagnosisPicker && Platform.OS === 'android' && (
-        <DateTimePicker
-          value={diagnosisDateObj}
-          mode="date"
-          display="calendar"
-          maximumDate={new Date()}
-          onChange={onDiagnosisDateChange}
-        />
-      )}
-
-      {/* iOS modal pickers */}
-      <Modal
-        visible={showBirthdatePicker && Platform.OS === 'ios'}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowBirthdatePicker(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Select Birthdate</Text>
-            <DateTimePicker
-              value={birthdateObj}
-              mode="date"
-              display="spinner"
-              maximumDate={new Date()}
-              onChange={onBirthdateChange}
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalBtnGhost]}
-                onPress={() => setShowBirthdatePicker(false)}
-              >
-                <Text style={styles.modalBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalBtnPrimary]}
-                onPress={() => {
-                  setBirthdate(formatDateForUi(birthdateObj));
-                  setShowBirthdatePicker(false);
-                }}
-              >
-                <Text style={[styles.modalBtnText, { color: '#fff' }]}>Done</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      <Modal
-        visible={showDiagnosisPicker && Platform.OS === 'ios'}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowDiagnosisPicker(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Select Diagnosis Date</Text>
-            <DateTimePicker
-              value={diagnosisDateObj}
-              mode="date"
-              display="spinner"
-              maximumDate={new Date()}
-              onChange={onDiagnosisDateChange}
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalBtnGhost]}
-                onPress={() => setShowDiagnosisPicker(false)}
-              >
-                <Text style={styles.modalBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalBtn, styles.modalBtnPrimary]}
-                onPress={() => {
-                  setDiagnosisDate(formatDateForUi(diagnosisDateObj));
-                  setShowDiagnosisPicker(false);
-                }}
-              >
-                <Text style={[styles.modalBtnText, { color: '#fff' }]}>Done</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 };
@@ -491,7 +493,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   headerTitle: {
-    fontSize: 22, // Daha büyük başlık
+    fontSize: 22,
     fontWeight: '700',
     color: '#FFFFFF',
   },
@@ -524,10 +526,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   inputGroup: {
-    marginBottom: 18, // Geniş boşluk
+    marginBottom: 18,
   },
   label: {
-    fontSize: 14, // Daha okunaklı font
+    fontSize: 14,
     fontWeight: '600',
     color: '#4A5568',
     marginBottom: 8,
@@ -539,24 +541,11 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14, // Daha yüksek input
-    fontSize: 16, // Daha büyük yazı
-    color: '#2D3748',
-    minHeight: 50, // Minimum yükseklik garantisi
-  },
-  dateInput: {
-    backgroundColor: '#F7FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    paddingHorizontal: 16,
     paddingVertical: 14,
-    minHeight: 50,
-    justifyContent: 'center',
-  },
-  dateText: {
     fontSize: 16,
     color: '#2D3748',
+    minHeight: 50,
+    justifyContent: 'center', // Added for centered text in TouchableOpacity
   },
   textArea: {
     height: 100,
@@ -584,7 +573,7 @@ const styles = StyleSheet.create({
   saveButton: {
     backgroundColor: '#4DABF7',
     borderRadius: 16,
-    paddingVertical: 18, // Daha büyük buton
+    paddingVertical: 18,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
@@ -607,46 +596,5 @@ const styles = StyleSheet.create({
   },
   saveButtonIcon: {
     fontSize: 22,
-  },
-
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    justifyContent: 'center',
-    padding: 20,
-  },
-  modalCard: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-  },
-  modalTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#2D3748',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    marginTop: 12,
-  },
-  modalBtn: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
-    marginLeft: 10,
-  },
-  modalBtnGhost: {
-    backgroundColor: '#E2E8F0',
-  },
-  modalBtnPrimary: {
-    backgroundColor: '#4DABF7',
-  },
-  modalBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#2D3748',
   },
 });

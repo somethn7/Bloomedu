@@ -188,7 +188,7 @@ const MatchNumbersLevel1 = ({ navigation }: any) => {
       await sendGameResult({
         child_id: child.id,
         game_type: 'numbers-match',
-        level: 2,
+        level: 1,
         score: score,
         max_score: totalPairs,
         duration_seconds: Math.floor(totalTimeMs / 1000),

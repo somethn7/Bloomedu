@@ -1,170 +1,209 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, Animated, Dimensions, SafeAreaView, PanResponder, TouchableOpacity } from 'react-native';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, Animated, Dimensions, SafeAreaView, PanResponder } from 'react-native';
 import Tts from 'react-native-tts';
+import { useRoute } from '@react-navigation/native';
+import { createGameCompletionHandler } from '../../../../utils/gameNavigation';
+import { sendGameResult } from '../../../../config/api';
 
 const { width, height } = Dimensions.get('window');
 
-const ALL_FRUITS = [
-  { type: 'apple', emoji: '🍎', target: 1, totalVisible: 6 },
-  { type: 'banana', emoji: '🍌', target: 2, totalVisible: 6 },
-  { type: 'orange', emoji: '🍊', target: 3, totalVisible: 6 },
-  { type: 'grapes', emoji: '🍇', target: 4, totalVisible: 8 },
-  { type: 'strawberry', emoji: '🍓', target: 5, totalVisible: 8 },
-  { type: 'watermelon', emoji: '🍉', target: 6, totalVisible: 10 },
+const FRUITS_POOL = [
+  { id: 'strawberry', emoji: '🍓', name: 'Strawberry' },
+  { id: 'banana', emoji: '🍌', name: 'Banana' },
+  { id: 'apple', emoji: '🍎', name: 'Apple' },
+  { id: 'orange', emoji: '🍊', name: 'Orange' },
+  { id: 'grapes', emoji: '🍇', name: 'Grapes' },
+  { id: 'watermelon', emoji: '🍉', name: 'Watermelon' },
 ];
 
-const CountBasket = ({ navigation }: any) => {
-  const [step, setStep] = useState(0);
-  const [basketFruits, setBasketFruits] = useState<number[]>([]); 
-  const currentFruit = ALL_FRUITS[step];
+const RECIPES = [
+  { id: 1, target: 'strawberry', count: 2, question: "Put 2 strawberries in the bowl!" },
+  { id: 2, target: 'banana', count: 5, question: "Put 5 bananas in the bowl!" },
+  { id: 3, target: 'apple', count: 3, question: "Put 3 apples in the bowl!" },
+  { id: 4, target: 'orange', count: 4, question: "Put 4 oranges in the bowl!" },
+  { id: 5, target: 'grapes', count: 1, question: "Put 1 grapes in the bowl!" },
+  { id: 6, target: 'watermelon', count: 1, question: "Put 1 watermelons in the bowl!" },
+];
 
-  const basketLayout = useRef({ x: 0, y: 0, width: 0, height: 0 });
-  const basketScale = useRef(new Animated.Value(1)).current;
+const MAX_ROUNDS = 6;
 
-  useEffect(() => {
-    Tts.setDefaultLanguage('en-US');
-    Tts.speak(`Drag ${currentFruit.target} ${currentFruit.type}${currentFruit.target > 1 ? 's' : ''} to the basket.`);
-  }, [step]);
+const FruitChef = ({ navigation }: any) => {
+  const route = useRoute();
+  const { child: childData, gameSequence, currentGameIndex, categoryTitle }: any = route.params || {};
 
-  const handleConfirm = () => {
-    if (basketFruits.length === currentFruit.target) {
-      Tts.speak("Great! Correct.");
-      if (step < ALL_FRUITS.length - 1) {
+  const [currentRound, setCurrentRound] = useState(0);
+  const [collectedCount, setCollectedCount] = useState(0);
+  const [feedback, setFeedback] = useState<'success' | 'error' | null>(null);
+  const [isBusy, setIsBusy] = useState(false);
+
+  const [score, setScore] = useState(0);
+  const [wrongCount, setWrongCount] = useState(0);
+  const gameStartTimeRef = useRef<number>(Date.now());
+
+  const feedbackAnim = useRef(new Animated.Value(0)).current;
+  const bgAnim = useRef(new Animated.Value(0)).current;
+
+  const currentRecipe = RECIPES[currentRound];
+
+  const startNewRound = useCallback((round: number) => {
+    setCollectedCount(0);
+    setFeedback(null);
+    setIsBusy(false);
+    feedbackAnim.setValue(0);
+    Animated.timing(bgAnim, { toValue: 0, duration: 500, useNativeDriver: false }).start();
+    Tts.speak(RECIPES[round].question);
+  }, [bgAnim, feedbackAnim]);
+
+useEffect(() => {
+    const initGame = async () => {
+      try {
+        await Tts.setDefaultLanguage('en-US');
+        await Tts.setDefaultRate(0.4);
+        startNewRound(0);
+      } catch (err) {
+        console.log('TTS Init Error:', err);
+      }
+    };
+
+    initGame();
+
+    return () => {
+      Tts.stop();
+    };
+  }, [startNewRound]);
+
+  const handleFruitDrop = (fruitId: string) => {
+    if (isBusy) return;
+
+    if (fruitId === currentRecipe.target) {
+      const newCount = collectedCount + 1;
+      setCollectedCount(newCount);
+      Tts.speak(`${newCount}`);
+
+      if (newCount === currentRecipe.count) {
+        setIsBusy(true);
+        setFeedback('success');
+        setScore(s => s + 1);
+        Animated.timing(bgAnim, { toValue: 1, duration: 500, useNativeDriver: false }).start();
+        Animated.spring(feedbackAnim, { toValue: 1, friction: 4, useNativeDriver: true }).start();
+
         setTimeout(() => {
-          setStep(step + 1);
-          setBasketFruits([]);
-        }, 1000);
-      } else {
-        Tts.speak("You are a champion!");
-        setTimeout(() => navigation.goBack(), 2000);
+          if (currentRound < MAX_ROUNDS - 1) {
+            setCurrentRound(r => r + 1);
+            startNewRound(currentRound + 1);
+          } else {
+            finalizeGame();
+          }
+        }, 2500);
       }
     } else {
-      Tts.speak(`Wait! I asked for ${currentFruit.target}. Try again!`);
-      setBasketFruits([]); 
+      setWrongCount(w => w + 1);
+      Tts.speak(`No, that is not a ${currentRecipe.target}. Try again!`);
     }
   };
 
-  const DraggableFruit = ({ index, emoji }: { index: number, emoji: string }) => {
+  const finalizeGame = async () => {
+    const duration = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
+    const totalAttempts = score + wrongCount;
+    const successRate = totalAttempts > 0 ? Math.round(((score + 1) / (totalAttempts + 1)) * 100) : 0;
+    
+    try {
+      await sendGameResult({
+        child_id: childData?.id,
+        game_type: 'fruit_chef_logic',
+        level: 1,
+        score: score + 1,
+        max_score: MAX_ROUNDS,
+        duration_seconds: duration,
+        wrong_count: wrongCount,
+        completed: true,
+        success_rate: successRate,
+        details: {
+          rounds_completed: currentRound + 1,
+          total_attempts: totalAttempts + 1,
+          wrong_count: wrongCount,
+          success_rate: successRate,
+        },
+      } as any);
+    } catch (e) { console.log(e); }
+
+    createGameCompletionHandler({ navigation, child: childData, gameSequence, currentGameIndex, categoryTitle })
+      .showCompletionMessage(score + 1, MAX_ROUNDS, 'Master Fruit Chef! 🥗🍎');
+  };
+
+  const DraggableFruit = ({ fruit }: { fruit: any }) => {
     const pan = useRef(new Animated.ValueXY()).current;
-    const scale = useRef(new Animated.Value(1)).current;
-    const [isPlaced, setIsPlaced] = useState(false);
-
-    const panResponder = useRef(
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onPanResponderGrant: () => {
-          Animated.spring(scale, { toValue: 1.2, useNativeDriver: false }).start();
-        },
-        onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
-        onPanResponderRelease: (e, gesture) => {
-          const { moveX, moveY } = gesture;
-          const { x, y, width: bWidth, height: bHeight } = basketLayout.current;
-
-          if (moveX > x && moveX < x + bWidth && moveY > y && moveY < y + bHeight) {
-            setIsPlaced(true);
-            setBasketFruits(prev => [...prev, index]);
-            Tts.stop();
-            Tts.speak(`${basketFruits.length + 1}`);
-            
-            Animated.sequence([
-              Animated.spring(basketScale, { toValue: 1.2, friction: 3, useNativeDriver: true }),
-              Animated.spring(basketScale, { toValue: 1, useNativeDriver: true })
-            ]).start();
-          } else {
-            Animated.parallel([
-              Animated.spring(scale, { toValue: 1, useNativeDriver: false }),
-              Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false })
-            ]).start();
-          }
-        },
-      })
-    ).current;
-
-    if (isPlaced) return null;
-
-    const animatedStyle = {
-      transform: [
-        { translateX: pan.x },
-        { translateY: pan.y },
-        { scale: scale }
-      ]
-    };
+    const panResponder = PanResponder.create({
+      onStartShouldSetPanResponder: () => !isBusy,
+      onPanResponderMove: Animated.event([null, { dx: pan.x, dy: pan.y }], { useNativeDriver: false }),
+      onPanResponderRelease: (e, gesture) => {
+        if (gesture.moveY < height * 0.6) {
+          handleFruitDrop(fruit.id);
+        }
+        Animated.spring(pan, { toValue: { x: 0, y: 0 }, useNativeDriver: false }).start();
+      },
+    });
 
     return (
-      <Animated.View {...panResponder.panHandlers} style={[styles.fruitItem, animatedStyle]}>
-        <Text style={styles.fruitEmojiText}>{emoji}</Text>
+      <Animated.View {...panResponder.panHandlers} style={[pan.getLayout(), styles.fruitCard]}>
+        <Text style={styles.fruitEmoji}>{fruit.emoji}</Text>
       </Animated.View>
     );
   };
 
+  const backgroundColor = bgAnim.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: ['#fff5f5', '#FDFBF0', '#e6ffed'],
+  });
+
   return (
-    <SafeAreaView style={styles.container}>
-      {/* MANAV ARKA PLAN DEKORU */}
-      <View style={styles.marketBackground}>
-        <View style={styles.woodShelf} />
-        <View style={styles.woodShelf} />
-        <View style={styles.woodShelf} />
-      </View>
+    <Animated.View style={[styles.container, { backgroundColor }]}>
+      <SafeAreaView style={{ flex: 1 }}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Fruit Chef 🥗</Text>
+          <Text style={styles.recipeText}>{currentRecipe.question}</Text>
+        </View>
 
-      <View style={styles.header}>
-        <Text style={styles.goalText}>Goal: {currentFruit.target} {currentFruit.emoji}</Text>
-      </View>
-
-      <View style={styles.gameArea}>
-        {/* SEPET VE TEZGAH */}
-        <View style={styles.basketSection}>
-          <Animated.View 
-            style={[styles.basketArea, { transform: [{ scale: basketScale }] }]}
-            onLayout={(e) => { basketLayout.current = e.nativeEvent.layout; }}
-          >
-            <Text style={styles.basketEmoji}>🧺</Text>
-            <View style={styles.basketContent}>
-              {basketFruits.map((_, i) => <Text key={i} style={styles.smallFruitInBasket}>{currentFruit.emoji}</Text>)}
+        <View style={styles.gameArea}>
+          <View style={styles.bowlContainer}>
+            <Text style={styles.bowlEmoji}>🥣</Text>
+            <View style={styles.itemsInBowl}>
+              {Array(collectedCount).fill(0).map((_, i) => (
+                <Text key={i} style={styles.innerFruit}>{FRUITS_POOL.find(f => f.id === currentRecipe.target)?.emoji}</Text>
+              ))}
             </View>
-          </Animated.View>
-          <View style={styles.counterTable} />
+          </View>
+
+          {feedback === 'success' && (
+            <Animated.View style={[styles.feedbackOverlay, { transform: [{ scale: feedbackAnim }] }]}>
+              <Text style={styles.feedbackEmoji}>✅</Text>
+            </Animated.View>
+          )}
         </View>
 
-        {/* MEYVE HAVUZU (KASALARIN ÜSTÜ) */}
-        <View style={styles.fruitPool}>
-          {Array.from({ length: currentFruit.totalVisible }).map((_, index) => (
-            <DraggableFruit key={`${step}-${index}`} index={index} emoji={currentFruit.emoji} />
-          ))}
+        <View style={styles.palette}>
+          {FRUITS_POOL.map(f => <DraggableFruit key={f.id} fruit={f} />)}
         </View>
-
-        <TouchableOpacity onPress={handleConfirm} style={styles.okButton}>
-          <Text style={styles.okButtonText}>OK</Text>
-        </TouchableOpacity>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </Animated.View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#8D6E63' }, // Ahşap kahvesi ana zemin
-  marketBackground: { ...StyleSheet.absoluteFillObject, justifyContent: 'space-around', opacity: 0.3 },
-  woodShelf: { height: 20, backgroundColor: '#5D4037', width: '100%' },
-  header: { padding: 15, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.9)', margin: 10, borderRadius: 20 },
-  goalText: { fontSize: 26, fontWeight: 'bold', color: '#3E2723' },
-  gameArea: { flex: 1, justifyContent: 'space-between', alignItems: 'center' },
-  basketSection: { alignItems: 'center', marginTop: 10 },
-  basketArea: { height: 160, width: 200, justifyContent: 'center', alignItems: 'center', zIndex: 10 },
-  basketEmoji: { fontSize: 130 },
-  basketContent: { position: 'absolute', top: 40, flexDirection: 'row', flexWrap: 'wrap', width: 120, justifyContent: 'center' },
-  smallFruitInBasket: { fontSize: 30, margin: 1 },
-  counterTable: { width: width * 0.8, height: 40, backgroundColor: '#795548', borderRadius: 20, marginTop: -30, elevation: 5 },
-  fruitPool: { 
-    flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', 
-    width: width * 0.9, backgroundColor: 'rgba(255,255,255,0.2)', 
-    borderRadius: 30, padding: 10, minHeight: 250 
-  },
-  fruitItem: { 
-    width: 75, height: 75, justifyContent: 'center', alignItems: 'center', 
-    margin: 8, backgroundColor: '#FFF', borderRadius: 15, elevation: 5 
-  },
-  fruitEmojiText: { fontSize: 48 },
-  okButton: { backgroundColor: '#4CAF50', width: width * 0.6, paddingVertical: 15, borderRadius: 30, marginBottom: 25, elevation: 10 },
-  okButtonText: { color: '#FFF', fontSize: 28, fontWeight: 'bold', textAlign: 'center' },
+  container: { flex: 1 },
+  header: { alignItems: 'center', padding: 20 },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#333' },
+  recipeText: { fontSize: 20, color: '#FF6B6B', fontWeight: '700', textAlign: 'center', marginTop: 10 },
+  gameArea: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  bowlContainer: { alignItems: 'center', justifyContent: 'center' },
+  bowlEmoji: { fontSize: 180 },
+  itemsInBowl: { position: 'absolute', flexDirection: 'row', flexWrap: 'wrap', width: 120, justifyContent: 'center', top: 50 },
+  innerFruit: { fontSize: 40, margin: 2 },
+  feedbackOverlay: { position: 'absolute', zIndex: 10 },
+  feedbackEmoji: { fontSize: 100 },
+  palette: { flexDirection: 'row', justifyContent: 'space-around', paddingBottom: 40, backgroundColor: 'white', paddingTop: 20, borderTopLeftRadius: 30, borderTopRightRadius: 30, elevation: 20 },
+  fruitCard: { width: 80, height: 80, borderRadius: 20, backgroundColor: '#FFF', justifyContent: 'center', alignItems: 'center', elevation: 5, borderWidth: 1, borderColor: '#EEE' },
+  fruitEmoji: { fontSize: 50 },
 });
 
-export default CountBasket;
+export default FruitChef;

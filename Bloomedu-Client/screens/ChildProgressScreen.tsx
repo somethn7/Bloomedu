@@ -160,7 +160,7 @@ const ChildGameDetailsScreen = ({ navigation }: any) => {
   };
 
   const LevelSelector = () => {
-    const levels = [1, 2, 3, 4, 5];
+    const levels = [1, 2, 3];
     return (
       <View style={{ marginTop: 12 }}>
         <Text style={{ fontWeight: "700", marginBottom: 8 }}>

@@ -28,9 +28,13 @@ const BalloonPopGame = ({ navigation }: any) => {
   const [currentStage, setCurrentStage] = useState(0);
   const [gameFinished, setGameFinished] = useState(false);
   
+  // Metrikler
   const [score, setScore] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
   const gameStartTimeRef = useRef<number>(Date.now());
+  
+  // Animasyon Değerleri
+  const successAnim = useRef(new Animated.Value(0)).current;
   const balloonIdCounter = useRef(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const activeAnimationsRef = useRef<Map<number, Animated.CompositeAnimation>>(new Map());
@@ -39,13 +43,11 @@ const BalloonPopGame = ({ navigation }: any) => {
   useEffect(() => {
     initTts();
     setNewTarget();
-    // Yeni balonların çıkış aralığını 2 saniyeye çıkardık (Daha sakin bir oyun için)
     intervalRef.current = setInterval(addBalloon, 2000);
     return () => {
       isMountedRef.current = false;
       if (intervalRef.current) clearInterval(intervalRef.current);
       intervalRef.current = null;
-      // Stop any running animations to prevent late callbacks
       activeAnimationsRef.current.forEach((anim) => anim.stop());
       activeAnimationsRef.current.clear();
       void Tts.stop();
@@ -55,7 +57,7 @@ const BalloonPopGame = ({ navigation }: any) => {
   const initTts = async () => {
     try {
       await Tts.setDefaultLanguage('en-US');
-      await Tts.setDefaultRate(0.35); // Biraz daha yavaş konuşma
+      await Tts.setDefaultRate(0.35);
     } catch (err) {}
   };
 
@@ -64,6 +66,23 @@ const BalloonPopGame = ({ navigation }: any) => {
     setTargetColor(randomColor);
     Tts.stop();
     Tts.speak(`Find the ${randomColor.name} balloon!`);
+  };
+
+  const triggerSuccessFeedback = () => {
+    successAnim.setValue(0);
+    Animated.sequence([
+      Animated.spring(successAnim, {
+        toValue: 1,
+        friction: 4,
+        useNativeDriver: true,
+      }),
+      Animated.delay(800),
+      Animated.timing(successAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start();
   };
 
   const addBalloon = () => {
@@ -80,7 +99,6 @@ const BalloonPopGame = ({ navigation }: any) => {
 
     setBalloons(prev => [...prev.slice(-15), newBalloon]); 
 
-    // ÇOK YAVAŞ YÜKSELME (15 saniye sürer)
     const anim = Animated.timing(newBalloon.anim, {
       toValue: 1,
       duration: 15000, 
@@ -88,8 +106,6 @@ const BalloonPopGame = ({ navigation }: any) => {
     });
     activeAnimationsRef.current.set(newBalloon.id, anim);
     anim.start(() => {
-      // Defensive: animation callbacks can fire at awkward times in React 18 dev mode.
-      // Schedule state updates for the next tick to avoid `useInsertionEffect` warnings.
       setTimeout(() => {
         if (!isMountedRef.current) return;
         activeAnimationsRef.current.delete(newBalloon.id);
@@ -101,7 +117,6 @@ const BalloonPopGame = ({ navigation }: any) => {
   const handlePop = (id: number, color: any) => {
     if (gameFinished) return;
 
-    // Stop animation for this balloon to prevent late completion callbacks
     const anim = activeAnimationsRef.current.get(id);
     if (anim) {
       anim.stop();
@@ -109,11 +124,11 @@ const BalloonPopGame = ({ navigation }: any) => {
     }
 
     if (color.id === targetColor.id) {
-      // DOĞRU PATLATMA
       const randomFeedback = FEEDBACKS[Math.floor(Math.random() * FEEDBACKS.length)];
       Tts.stop();
       Tts.speak(randomFeedback);
       
+      triggerSuccessFeedback();
       setScore(s => s + 1);
       setBalloons(prev => prev.filter(b => b.id !== id));
       
@@ -121,11 +136,9 @@ const BalloonPopGame = ({ navigation }: any) => {
         setGameFinished(true);
       } else {
         setCurrentStage(s => s + 1);
-        // Yeni hedef rengi 800ms sonra söylüyoruz (Tebrik mesajıyla karışmaması için)
-        setTimeout(setNewTarget, 800); 
+        setTimeout(setNewTarget, 1000); 
       }
     } else {
-      // YANLIŞ BALON
       setWrongCount(w => w + 1);
       Tts.stop();
       Tts.speak("Not that one! Look again.");
@@ -135,19 +148,30 @@ const BalloonPopGame = ({ navigation }: any) => {
   const finalize = async () => {
     if (!child?.id) return;
     const duration = Math.floor((Date.now() - gameStartTimeRef.current) / 1000);
-    // try {
-    //   await sendGameResult({
-    //     child_id: child.id,
-    //     game_type: "balloon_pop",
-    //     level: 1,
-    //     score: score,
-    //     max_score: TOTAL_STAGES,
-    //     duration_seconds: duration,
-    //     wrong_count: wrongCount,
-    //     success_rate: Math.round((score / (score + wrongCount || 1)) * 100),
-    //     completed: true,
-    //   });
-    // } catch (err) {}
+    
+
+    const totalAttempts = score + wrongCount;
+    const successRate = totalAttempts > 0 ? Math.round((score / totalAttempts) * 100) : 0;
+
+    try {
+      await sendGameResult({
+        child_id: child.id,
+        game_type: "balloon_pop",
+        level: 1,
+        score: score,
+        max_score: TOTAL_STAGES,
+        duration_seconds: duration,
+        wrong_count: wrongCount,
+        success_rate: successRate,
+        completed: true,
+        details: {
+          totalAttempts,
+          successRate
+        }
+      });
+    } catch (err) {
+        console.log("Database Error:", err);
+    }
 
     const gameNav = createGameCompletionHandler({
       navigation, child, gameSequence, currentGameIndex, categoryTitle,
@@ -180,6 +204,17 @@ const BalloonPopGame = ({ navigation }: any) => {
             </Text>
           </View>
         )}
+
+        {/* Success Message */}
+        <Animated.View style={[
+          styles.successMessage, 
+          { 
+            opacity: successAnim,
+            transform: [{ scale: successAnim.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1.2] }) }]
+          }
+        ]}>
+          <Text style={styles.successText}>🎉 Perfect ! 🎉</Text>
+        </Animated.View>
 
         {balloons.map(b => (
           <TouchableOpacity
@@ -222,6 +257,19 @@ const styles = StyleSheet.create({
   instructionBox: { position: 'absolute', top: 20, alignSelf: 'center', padding: 12, backgroundColor: 'white', borderRadius: 20, elevation: 6, zIndex: 100 },
   instructionText: { fontSize: 24, fontWeight: 'bold', color: '#333' },
   
+  successMessage: { 
+    position: 'absolute', 
+    top: height / 2 - 50, 
+    alignSelf: 'center', 
+    backgroundColor: 'rgba(76, 175, 80, 0.95)', 
+    paddingHorizontal: 25, 
+    paddingVertical: 15, 
+    borderRadius: 30, 
+    zIndex: 999,
+    elevation: 10
+  },
+  successText: { color: '#FFF', fontSize: 24, fontWeight: 'bold' },
+
   balloonContainer: { position: 'absolute', alignItems: 'center' },
   balloonBody: { 
     width: 80, 
