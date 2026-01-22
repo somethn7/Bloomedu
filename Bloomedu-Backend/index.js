@@ -23,6 +23,10 @@ app.use((req, res, next) => {
 // === HEALTH CHECK ===
 app.get('/health', (req, res) => res.json({ ok: true }));
 
+// === ROOT (Railway/Browser pings) ===
+// Some platforms hit GET / to verify the service is up.
+app.get('/', (req, res) => res.json({ ok: true, service: 'bloomedu-backend' }));
+
 // === GET DYNAMIC SURVEY QUESTIONS ===
 app.get('/surveys', async (req, res) => {
   try {
