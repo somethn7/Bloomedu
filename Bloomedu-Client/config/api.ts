@@ -44,6 +44,9 @@ export const API_ENDPOINTS = {
 
   // Health
   HEALTH: `${API_BASE_URL}/health`,
+
+  // AI
+  AI_CHAT: `${API_BASE_URL}/ai-chat`,
 };
 
 // ====================================================

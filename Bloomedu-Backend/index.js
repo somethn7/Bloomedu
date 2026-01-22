@@ -953,24 +953,17 @@ app.post('/ai-chat', async (req, res) => {
       .json({ success: false, message: 'Message is required.' });
   }
 
-  let aiResponse = '';
-  const lowerMsg = message.toLowerCase();
-
-  if (lowerMsg.includes('merhaba') || lowerMsg.includes('selam')) {
-    aiResponse = 'Hello! I am your Bloomedu Pedagogue Assistant. How can I help you and your child today?';
-  } else if (lowerMsg.includes('oyun') || lowerMsg.includes('game')) {
-    aiResponse = "Playing games is great for your child's development! Have you tried the **'Matching'** and **'Colors'** games in Bloomedu? These support attention and cognitive skills.";
-  } else if (lowerMsg.includes('konuş') || lowerMsg.includes('speak') || lowerMsg.includes('iletişim')) {
-    aiResponse = 'To support communication skills, make plenty of eye contact with your child. Use short and clear sentences.';
-  } else if (lowerMsg.includes('öfke') || lowerMsg.includes('angry') || lowerMsg.includes('cry')) {
-    aiResponse = "Tantrums can be challenging. Try to stay calm in such moments. Name your child's emotion: 'You are sad right now, I understand.'";
-  } else if (lowerMsg.includes('uyku') || lowerMsg.includes('sleep')) {
-    aiResponse = 'Sleep routines are very important. Turn off screens before bed, try calming activities like a warm bath.';
-  } else {
-    aiResponse = 'I understand. Could you please elaborate so I can give you more detailed information? Generally, consistency, love, and patience are the most important keys.';
+  try {
+    const { generateAiChatReply } = require('./utils/aiChat');
+    const reply = await generateAiChatReply(message);
+    return res.json({ success: true, reply });
+  } catch (err) {
+    console.error('Error (POST /ai-chat):', err);
+    return res.status(500).json({
+      success: false,
+      message: 'Server error generating AI reply.',
+    });
   }
-
-  res.json({ success: true, reply: aiResponse });
 });
 
 // === CHAT ROUTES ===
